@@ -18,6 +18,7 @@ class TripIn(BaseModel):
     end_date: str | None = None
     notes: str | None = None
     itinerary: list[dict] = []
+    conversation_id: str | None = None
 
 
 class TripOut(TripIn):

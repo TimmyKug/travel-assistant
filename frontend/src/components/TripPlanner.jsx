@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { listTrips, createTrip, updateTrip, deleteTrip } from "../services/api";
-import { Plus, Trash2, MapPin, Calendar, Pencil, X, Check } from "lucide-react";
+import { Plus, Trash2, MapPin, Calendar, Pencil, X, Check, MessageSquare } from "lucide-react";
 
-function TripCard({ trip, onDelete, onUpdate }) {
+function TripCard({ trip, onDelete, onUpdate, onViewChat }) {
   const [editing, setEditing] = useState(false);
   const [data, setData] = useState(trip);
 
@@ -49,6 +50,14 @@ function TripCard({ trip, onDelete, onUpdate }) {
         </div>
       )}
       {trip.notes && <p className="text-slate-300 text-sm line-clamp-2">{trip.notes}</p>}
+      {trip.conversation_id && (
+        <button
+          onClick={() => onViewChat(trip.conversation_id)}
+          className="mt-1 flex items-center gap-1.5 text-xs text-slate-400 hover:text-blue-400 transition"
+        >
+          <MessageSquare className="w-3.5 h-3.5" /> View chat
+        </button>
+      )}
     </div>
   );
 }
@@ -57,6 +66,7 @@ export default function TripPlanner() {
   const [trips, setTrips]     = useState([]);
   const [adding, setAdding]   = useState(false);
   const [newTrip, setNewTrip] = useState({ title: "", destination: "" });
+  const navigate              = useNavigate();
 
   useEffect(() => { listTrips().then(setTrips).catch(console.error); }, []);
 
@@ -104,7 +114,8 @@ export default function TripPlanner() {
           {trips.map(trip => (
             <TripCard key={trip.id} trip={trip}
               onDelete={async id => { await deleteTrip(id); setTrips(t => t.filter(x => x.id !== id)); }}
-              onUpdate={async (id, data) => { const u = await updateTrip(id, data); setTrips(t => t.map(x => x.id === id ? u : x)); }} />
+              onUpdate={async (id, data) => { const u = await updateTrip(id, data); setTrips(t => t.map(x => x.id === id ? u : x)); }}
+              onViewChat={convId => navigate(`/?conversation_id=${convId}`)} />
           ))}
         </div>
       )}
