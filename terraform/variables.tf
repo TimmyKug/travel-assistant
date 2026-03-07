@@ -36,3 +36,9 @@ variable "firebase_app_id" {
   description = "Firebase App ID (stored in GitHub Variables: FIREBASE_APP_ID)"
   type        = string
 }
+
+variable "firestore_location" {
+  description = "Location for the Firestore database. Must match your GCP region family (e.g. europe-west for europe-west3)."
+  type        = string
+  default     = "europe-west"
+}
