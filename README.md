@@ -6,15 +6,17 @@ A full-stack AI travel assistant powered by Gemini Flash, running on a GCP VM ma
 
 ```
 GitHub Actions (push to main)
-  └─► Terraform apply (idempotent — creates VM if not exists, updates if it does)
-        └─► Ansible playbook (provisions VM, writes secrets, starts Docker Compose)
-              └─► Docker Compose on VM
-                    ├─► nginx (port 80 — reverse proxy for everything)
-                    ├─► backend (FastAPI + Gemini + Firestore)
-                    ├─► frontend (React, served as static files)
-                    ├─► prometheus (scrapes /metrics, data on persistent disk)
-                    └─► grafana (/grafana/ path, dashboards on persistent disk)
+  ├─► Build Docker images (with layer caching) → push to Artifact Registry
+  ├─► Terraform apply (idempotent — creates VM + Artifact Registry repo if not exists)
+  └─► Ansible playbook (provisions VM, writes secrets, pulls images, starts Docker Compose)
+        └─► Docker Compose on VM (pulls pre-built images — no build on VM)
+              ├─► nginx (port 80 — reverse proxy for everything)
+              ├─► backend (FastAPI + Gemini + Firestore)
+              ├─► frontend (React, served as static files)
+              ├─► prometheus (scrapes /metrics, data on persistent disk)
+              └─► grafana (/grafana/ path, dashboards on persistent disk)
 
+GCP Artifact Registry      — pre-built Docker images (backend, nginx/frontend)
 GCP Firestore (serverless) — user data, conversations, trips, analytics
 GCP Persistent Disk        — Prometheus TSDB + Grafana state (survives VM recreation)
 ```
@@ -25,7 +27,7 @@ GCP Persistent Disk        — Prometheus TSDB + Grafana state (survives VM recr
 
 ```bash
 # Enable required APIs
-gcloud services enable compute.googleapis.com firestore.googleapis.com iam.googleapis.com
+gcloud services enable compute.googleapis.com firestore.googleapis.com iam.googleapis.com artifactregistry.googleapis.com
 
 # Create a GCS bucket for Terraform state
 gsutil mb -l europe-west3 gs://YOUR_PROJECT_ID-tf-state
@@ -41,7 +43,8 @@ for role in \
   roles/resourcemanager.projectIamAdmin \
   roles/datastore.owner \
   roles/storage.admin \
-  roles/firebase.admin; do
+  roles/firebase.admin \
+  roles/artifactregistry.admin; do
   gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
     --member="serviceAccount:github-actions@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
     --role="$role"
