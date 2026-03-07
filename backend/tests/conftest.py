@@ -1,6 +1,6 @@
 """
-Test configuration — patches firebase_admin before any app import so the
-module-level initialisation in services/firebase_auth.py doesn't fail.
+Test configuration — patches firebase_admin and google.generativeai before any
+app import so module-level initialisations don't fail without real credentials.
 """
 import os
 import sys
@@ -11,12 +11,17 @@ import pytest
 # ── Env vars required before app import ──────────────────────────────────────
 os.environ.setdefault("GOOGLE_APPLICATION_CREDENTIALS", "/fake/credentials.json")
 os.environ.setdefault("GCP_PROJECT_ID", "test-project")
+os.environ.setdefault("GEMINI_API_KEY", "fake-gemini-key")
 
 # ── Stub out firebase_admin before it is imported ────────────────────────────
 _mock_firebase = MagicMock()
 sys.modules["firebase_admin"] = _mock_firebase
 sys.modules["firebase_admin.auth"] = _mock_firebase.auth
 sys.modules["firebase_admin.credentials"] = _mock_firebase.credentials
+
+# ── Stub out google.generativeai before it is imported ───────────────────────
+_mock_genai = MagicMock()
+sys.modules["google.generativeai"] = _mock_genai
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
