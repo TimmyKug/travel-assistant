@@ -12,6 +12,7 @@ ansible/secrets.yml
 # App secrets
 .env
 gcp-sa-key.json
+nginx/prometheus.htpasswd
 
 # Frontend build
 frontend/dist/

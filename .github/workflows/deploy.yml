@@ -167,6 +167,7 @@ jobs:
           jwt_secret_key: "${{ secrets.JWT_SECRET_KEY }}"
           gemini_api_key: "${{ secrets.GEMINI_API_KEY }}"
           grafana_admin_password: "${{ secrets.GRAFANA_ADMIN_PASSWORD }}"
+          prometheus_htpasswd: "${{ secrets.PROMETHEUS_HTPASSWD }}"
           gcp_project_id: "${{ vars.GCP_PROJECT_ID }}"
           firebase_app_id: "${{ vars.FIREBASE_APP_ID }}"
           gcp_sa_key_json: '${{ secrets.GCP_SA_KEY }}'

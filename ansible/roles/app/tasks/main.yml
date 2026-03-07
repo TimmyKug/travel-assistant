@@ -20,6 +20,7 @@
       - "--exclude=.terraform.lock.hcl"
       - "--exclude=ansible/secrets.yml"
       - "--exclude=ansible/inventory.yml"
+      - "--exclude=nginx/prometheus.htpasswd"
 
 - name: Write .env file
   template:
@@ -28,6 +29,14 @@
     owner: deploy
     group: deploy
     mode: "0600"
+
+- name: Write Prometheus htpasswd file
+  copy:
+    content: "{{ prometheus_htpasswd }}"
+    dest: "{{ app_dir }}/nginx/prometheus.htpasswd"
+    owner: deploy
+    group: deploy
+    mode: "0640"
 
 - name: Write GCP service account key
   copy:
