@@ -7,9 +7,6 @@ terraform {
       version = "~> 5.0"
     }
   }
-
-  # Bucket is passed via -backend-config in CI
-  backend "gcs" {}
 }
 
 provider "google" {

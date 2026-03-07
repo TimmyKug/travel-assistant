@@ -39,6 +39,19 @@ jobs:
           terraform_version: 1.7.0
           terraform_wrapper: false
 
+      - name: Ensure Terraform state bucket exists
+        run: |
+          BUCKET="${{ vars.TF_STATE_BUCKET }}"
+          REGION="${{ vars.GCP_REGION || 'europe-west3' }}"
+          if ! gsutil ls -b "gs://${BUCKET}" > /dev/null 2>&1; then
+            echo "Bucket ${BUCKET} not found — creating..."
+            gsutil mb -l "${REGION}" -p "${{ vars.GCP_PROJECT_ID }}" "gs://${BUCKET}"
+            gsutil versioning set on "gs://${BUCKET}"
+            echo "Bucket created."
+          else
+            echo "Bucket ${BUCKET} already exists — skipping."
+          fi
+
       - name: Terraform Init
         working-directory: terraform
         run: |
