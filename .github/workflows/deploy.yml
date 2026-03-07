@@ -44,39 +44,6 @@ jobs:
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v2
 
-      # ── Docker build & push to Artifact Registry ────────────────────
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker ${{ vars.GCP_REGION || 'europe-west3' }}-docker.pkg.dev --quiet
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push backend image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./backend
-          push: true
-          tags: ${{ vars.GCP_REGION || 'europe-west3' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/travel-assistant/backend:latest
-          cache-from: type=gha,scope=backend
-          cache-to: type=gha,scope=backend,mode=max
-
-      - name: Build and push nginx image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: nginx/Dockerfile
-          push: true
-          tags: ${{ vars.GCP_REGION || 'europe-west3' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/travel-assistant/nginx:latest
-          build-args: |
-            VITE_FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}
-            VITE_FIREBASE_AUTH_DOMAIN=${{ vars.GCP_PROJECT_ID }}.firebaseapp.com
-            VITE_FIREBASE_PROJECT_ID=${{ vars.GCP_PROJECT_ID }}
-            VITE_FIREBASE_STORAGE_BUCKET=${{ vars.FIREBASE_STORAGE_BUCKET }}
-            VITE_FIREBASE_MESSAGING_SENDER_ID=${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
-            VITE_FIREBASE_APP_ID=${{ vars.FIREBASE_APP_ID }}
-          cache-from: type=gha,scope=nginx
-          cache-to: type=gha,scope=nginx,mode=max
-
       # ── Terraform ───────────────────────────────────────────────────
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -119,6 +86,39 @@ jobs:
       - name: Terraform Apply
         working-directory: terraform
         run: terraform apply -auto-approve
+
+      # ── Docker build & push to Artifact Registry ────────────────────
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ vars.GCP_REGION || 'europe-west3' }}-docker.pkg.dev --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ vars.GCP_REGION || 'europe-west3' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/travel-assistant/backend:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+      - name: Build and push nginx image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: nginx/Dockerfile
+          push: true
+          tags: ${{ vars.GCP_REGION || 'europe-west3' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/travel-assistant/nginx:latest
+          build-args: |
+            VITE_FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}
+            VITE_FIREBASE_AUTH_DOMAIN=${{ vars.GCP_PROJECT_ID }}.firebaseapp.com
+            VITE_FIREBASE_PROJECT_ID=${{ vars.GCP_PROJECT_ID }}
+            VITE_FIREBASE_STORAGE_BUCKET=${{ vars.FIREBASE_STORAGE_BUCKET }}
+            VITE_FIREBASE_MESSAGING_SENDER_ID=${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
+            VITE_FIREBASE_APP_ID=${{ vars.FIREBASE_APP_ID }}
+          cache-from: type=gha,scope=nginx
+          cache-to: type=gha,scope=nginx,mode=max
 
       - name: Get VM IP
         id: get_ip
