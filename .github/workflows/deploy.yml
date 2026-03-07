@@ -23,6 +23,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ── Tests ────────────────────────────────────────────────────────
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run backend tests
+        run: |
+          pip install -r backend/requirements.txt -r backend/requirements-test.txt
+          cd backend
+          pytest tests/ -v
+
       # ── GCP Auth ────────────────────────────────────────────────────
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
