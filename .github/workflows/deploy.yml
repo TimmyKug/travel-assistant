@@ -132,6 +132,9 @@ jobs:
           gcp_project_id: "${{ vars.GCP_PROJECT_ID }}"
           firebase_app_id: "${{ vars.FIREBASE_APP_ID }}"
           gcp_sa_key_json: '${{ secrets.GCP_SA_KEY }}'
+          vite_firebase_api_key: "${{ secrets.FIREBASE_API_KEY }}"
+          vite_firebase_storage_bucket: "${{ vars.FIREBASE_STORAGE_BUCKET }}"
+          vite_firebase_messaging_sender_id: "${{ vars.FIREBASE_MESSAGING_SENDER_ID }}"
           EOF
 
       - name: Run Ansible playbook
