@@ -70,17 +70,6 @@ jobs:
             terraform state rm google_firestore_database.travel_db
           fi
 
-      - name: Import Firestore database if not in state
-        working-directory: terraform
-        run: |
-          # If the DB already exists in GCP but not in Terraform state, import it.
-          # This is idempotent — if it's already in state, the import is skipped.
-          if ! terraform state show google_firestore_database.travel_db > /dev/null 2>&1; then
-            echo "Firestore DB not in state — importing..."
-            terraform import google_firestore_database.travel_db "(default)"
-          else
-            echo "Firestore DB already in state — skipping import."
-          fi
 
       - name: Terraform Apply
         working-directory: terraform
