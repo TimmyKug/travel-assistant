@@ -1,0 +1,16 @@
+---
+- name: Provision Travel Assistant VM
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    app_dir: /opt/travel-assistant
+    monitoring_mount: /mnt/monitoring-data
+    monitoring_device: /dev/disk/by-id/google-monitoring-data
+
+  roles:
+    - role: common
+    - role: monitoring_disk
+    - role: app
+    - role: nginx

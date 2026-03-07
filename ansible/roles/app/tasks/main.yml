@@ -1,0 +1,52 @@
+---
+- name: Create app directory
+  file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: "0755"
+
+- name: Sync application code from CI runner
+  synchronize:
+    src: "{{ repo_local_path }}/"
+    dest: "{{ app_dir }}/"
+    delete: yes
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=node_modules"
+      - "--exclude=__pycache__"
+      - "--exclude=.terraform"
+      - "--exclude=.terraform.lock.hcl"
+      - "--exclude=ansible/secrets.yml"
+      - "--exclude=ansible/inventory.yml"
+
+- name: Write .env file
+  template:
+    src: env.j2
+    dest: "{{ app_dir }}/.env"
+    owner: deploy
+    group: deploy
+    mode: "0600"
+
+- name: Write GCP service account key
+  copy:
+    content: "{{ gcp_sa_key_json }}"
+    dest: "{{ app_dir }}/gcp-sa-key.json"
+    owner: deploy
+    group: deploy
+    mode: "0600"
+
+- name: Install docker compose plugin for community.docker
+  apt:
+    name: python3-docker
+    state: present
+
+- name: Build and start all services
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_dir }}"
+    build: always
+    state: present
+    recreate: always
+  environment:
+    MONITORING_MOUNT: "{{ monitoring_mount }}"

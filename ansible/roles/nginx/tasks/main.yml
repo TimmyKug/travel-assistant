@@ -1,0 +1,10 @@
+---
+# Nginx runs as a Docker container managed by docker-compose.
+# This role ensures the config directory exists before compose starts.
+- name: Ensure nginx config is present
+  file:
+    path: "{{ app_dir }}/nginx"
+    state: directory
+    owner: deploy
+    group: deploy
+    mode: "0755"

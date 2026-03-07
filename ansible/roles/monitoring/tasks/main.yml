@@ -1,0 +1,16 @@
+---
+- name: Create Prometheus data directory on persistent disk
+  file:
+    path: "{{ monitoring_mount }}/prometheus"
+    state: directory
+    owner: 65534
+    group: 65534
+    mode: "0755"
+
+- name: Create Grafana data directory on persistent disk
+  file:
+    path: "{{ monitoring_mount }}/grafana"
+    state: directory
+    owner: 472
+    group: 472
+    mode: "0755"

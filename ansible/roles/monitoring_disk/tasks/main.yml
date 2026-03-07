@@ -1,0 +1,42 @@
+---
+- name: Check if monitoring disk is already formatted
+  command: blkid {{ monitoring_device }}
+  register: blkid_result
+  ignore_errors: true
+  changed_when: false
+
+- name: Format disk if not already formatted
+  filesystem:
+    fstype: ext4
+    dev: "{{ monitoring_device }}"
+  when: blkid_result.rc != 0
+
+- name: Create mount point
+  file:
+    path: "{{ monitoring_mount }}"
+    state: directory
+    mode: "0755"
+
+- name: Mount persistent disk and persist in fstab
+  mount:
+    path: "{{ monitoring_mount }}"
+    src: "{{ monitoring_device }}"
+    fstype: ext4
+    opts: defaults,nofail
+    state: mounted
+
+- name: Create Prometheus data directory (owner = nobody uid 65534)
+  file:
+    path: "{{ monitoring_mount }}/prometheus"
+    state: directory
+    owner: 65534
+    group: 65534
+    mode: "0755"
+
+- name: Create Grafana data directory (owner = grafana uid 472)
+  file:
+    path: "{{ monitoring_mount }}/grafana"
+    state: directory
+    owner: 472
+    group: 472
+    mode: "0755"

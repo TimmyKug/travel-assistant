@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign In — ✈️ Travel Assistant</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);min-height:100vh;display:flex;align-items:center;justify-content:center;color:#e0e0e0}
+    .card{background:rgba(255,255,255,0.07);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:44px 40px;width:100%;max-width:420px;box-shadow:0 24px 64px rgba(0,0,0,0.4)}
+    h1{text-align:center;font-size:1.5rem;color:#7dd3fc;margin-bottom:6px}
+    .subtitle{text-align:center;color:#94a3b8;font-size:.9rem;margin-bottom:32px}
+    .tabs{display:flex;gap:0;background:rgba(0,0,0,0.2);border-radius:10px;padding:4px;margin-bottom:28px}
+    .tab{flex:1;padding:9px;text-align:center;border-radius:8px;cursor:pointer;font-size:.9rem;color:#94a3b8;transition:all .2s}
+    .tab.active{background:rgba(125,211,252,0.15);color:#7dd3fc;font-weight:600}
+    label{display:block;font-size:.82rem;color:#94a3b8;margin-bottom:6px;margin-top:18px}
+    input{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);border-radius:10px;padding:11px 14px;color:#f1f5f9;font-size:.95rem;outline:none;transition:border .2s}
+    input:focus{border-color:#7dd3fc}
+    .btn{width:100%;padding:13px;border:none;border-radius:10px;font-size:1rem;font-weight:600;cursor:pointer;margin-top:24px;transition:opacity .2s}
+    .btn-primary{background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff}
+    .btn-primary:hover{opacity:.88}
+    .btn-google{background:rgba(255,255,255,0.09);border:1px solid rgba(255,255,255,0.18);color:#f1f5f9;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px}
+    .btn-google:hover{background:rgba(255,255,255,0.15)}
+    .divider{display:flex;align-items:center;gap:12px;margin:22px 0}
+    .divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,0.12)}
+    .divider span{color:#64748b;font-size:.82rem}
+    #error-msg{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;border-radius:8px;padding:10px 14px;font-size:.85rem;margin-top:16px;display:none}
+    .loading{opacity:.6;pointer-events:none}
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>✈️ Travel Assistant</h1>
+  <p class="subtitle">Sign in to save your trips &amp; chats</p>
+
+  <div class="tabs">
+    <div class="tab active" id="tab-login" onclick="switchTab('login')">Sign In</div>
+    <div class="tab"        id="tab-signup" onclick="switchTab('signup')">Create Account</div>
+  </div>
+
+  <!-- Email / Password -->
+  <div id="panel-login">
+    <label>Email</label>
+    <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email"/>
+    <label>Password</label>
+    <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"/>
+    <button class="btn btn-primary" onclick="emailSignIn()">Sign In</button>
+  </div>
+
+  <div id="panel-signup" style="display:none">
+    <label>Display Name</label>
+    <input type="text" id="signup-name" placeholder="Your name"/>
+    <label>Email</label>
+    <input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email"/>
+    <label>Password</label>
+    <input type="password" id="signup-password" placeholder="Min 6 characters" autocomplete="new-password"/>
+    <button class="btn btn-primary" onclick="emailSignUp()">Create Account</button>
+  </div>
+
+  <div class="divider"><span>or</span></div>
+  <button class="btn btn-google" onclick="googleSignIn()">
+    <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+    Continue with Google
+  </button>
+
+  <div id="error-msg"></div>
+</div>
+
+<script type="module">
+  import { initializeApp }           from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+           updateProfile, GoogleAuthProvider, signInWithPopup, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+  const cfg  = {{ firebase_config | tojson }};
+  const fbApp = initializeApp(cfg);
+  const auth  = getAuth(fbApp);
+  const gProv = new GoogleAuthProvider();
+
+  // Already signed in → go to app
+  onAuthStateChanged(auth, user => { if (user) syncAndRedirect(user); });
+
+  async function syncAndRedirect(user) {
+    const token = await user.getIdToken();
+    await fetch("/api/auth/sync", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + token }
+    });
+    window.location.href = "/";
+  }
+
+  function showError(msg) {
+    const el = document.getElementById("error-msg");
+    el.textContent = msg; el.style.display = "block";
+  }
+  function clearError() { document.getElementById("error-msg").style.display = "none"; }
+
+  window.switchTab = function(tab) {
+    document.getElementById("panel-login").style.display  = tab==="login"  ? "" : "none";
+    document.getElementById("panel-signup").style.display = tab==="signup" ? "" : "none";
+    document.getElementById("tab-login").classList.toggle("active",  tab==="login");
+    document.getElementById("tab-signup").classList.toggle("active", tab==="signup");
+    clearError();
+  };
+
+  window.emailSignIn = async function() {
+    clearError();
+    const email = document.getElementById("login-email").value.trim();
+    const pass  = document.getElementById("login-password").value;
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, pass);
+      await syncAndRedirect(cred.user);
+    } catch(e) { showError(friendlyError(e.code)); }
+  };
+
+  window.emailSignUp = async function() {
+    clearError();
+    const name  = document.getElementById("signup-name").value.trim();
+    const email = document.getElementById("signup-email").value.trim();
+    const pass  = document.getElementById("signup-password").value;
+    if (!name) return showError("Please enter your name.");
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
+      await updateProfile(cred.user, { displayName: name });
+      await syncAndRedirect(cred.user);
+    } catch(e) { showError(friendlyError(e.code)); }
+  };
+
+  window.googleSignIn = async function() {
+    clearError();
+    try {
+      const cred = await signInWithPopup(auth, gProv);
+      await syncAndRedirect(cred.user);
+    } catch(e) { if (e.code !== "auth/popup-closed-by-user") showError(friendlyError(e.code)); }
+  };
+
+  function friendlyError(code) {
+    const map = {
+      "auth/user-not-found":       "No account found with this email.",
+      "auth/wrong-password":       "Incorrect password.",
+      "auth/email-already-in-use": "This email is already registered.",
+      "auth/weak-password":        "Password must be at least 6 characters.",
+      "auth/invalid-email":        "Invalid email address.",
+      "auth/too-many-requests":    "Too many attempts. Please try again later.",
+    };
+    return map[code] || "Something went wrong. Please try again.";
+  }
+</script>
+</body>
+</html>
