@@ -23,7 +23,7 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 overflow-y-scroll">
       <div className="w-full max-w-sm bg-slate-800 rounded-2xl shadow-2xl p-8">
         <div className="flex flex-col items-center mb-6">
           <div className="bg-blue-600 rounded-full p-4 mb-3">
