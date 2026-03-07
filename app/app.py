@@ -35,7 +35,7 @@ firebase_admin.initialize_app(credentials.ApplicationDefault())
 
 genai.configure(api_key=GEMINI_API_KEY)
 gemini_model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
+    model_name="gemini-3.1-flash-lite-preview",
     system_instruction="""You are an expert AI travel assistant.
 You help users plan trips, suggest destinations, find local attractions,
 recommend restaurants, advise on budgets, visas, packing, and cultural tips.
