@@ -1,6 +1,6 @@
 """
-Test configuration — patches firebase_admin and google.generativeai before any
-app import so module-level initialisations don't fail without real credentials.
+Test configuration — sets required env vars and stubs heavy dependencies
+before any app import so module-level initialisations don't fail.
 """
 import os
 import sys
@@ -9,15 +9,9 @@ from unittest.mock import MagicMock
 import pytest
 
 # ── Env vars required before app import ──────────────────────────────────────
-os.environ.setdefault("GOOGLE_APPLICATION_CREDENTIALS", "/fake/credentials.json")
 os.environ.setdefault("GCP_PROJECT_ID", "test-project")
 os.environ.setdefault("GEMINI_API_KEY", "fake-gemini-key")
-
-# ── Stub out firebase_admin before it is imported ────────────────────────────
-_mock_firebase = MagicMock()
-sys.modules["firebase_admin"] = _mock_firebase
-sys.modules["firebase_admin.auth"] = _mock_firebase.auth
-sys.modules["firebase_admin.credentials"] = _mock_firebase.credentials
+os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-tests-only")
 
 # ── Stub out google.generativeai before it is imported ───────────────────────
 _mock_genai = MagicMock()
@@ -29,7 +23,6 @@ TEST_USER = {
     "uid": "test-uid",
     "email": "test@example.com",
     "name": "Test User",
-    "picture": "https://example.com/photo.jpg",
 }
 
 

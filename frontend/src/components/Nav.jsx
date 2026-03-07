@@ -1,8 +1,9 @@
 import { Link, useLocation } from "react-router-dom";
 import { MessageCircle, Map, LogOut, Plane } from "lucide-react";
-import { logout } from "../services/firebase";
+import { useAuth } from "../AuthContext";
 
 export default function Nav({ user }) {
+  const { logout } = useAuth();
   const { pathname } = useLocation();
   const navLink = (to, Icon, label) => (
     <Link
@@ -25,7 +26,7 @@ export default function Nav({ user }) {
         {navLink("/trips", Map,           "My Trips")}
       </div>
       <div className="flex items-center gap-3">
-        {user.photoURL && <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full" />}
+        <span className="text-slate-400 text-sm hidden sm:block">{user.name}</span>
         <button onClick={logout} className="text-slate-400 hover:text-white transition">
           <LogOut className="w-5 h-5" />
         </button>

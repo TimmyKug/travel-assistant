@@ -1,18 +1,25 @@
 import axios from "axios";
-import { getAuth } from "firebase/auth";
 
 const api = axios.create({ baseURL: "/api" });
 
-api.interceptors.request.use(async (config) => {
-  const user = getAuth().currentUser;
-  if (user) {
-    const token = await user.getIdToken();
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-export const upsertUser        = ()         => api.post("/auth/me");
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "/login";
+    }
+    return Promise.reject(err);
+  }
+);
+
 export const sendMessage       = (content, conversation_id = null) =>
   api.post("/ai/chat", { content, conversation_id }).then(r => r.data);
 export const listConversations = ()         => api.get("/ai/conversations").then(r => r.data);
