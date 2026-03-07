@@ -19,9 +19,9 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="h-screen flex flex-col bg-slate-900 text-white">
       <Nav user={user} />
-      <main className="max-w-6xl mx-auto px-4 py-6">
+      <main className="flex-1 overflow-hidden max-w-6xl w-full mx-auto px-4 py-6 flex flex-col">
         <Routes>
           <Route path="/"      element={<Chat />} />
           <Route path="/trips" element={<TripPlanner />} />

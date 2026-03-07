@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { sendMessage } from "../services/api";
 import { Send, Bot, User, AlertCircle } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 export default function Chat() {
   const [messages, setMessages]             = useState([]);
@@ -37,7 +38,7 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)]">
+    <div className="flex flex-col h-full">
       {/* Messages */}
       <div className="flex-1 overflow-y-auto space-y-4 pb-4">
         {messages.length === 0 && (
@@ -54,11 +55,13 @@ export default function Chat() {
                 <Bot className="w-4 h-4 text-white" />
               </div>
             )}
-            <div className={`max-w-2xl rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap
+            <div className={`max-w-2xl rounded-2xl px-4 py-3 text-sm
               ${msg.role === "user"
                 ? "bg-blue-600 text-white rounded-br-sm"
                 : "bg-slate-700 text-slate-100 rounded-bl-sm"}`}>
-              {msg.content}
+              {msg.role === "assistant"
+                ? <ReactMarkdown className="prose prose-invert prose-sm max-w-none">{msg.content}</ReactMarkdown>
+                : msg.content}
             </div>
             {msg.role === "user" && (
               <div className="bg-slate-600 rounded-full p-2 h-8 w-8 flex items-center justify-center flex-shrink-0">
