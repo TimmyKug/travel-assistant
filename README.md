@@ -54,6 +54,8 @@ done
 gcloud iam service-accounts keys create sa-key.json \
   --iam-account=github-actions@YOUR_PROJECT_ID.iam.gserviceaccount.com
 
+# Save sa-key.json for github secrets
+
 # Initialize Firestore (choose Native mode)
 gcloud firestore databases create --location=europe-west3
 ```
@@ -72,8 +74,11 @@ ssh-keygen -t ed25519 -C "github-actions-deploy" -f deploy_key -N ""
 |------|-------|
 | `GCP_SA_KEY` | Contents of `sa-key.json` |
 | `GEMINI_API_KEY` | Your Gemini API key |
+| `JWT_SECRET_KEY` | Random secret for signing JWTs — generate with `openssl rand -hex 32` |
 | `GRAFANA_ADMIN_PASSWORD` | Choose a strong password |
+| `PROMETHEUS_HTPASSWD` | htpasswd entry for Prometheus basic auth — generate with `htpasswd -nb admin yourpassword` |
 | `SSH_PRIVATE_KEY` | Contents of `deploy_key` |
+| `FIREBASE_API_KEY` | Firebase Web API Key (from Firebase Console > Project Settings > General) |
 
 ### 4. GitHub Variables
 
@@ -83,7 +88,9 @@ ssh-keygen -t ed25519 -C "github-actions-deploy" -f deploy_key -N ""
 | `GCP_REGION` | `europe-west3` |
 | `TF_STATE_BUCKET` | `YOUR_PROJECT_ID-tf-state` |
 | `SSH_PUBLIC_KEY` | Contents of `deploy_key.pub` |
-| `FIREBASE_APP_ID` | From Firebase Console |
+| `FIREBASE_APP_ID` | From Firebase Console > Project Settings > General |
+| `FIREBASE_STORAGE_BUCKET` | From Firebase Console — usually `YOUR_PROJECT_ID.firebasestorage.app` |
+| `FIREBASE_MESSAGING_SENDER_ID` | From Firebase Console > Project Settings > General |
 
 ### 5. Firebase Setup
 
@@ -116,9 +123,18 @@ uvicorn main:app --reload
 # Frontend
 cd frontend
 npm install
-cp .env.example .env  # fill in Firebase config
 npm run dev
 ```
+
+### Backend `.env` variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GEMINI_API_KEY` | Yes | Your Gemini API key |
+| `GCP_PROJECT_ID` | Yes | GCP project ID (used by Firestore client) |
+| `JWT_SECRET_KEY` | Yes | Random secret for signing JWTs |
+| `GRAFANA_ADMIN_PASSWORD` | No | Only needed when running full stack locally |
+| `MONITORING_MOUNT` | No | Local path for Prometheus/Grafana data (e.g. `/tmp/monitoring`) |
 
 ## Accessing Services
 
