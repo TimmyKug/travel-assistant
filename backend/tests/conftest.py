@@ -43,12 +43,15 @@ def client(mock_db):
     from fastapi.testclient import TestClient
     from main import app
     from services.firebase_auth import get_current_user
-    from services.firestore_client import get_db
+    import services.firestore_client as _fc
 
     app.dependency_overrides[get_current_user] = lambda: TEST_USER
-    app.dependency_overrides[get_db] = lambda: mock_db
+    # get_db() is called directly (not via Depends), so inject into the
+    # module-level cache so the lazy initialisation never runs.
+    _fc._db = mock_db
 
     with TestClient(app) as c:
         yield c
 
+    _fc._db = None
     app.dependency_overrides.clear()
