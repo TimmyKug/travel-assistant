@@ -33,8 +33,15 @@ gsutil mb -l europe-west3 gs://YOUR_PROJECT_ID-tf-state
 # Create a service account for CI/CD
 gcloud iam service-accounts create github-actions --display-name="GitHub Actions"
 
-# Grant permissions
-for role in roles/compute.admin roles/iam.serviceAccountUser roles/datastore.owner roles/storage.admin roles/firebase.admin; do
+# Grant permissions — all of these are required
+for role in \
+  roles/compute.admin \
+  roles/iam.serviceAccountAdmin \
+  roles/iam.serviceAccountUser \
+  roles/resourcemanager.projectIamAdmin \
+  roles/datastore.owner \
+  roles/storage.admin \
+  roles/firebase.admin; do
   gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
     --member="serviceAccount:github-actions@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
     --role="$role"

@@ -38,7 +38,7 @@ variable "firebase_app_id" {
 }
 
 variable "firestore_location" {
-  description = "Location for the Firestore database. Must match your GCP region family (e.g. europe-west for europe-west3)."
+  description = "Firestore multi-region location. Valid values: eur3 (Belgium/Netherlands, covers europe-west*), nam5 (US), asia1 (Asia)."
   type        = string
-  default     = "europe-west"
+  default     = "eur3"
 }
