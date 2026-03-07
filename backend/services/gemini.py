@@ -12,7 +12,7 @@ from google.cloud import firestore
 from services.firestore_client import get_db
 
 DAILY_LIMIT = 500
-MODEL_NAME  = "gemini-1.5-flash"
+MODEL_NAME  = "gemini-3.1-flash-lite-preview"
 
 SYSTEM_PROMPT = """You are an expert AI travel assistant. You help users plan trips,
 find destinations, suggest itineraries, recommend restaurants and hotels, and answer
