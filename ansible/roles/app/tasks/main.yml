@@ -52,7 +52,7 @@
   community.docker.docker_compose_v2:
     project_src: "{{ app_dir }}"
     build: never
-    pull: always
+    pull: missing
     state: present
     recreate: always
   environment:
