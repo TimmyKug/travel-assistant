@@ -163,7 +163,7 @@ jobs:
 
       - name: Write app secrets to Ansible vars
         run: |
-          cat > ansible/secrets.yml << EOF
+          cat > ansible/secrets.yml << 'EOF'
           jwt_secret_key: "${{ secrets.JWT_SECRET_KEY }}"
           gemini_api_key: "${{ secrets.GEMINI_API_KEY }}"
           grafana_admin_password: "${{ secrets.GRAFANA_ADMIN_PASSWORD }}"
