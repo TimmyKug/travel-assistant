@@ -38,7 +38,7 @@ variable "firebase_app_id" {
 }
 
 variable "firestore_location" {
-  description = "Firestore multi-region location. Valid values: eur3 (Belgium/Netherlands, covers europe-west*), nam5 (US), asia1 (Asia)."
+  description = "Firestore multi-region location. Cannot be changed after creation. eur3=Europe (covers europe-west*), nam5=US, asia1=Asia."
   type        = string
   default     = "eur3"
 }
