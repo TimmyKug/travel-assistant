@@ -32,6 +32,14 @@ resource "google_project_iam_member" "firebase_auth" {
   member  = "serviceAccount:${google_service_account.travel_vm_sa.email}"
 }
 
+# ── Artifact Registry ─────────────────────────────────────────────────────────
+resource "google_artifact_registry_repository" "travel_assistant" {
+  location      = var.region
+  repository_id = "travel-assistant"
+  format        = "DOCKER"
+  description   = "Travel Assistant Docker images"
+}
+
 # ── Persistent Disk for Monitoring Data ──────────────────────────────────────
 resource "google_compute_disk" "monitoring_data" {
   name  = "travel-assistant-monitoring"

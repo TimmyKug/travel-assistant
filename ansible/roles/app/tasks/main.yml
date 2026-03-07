@@ -42,10 +42,17 @@
     name: python3-docker
     state: present
 
-- name: Build and start all services
+- name: Authenticate Docker with Artifact Registry
+  shell: |
+    cat {{ app_dir }}/gcp-sa-key.json | \
+    docker login -u _json_key --password-stdin \
+    https://europe-west3-docker.pkg.dev
+
+- name: Pull and start all services
   community.docker.docker_compose_v2:
     project_src: "{{ app_dir }}"
-    build: always
+    build: never
+    pull: always
     state: present
     recreate: always
   environment:
