@@ -36,7 +36,7 @@
     dest: "{{ app_dir }}/nginx/prometheus.htpasswd"
     owner: deploy
     group: deploy
-    mode: "0640"
+    mode: "0644"
 
 - name: Write GCP service account key
   copy:
