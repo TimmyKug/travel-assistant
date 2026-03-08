@@ -177,7 +177,7 @@ export default function Chat() {
                     ? "bg-blue-600 text-white rounded-br-sm"
                     : "bg-slate-700 text-slate-100 rounded-bl-sm"}`}>
                   {msg.role === "assistant"
-                    ? <ReactMarkdown className="prose prose-invert prose-sm max-w-none">{msg.content}</ReactMarkdown>
+                    ? <div className="prose prose-invert prose-sm max-w-none"><ReactMarkdown>{msg.content}</ReactMarkdown></div>
                     : msg.content}
                 </div>
                 {msg.role === "assistant" && (

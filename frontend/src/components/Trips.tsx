@@ -66,7 +66,7 @@ function Modal({
   onClose: () => void;
 }) {
   const [form, setForm]     = useState<TripModalForm>(
-    trip ? { ...trip, budget: trip.budget != null ? String(trip.budget) : "", notes: trip.notes ?? "", start_date: trip.start_date ?? "", end_date: trip.end_date ?? "" }
+    trip ? { ...trip, destination: trip.destination ?? "", budget: trip.budget != null ? String(trip.budget) : "", notes: trip.notes ?? "", start_date: trip.start_date ?? "", end_date: trip.end_date ?? "", currency: trip.currency ?? "EUR" }
          : EMPTY
   );
   const [saving, setSaving] = useState(false);
@@ -130,7 +130,7 @@ export default function Trips() {
   const handleSave = async (form: TripPayload) => {
     if (modal && modal !== "new") {
       const { data } = await api.put<Trip>(`/trips/${modal.id}`, form);
-      setTrips(prev => prev.map(t => t.id === (modal as Trip).id ? { id: (modal as Trip).id, ...data } : t));
+      setTrips(prev => prev.map(t => t.id === (modal as Trip).id ? data : t));
     } else {
       const { data } = await api.post<Trip>("/trips/", form);
       setTrips(prev => [data, ...prev]);
