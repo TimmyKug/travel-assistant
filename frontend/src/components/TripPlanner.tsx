@@ -2,20 +2,32 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { listTrips, createTrip, updateTrip, deleteTrip } from "../services/api";
 import { Plus, Trash2, MapPin, Calendar, Pencil, X, Check, MessageSquare } from "lucide-react";
+import type { Trip } from "../types";
 
-function TripCard({ trip, onDelete, onUpdate, onViewChat }) {
+interface TripCardProps {
+  trip: Trip;
+  onDelete: (id: string) => void;
+  onUpdate: (id: string, data: Partial<Trip>) => Promise<void>;
+  onViewChat: (convId: string) => void;
+}
+
+function TripCard({ trip, onDelete, onUpdate, onViewChat }: TripCardProps) {
   const [editing, setEditing] = useState(false);
-  const [data, setData] = useState(trip);
+  const [data, setData] = useState<Trip>(trip);
 
   const save = async () => {
     await onUpdate(trip.id, data);
     setEditing(false);
   };
 
-  const field = (key, placeholder) => (
-    <input key={key} value={data[key] || ""} placeholder={placeholder}
+  const field = (key: keyof Trip, placeholder: string) => (
+    <input
+      key={key}
+      value={String(data[key] ?? "")}
+      placeholder={placeholder}
       onChange={e => setData(d => ({ ...d, [key]: e.target.value }))}
-      className="w-full bg-slate-600 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
+      className="w-full bg-slate-600 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+    />
   );
 
   if (editing) return (
@@ -24,7 +36,7 @@ function TripCard({ trip, onDelete, onUpdate, onViewChat }) {
       {field("destination", "Destination")}
       {field("start_date", "Start Date")}
       {field("end_date", "End Date")}
-      <textarea value={data.notes || ""} placeholder="Notes" rows={3}
+      <textarea value={data.notes ?? ""} placeholder="Notes" rows={3}
         onChange={e => setData(d => ({ ...d, notes: e.target.value }))}
         className="w-full bg-slate-600 text-white text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
       <div className="flex gap-2 justify-end">
@@ -52,7 +64,7 @@ function TripCard({ trip, onDelete, onUpdate, onViewChat }) {
       {trip.notes && <p className="text-slate-300 text-sm line-clamp-2">{trip.notes}</p>}
       {trip.conversation_id && (
         <button
-          onClick={() => onViewChat(trip.conversation_id)}
+          onClick={() => onViewChat(trip.conversation_id!)}
           className="mt-1 flex items-center gap-1.5 text-xs text-slate-400 hover:text-blue-400 transition"
         >
           <MessageSquare className="w-3.5 h-3.5" /> View chat
@@ -63,7 +75,7 @@ function TripCard({ trip, onDelete, onUpdate, onViewChat }) {
 }
 
 export default function TripPlanner() {
-  const [trips, setTrips]     = useState([]);
+  const [trips, setTrips]     = useState<Trip[]>([]);
   const [adding, setAdding]   = useState(false);
   const [newTrip, setNewTrip] = useState({ title: "", destination: "" });
   const navigate              = useNavigate();

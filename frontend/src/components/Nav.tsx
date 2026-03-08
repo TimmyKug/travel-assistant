@@ -1,11 +1,17 @@
 import { Link, useLocation } from "react-router-dom";
 import { MessageCircle, Map, LogOut, Plane } from "lucide-react";
 import { useAuth } from "../AuthContext";
+import type { AuthUser } from "../types";
 
-export default function Nav({ user }) {
+interface NavProps {
+  user: AuthUser;
+}
+
+export default function Nav({ user }: NavProps) {
   const { logout } = useAuth();
   const { pathname } = useLocation();
-  const navLink = (to, Icon, label) => (
+
+  const navLink = (to: string, Icon: React.ElementType, label: string) => (
     <Link
       to={to}
       className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition

@@ -3,8 +3,29 @@ import { useSearchParams } from "react-router-dom";
 import { sendMessage, getConversation, listConversations, createTrip } from "../services/api";
 import { Send, Bot, User, AlertCircle, Bookmark, BookmarkCheck, Plus, MessageSquare } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import type { Conversation } from "../types";
 
-function SaveTripModal({ message, conversationId, onClose, onSaved }) {
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface SaveModalState {
+  content: string;
+  index: number;
+}
+
+function SaveTripModal({
+  message,
+  conversationId,
+  onClose,
+  onSaved,
+}: {
+  message: string;
+  conversationId: string | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const [form, setForm] = useState({ title: "", destination: "", notes: message });
   const [saving, setSaving] = useState(false);
 
@@ -12,7 +33,7 @@ function SaveTripModal({ message, conversationId, onClose, onSaved }) {
     if (!form.title.trim() || !form.destination.trim()) return;
     setSaving(true);
     try {
-      await createTrip({ ...form, conversation_id: conversationId });
+      await createTrip({ ...form, conversation_id: conversationId ?? undefined });
       onSaved();
     } finally {
       setSaving(false);
@@ -62,24 +83,22 @@ function SaveTripModal({ message, conversationId, onClose, onSaved }) {
 }
 
 export default function Chat() {
-  const [messages, setMessages]             = useState([]);
+  const [messages, setMessages]             = useState<ChatMessage[]>([]);
   const [input, setInput]                   = useState("");
   const [loading, setLoading]               = useState(false);
-  const [conversationId, setConversationId] = useState(null);
-  const [error, setError]                   = useState(null);
-  const [saveModal, setSaveModal]           = useState(null);
-  const [savedIndexes, setSavedIndexes]     = useState(new Set());
-  const [conversations, setConversations]   = useState([]);
-  const bottomRef                           = useRef(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [error, setError]                   = useState<string | null>(null);
+  const [saveModal, setSaveModal]           = useState<SaveModalState | null>(null);
+  const [savedIndexes, setSavedIndexes]     = useState<Set<number>>(new Set());
+  const [conversations, setConversations]   = useState<Conversation[]>([]);
+  const bottomRef                           = useRef<HTMLDivElement>(null);
   const [searchParams]                      = useSearchParams();
 
-  // Fetch sidebar conversation list
   const refreshConversations = () =>
     listConversations().then(setConversations).catch(() => {});
 
   useEffect(() => { refreshConversations(); }, []);
 
-  // Load conversation from URL param (navigated from a trip)
   useEffect(() => {
     const convId = searchParams.get("conversation_id");
     if (!convId) return;
@@ -90,9 +109,9 @@ export default function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const loadConversation = (convId) => {
+  const loadConversation = (convId: string) => {
     getConversation(convId).then(conv => {
-      const msgs = (conv.messages || []).map(m => ({
+      const msgs: ChatMessage[] = (conv.messages ?? []).map(m => ({
         role: m.role === "model" ? "assistant" : "user",
         content: m.parts?.[0] ?? "",
       }));
@@ -121,10 +140,10 @@ export default function Chat() {
       const res = await sendMessage(userText, conversationId);
       setConversationId(res.conversation_id);
       setMessages((m) => [...m, { role: "assistant", content: res.assistant_message }]);
-      // Refresh sidebar so newly created conversation appears
       refreshConversations();
     } catch (err) {
-      const msg = err.response?.status === 429
+      const status = (err as { response?: { status?: number } }).response?.status;
+      const msg = status === 429
         ? "Daily AI request limit reached. Please try again tomorrow."
         : "Something went wrong. Please try again.";
       setError(msg);
@@ -135,9 +154,8 @@ export default function Chat() {
 
   return (
     <div className="flex h-full gap-4">
-      {/* ── Main chat ── */}
+      {/* Main chat */}
       <div className="flex flex-col flex-1 min-w-0">
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto space-y-4 pb-4">
           {messages.length === 0 && (
             <div className="text-center text-slate-500 mt-16">
@@ -164,7 +182,7 @@ export default function Chat() {
                 </div>
                 {msg.role === "assistant" && (
                   <button
-                    onClick={() => savedIndexes.has(i) ? null : setSaveModal({ content: msg.content, index: i })}
+                    onClick={() => savedIndexes.has(i) ? undefined : setSaveModal({ content: msg.content, index: i })}
                     title={savedIndexes.has(i) ? "Saved to trips" : "Save as trip"}
                     className={`self-start flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition
                       ${savedIndexes.has(i)
@@ -191,7 +209,7 @@ export default function Chat() {
               </div>
               <div className="bg-slate-700 rounded-2xl rounded-bl-sm px-4 py-3">
                 <div className="flex gap-1">
-                  {[0,1,2].map(i => (
+                  {[0, 1, 2].map(i => (
                     <div key={i} className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
                       style={{ animationDelay: `${i * 0.15}s` }} />
                   ))}
@@ -226,7 +244,7 @@ export default function Chat() {
         </div>
       </div>
 
-      {/* ── Right sidebar ── */}
+      {/* Right sidebar */}
       <aside className="w-60 flex flex-col border-l border-slate-700 pl-4 shrink-0">
         <button
           onClick={startNewChat}
@@ -252,7 +270,7 @@ export default function Chat() {
             >
               <MessageSquare className="w-3.5 h-3.5 mt-0.5 shrink-0 opacity-60" />
               <span className="line-clamp-2 leading-snug">
-                {conv.title || "Untitled chat"}
+                {conv.title ?? "Untitled chat"}
               </span>
             </button>
           ))}

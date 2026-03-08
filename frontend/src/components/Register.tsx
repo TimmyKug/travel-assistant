@@ -1,26 +1,38 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Plane } from 'lucide-react'
-import { useAuth } from '../AuthContext'
-import api from '../api'
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Plane } from "lucide-react";
+import { useAuth } from "../AuthContext";
+import api from "../services/api";
+import type { AxiosError } from "axios";
 
 export default function Register() {
-  const { login } = useAuth()
-  const navigate = useNavigate()
-  const [form, setForm]       = useState({ name: '', email: '', password: '' })
-  const [error, setError]     = useState('')
-  const [loading, setLoading] = useState(false)
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const [form, setForm]       = useState({ name: "", email: "", password: "" });
+  const [error, setError]     = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault(); setError(''); setLoading(true)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
     try {
-      const { data } = await api.post('/auth/register', form)
-      login({ name: data.name, user_id: data.user_id }, data.token)
-      navigate('/')
+      const { data } = await api.post<{ name: string; user_id: string; token: string }>("/auth/register", form);
+      login({ name: data.name, user_id: data.user_id }, data.token);
+      navigate("/");
     } catch (err) {
-      setError(err.response?.data?.detail || 'Registration failed')
-    } finally { setLoading(false) }
-  }
+      const e = err as AxiosError<{ detail: string }>;
+      setError(e.response?.data?.detail ?? "Registration failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fields: [string, string, keyof typeof form, string][] = [
+    ["Name",     "text",     "name",     "Your name"],
+    ["Email",    "email",    "email",    "you@example.com"],
+    ["Password", "password", "password", "••••••••"],
+  ];
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 overflow-y-scroll">
@@ -33,7 +45,7 @@ export default function Register() {
           <p className="text-slate-400 text-sm mt-1">Create an account to get started</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {[['Name', 'text', 'name', 'Your name'], ['Email', 'email', 'email', 'you@example.com'], ['Password', 'password', 'password', '••••••••']].map(([label, type, field, ph]) => (
+          {fields.map(([label, type, field, ph]) => (
             <div key={field}>
               <label className="block text-sm font-medium text-slate-300 mb-1">{label}</label>
               <input
@@ -48,14 +60,14 @@ export default function Register() {
             type="submit" disabled={loading}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl transition"
           >
-            {loading ? 'Creating account…' : 'Create account'}
+            {loading ? "Creating account…" : "Create account"}
           </button>
         </form>
         <p className="text-center text-sm text-slate-400 mt-4">
-          Already have an account?{' '}
+          Already have an account?{" "}
           <Link to="/login" className="text-blue-400 hover:underline font-medium">Sign in</Link>
         </p>
       </div>
     </div>
-  )
+  );
 }
