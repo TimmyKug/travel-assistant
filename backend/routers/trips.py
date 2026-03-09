@@ -1,14 +1,17 @@
 """
 Trips router — CRUD for saved travel itineraries.
 """
+import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from metrics import trips_operations_total
 from services.firebase_auth import get_current_user
 from services.firestore_client import get_db
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class TripIn(BaseModel):
@@ -44,6 +47,8 @@ async def create_trip(body: TripIn, user: dict = Depends(get_current_user)):
     ref = db.collection("users").document(user["uid"]).collection("trips").document()
     data = {**body.model_dump(), "created_at": now, "updated_at": now}
     ref.set(data)
+    trips_operations_total.labels(operation="create").inc()
+    logger.info("trip_created", extra={"uid": user["uid"], "trip_id": ref.id})
     return TripOut(id=ref.id, **data)
 
 
@@ -57,6 +62,8 @@ async def update_trip(trip_id: str, body: TripIn, user: dict = Depends(get_curre
     now  = datetime.now(timezone.utc)
     data = {**body.model_dump(), "updated_at": now}
     ref.update(data)
+    trips_operations_total.labels(operation="update").inc()
+    logger.info("trip_updated", extra={"uid": user["uid"], "trip_id": trip_id})
     return TripOut(id=trip_id, **{**doc.to_dict(), **data})
 
 
@@ -67,3 +74,5 @@ async def delete_trip(trip_id: str, user: dict = Depends(get_current_user)):
     if not ref.get().exists:
         raise HTTPException(status_code=404, detail="Trip not found")
     ref.delete()
+    trips_operations_total.labels(operation="delete").inc()
+    logger.info("trip_deleted", extra={"uid": user["uid"], "trip_id": trip_id})

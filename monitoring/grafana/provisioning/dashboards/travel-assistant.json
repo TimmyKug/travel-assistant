@@ -2,7 +2,7 @@
   "title": "Travel Assistant",
   "uid": "travel-assistant",
   "schemaVersion": 36,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "panels": [
     {
@@ -47,7 +47,7 @@
     },
     {
       "id": 5,
-      "title": "Disk Usage (monitoring partition) %",
+      "title": "Disk Usage %",
       "type": "stat",
       "gridPos": { "x": 0, "y": 16, "w": 8, "h": 4 },
       "targets": [{
@@ -63,6 +63,100 @@
       "targets": [{
         "expr": "sum(rate(http_requests_total{status_code=~\"5..\"}[5m]))",
         "legendFormat": "Errors/s"
+      }]
+    },
+    {
+      "id": 11,
+      "title": "Rate Limit Hits (last 1h)",
+      "type": "stat",
+      "gridPos": { "x": 16, "y": 16, "w": 8, "h": 4 },
+      "targets": [{
+        "expr": "sum(increase(ai_requests_total{status=\"rate_limited\"}[1h]))",
+        "legendFormat": "Rate Limited"
+      }]
+    },
+    {
+      "id": 7,
+      "title": "Auth Events",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+      "targets": [{
+        "expr": "sum by (event) (rate(auth_events_total[5m]))",
+        "legendFormat": "{{event}}"
+      }]
+    },
+    {
+      "id": 8,
+      "title": "AI Chat Requests",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
+      "targets": [{
+        "expr": "sum by (status) (rate(ai_requests_total[5m]))",
+        "legendFormat": "{{status}}"
+      }]
+    },
+    {
+      "id": 9,
+      "title": "Gemini Response Duration",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 28, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(gemini_request_duration_seconds_bucket[5m]))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.50, rate(gemini_request_duration_seconds_bucket[5m]))",
+          "legendFormat": "p50"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Trip Operations",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 28, "w": 12, "h": 8 },
+      "targets": [{
+        "expr": "sum by (operation) (rate(trips_operations_total[5m]))",
+        "legendFormat": "{{operation}}"
+      }]
+    },
+    {
+      "id": 12,
+      "title": "Backend Logs",
+      "type": "logs",
+      "gridPos": { "x": 0, "y": 36, "w": 24, "h": 12 },
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      },
+      "targets": [{
+        "datasource": { "type": "loki", "uid": "Loki" },
+        "expr": "{service=\"backend\"}",
+        "legendFormat": ""
+      }]
+    },
+    {
+      "id": 13,
+      "title": "Warning & Error Logs",
+      "type": "logs",
+      "gridPos": { "x": 0, "y": 48, "w": 24, "h": 8 },
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      },
+      "targets": [{
+        "datasource": { "type": "loki", "uid": "Loki" },
+        "expr": "{service=\"backend\", level=~\"WARNING|ERROR\"}",
+        "legendFormat": ""
       }]
     }
   ]
