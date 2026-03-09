@@ -2,14 +2,19 @@
 Gemini Flash client with daily rate-limit enforcement.
 Free tier: 500 requests/day tracked in Firestore.
 """
+import logging
 import os
+import time
 from datetime import date, datetime, timezone
 
 import google.generativeai as genai
 from fastapi import HTTPException, status
 from google.cloud import firestore
 
+from metrics import ai_requests_total, gemini_duration_seconds
 from services.firestore_client import get_db
+
+logger = logging.getLogger(__name__)
 
 DAILY_LIMIT = 500
 MODEL_NAME  = "gemini-3.1-flash-lite-preview"
@@ -64,12 +69,30 @@ async def chat(uid: str, messages: list[dict]) -> str:
     Send a conversation to Gemini and return the assistant reply.
     messages format: [{"role": "user"|"model", "parts": ["text..."]}]
     """
-    await check_and_increment_rate_limit(uid)
+    try:
+        await check_and_increment_rate_limit(uid)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+            ai_requests_total.labels(status="rate_limited").inc()
+            logger.warning("gemini_rate_limited", extra={"uid": uid})
+        raise
 
     # Separate history from the latest message
     history = messages[:-1]
     latest  = messages[-1]["parts"][0] if messages else ""
 
     chat_session = _model.start_chat(history=history)
-    response = chat_session.send_message(latest)
-    return response.text
+    t0 = time.perf_counter()
+    try:
+        response = chat_session.send_message(latest)
+        duration = time.perf_counter() - t0
+        gemini_duration_seconds.observe(duration)
+        ai_requests_total.labels(status="success").inc()
+        logger.info("gemini_chat_success", extra={"uid": uid, "duration_s": round(duration, 3)})
+        return response.text
+    except Exception:
+        duration = time.perf_counter() - t0
+        gemini_duration_seconds.observe(duration)
+        ai_requests_total.labels(status="error").inc()
+        logger.exception("gemini_chat_error", extra={"uid": uid})
+        raise

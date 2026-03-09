@@ -1,6 +1,7 @@
 """
 AI chat router - wraps Gemini Flash with conversation persistence in Firestore.
 """
+import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -10,6 +11,7 @@ from services.firestore_client import get_db
 from services.gemini import chat as gemini_chat
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class MessageIn(BaseModel):
@@ -42,6 +44,7 @@ async def chat(body: MessageIn, user: dict = Depends(get_current_user)):
         history  = []
 
     history.append({"role": "user", "parts": [body.content]})
+    logger.info("ai_chat_request", extra={"uid": uid, "conversation_id": conv_ref.id})
     reply = await gemini_chat(uid=uid, messages=history)
     history.append({"role": "model", "parts": [reply]})
 
