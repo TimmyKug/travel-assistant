@@ -1,16 +1,36 @@
 ---
-- name: Provision Travel Assistant VM
+- name: Gather facts for all hosts
   hosts: all
   become: true
   gather_facts: true
+  tasks: []
+
+- name: Provision app VM
+  hosts: app
+  become: true
+  gather_facts: false
+
+  vars:
+    app_dir: /opt/travel-assistant
+    monitoring_internal_ip: "{{ hostvars[groups['monitoring'][0]].ansible_default_ipv4.address }}"
+
+  roles:
+    - role: common
+    - role: app
+    - role: nginx
+
+- name: Provision monitoring VM
+  hosts: monitoring
+  become: true
+  gather_facts: false
 
   vars:
     app_dir: /opt/travel-assistant
     monitoring_mount: /mnt/monitoring-data
     monitoring_device: /dev/disk/by-id/google-monitoring-data
+    app_internal_ip: "{{ hostvars[groups['app'][0]].ansible_default_ipv4.address }}"
 
   roles:
     - role: common
     - role: monitoring_disk
-    - role: app
-    - role: nginx
+    - role: monitoring_host

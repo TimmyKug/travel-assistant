@@ -53,13 +53,13 @@ resource "google_compute_disk" "monitoring_data" {
   }
 }
 
-# ── VM Instance ──────────────────────────────────────────────────────────────
-resource "google_compute_instance" "travel_vm" {
-  name         = "travel-assistant-vm"
+# ── VM Instances ─────────────────────────────────────────────────────────────
+resource "google_compute_instance" "app_vm" {
+  name         = "travel-assistant-app-vm"
   machine_type = var.machine_type
   zone         = var.zone
 
-  tags = ["travel-assistant", "http-server"]
+  tags = ["travel-assistant", "travel-assistant-app", "http-server"]
 
   boot_disk {
     initialize_params {
@@ -67,13 +67,6 @@ resource "google_compute_instance" "travel_vm" {
       size  = 20
       type  = "pd-standard"
     }
-  }
-
-  # Persistent monitoring disk attached as secondary
-  attached_disk {
-    source      = google_compute_disk.monitoring_data.self_link
-    device_name = "monitoring-data"
-    mode        = "READ_WRITE"
   }
 
   network_interface {
@@ -98,6 +91,48 @@ resource "google_compute_instance" "travel_vm" {
   }
 }
 
+resource "google_compute_instance" "monitoring_vm" {
+  name         = "travel-assistant-monitoring-vm"
+  machine_type = var.monitoring_machine_type
+  zone         = var.zone
+
+  tags = ["travel-assistant", "travel-assistant-monitoring"]
+
+  boot_disk {
+    initialize_params {
+      image = "debian-cloud/debian-12"
+      size  = 20
+      type  = "pd-standard"
+    }
+  }
+
+  attached_disk {
+    source      = google_compute_disk.monitoring_data.self_link
+    device_name = "monitoring-data"
+    mode        = "READ_WRITE"
+  }
+
+  network_interface {
+    network = "default"
+    access_config {
+      # Ephemeral public IP for provisioning access
+    }
+  }
+
+  service_account {
+    email  = google_service_account.travel_vm_sa.email
+    scopes = ["cloud-platform"]
+  }
+
+  metadata = {
+    ssh-keys = "deploy:${var.ssh_public_key}"
+  }
+
+  lifecycle {
+    ignore_changes = [metadata, tags]
+  }
+}
+
 # ── Firewall Rules ────────────────────────────────────────────────────────────
 resource "google_compute_firewall" "allow_http" {
   name    = "travel-assistant-allow-http"
@@ -109,7 +144,7 @@ resource "google_compute_firewall" "allow_http" {
   }
 
   source_ranges = ["0.0.0.0/0"]
-  target_tags   = ["travel-assistant"]
+  target_tags   = ["travel-assistant-app"]
 }
 
 resource "google_compute_firewall" "allow_ssh" {
@@ -125,5 +160,28 @@ resource "google_compute_firewall" "allow_ssh" {
   target_tags   = ["travel-assistant"]
 }
 
-# Grafana and Prometheus are exposed only through nginx on port 80
-# Do NOT add a firewall rule for 3000/9090 — access via /grafana and /prometheus paths
+resource "google_compute_firewall" "allow_app_to_monitoring" {
+  name    = "travel-assistant-allow-app-to-monitoring"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["3000", "3100", "9090"]
+  }
+
+  source_tags = ["travel-assistant-app"]
+  target_tags = ["travel-assistant-monitoring"]
+}
+
+resource "google_compute_firewall" "allow_monitoring_to_node_exporter" {
+  name    = "travel-assistant-allow-monitoring-to-node-exporter"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["9100"]
+  }
+
+  source_tags = ["travel-assistant-monitoring"]
+  target_tags = ["travel-assistant-app"]
+}

@@ -16,7 +16,13 @@ variable "zone" {
 }
 
 variable "machine_type" {
-  description = "VM machine type"
+  description = "App VM machine type"
+  type        = string
+  default     = "e2-small"
+}
+
+variable "monitoring_machine_type" {
+  description = "Monitoring VM machine type"
   type        = string
   default     = "e2-small"
 }

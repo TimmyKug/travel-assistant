@@ -1,0 +1,64 @@
+services:
+
+  backend:
+    build: ./backend
+    image: europe-west3-docker.pkg.dev/${GCP_PROJECT_ID}/travel-assistant/backend:${IMAGE_TAG:-latest}
+    restart: always
+    env_file: .env
+    expose:
+      - "8000"
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    image: europe-west3-docker.pkg.dev/${GCP_PROJECT_ID}/travel-assistant/nginx:${IMAGE_TAG:-latest}
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/prometheus.htpasswd:/etc/nginx/prometheus.htpasswd:ro
+    depends_on:
+      - backend
+    networks:
+      - app-net
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    restart: always
+    command: -config.file=/etc/promtail/promtail.yml
+    volumes:
+      - ./monitoring/promtail/promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - app-net
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    restart: always
+    pid: host
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge
