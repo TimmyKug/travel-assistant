@@ -1,29 +1,24 @@
 # AI Travel Assistant
 
-A full-stack AI travel assistant powered by Gemini Flash, running on GCP VMs managed with Terraform + Ansible.
+A full-stack AI travel assistant powered by Gemini Flash, running on a GCP VM managed with Terraform + Ansible.
 
 ## Architecture
 
 ```
 GitHub Actions (push to main)
   ├─► Build Docker images (with layer caching) → push to Artifact Registry
-  ├─► Terraform apply (idempotent — creates app VM, monitoring VM, and monitoring disk)
-  └─► Ansible playbook
-        ├─► App VM
-        │     └─► Docker Compose
-        │           ├─► nginx (public port 80 — reverse proxy for frontend, API, Grafana, Prometheus)
-        │           ├─► backend (FastAPI + Gemini + Firestore)
-        │           ├─► promtail (ships app host container logs to Loki)
-        │           └─► node-exporter (host metrics for Prometheus)
-        └─► Monitoring VM
-              └─► Docker Compose
-                    ├─► prometheus (scrapes app VM metrics, data on persistent disk)
-                    ├─► loki (stores logs on persistent disk)
-                    └─► grafana (/grafana/ path, dashboards on persistent disk)
+  ├─► Terraform apply (idempotent — creates VM + Artifact Registry repo if not exists)
+  └─► Ansible playbook (provisions VM, writes secrets, pulls images, starts Docker Compose)
+        └─► Docker Compose on VM (pulls pre-built images — no build on VM)
+              ├─► nginx (port 80 — reverse proxy for everything)
+              ├─► backend (FastAPI + Gemini + Firestore)
+              ├─► frontend (React, served as static files)
+              ├─► prometheus (scrapes /metrics, data on persistent disk)
+              └─► grafana (/grafana/ path, dashboards on persistent disk)
 
 GCP Artifact Registry      — pre-built Docker images (backend, nginx/frontend)
 GCP Firestore (serverless) — user data, conversations, trips, analytics
-GCP Persistent Disk        — Prometheus, Loki, and Grafana state (survives monitoring VM recreation)
+GCP Persistent Disk        — Prometheus TSDB + Grafana state (survives VM recreation)
 ```
 
 ## First-time Setup
@@ -112,9 +107,9 @@ git add -A && git commit -m "initial deploy" && git push origin main
 ```
 
 The GitHub Actions workflow will:
-1. Run `terraform apply` (creates both VMs if they do not exist)
-2. Get the app and monitoring VM IPs from Terraform output
-3. Run Ansible to provision both hosts and start the correct Compose stack on each
+1. Run `terraform apply` (creates VM if not exists)
+2. Get the VM IP from Terraform output
+3. Run Ansible to provision the VM and start all services
 
 ## Local Development
 
@@ -153,13 +148,13 @@ Prometheus is internal-only and not exposed publicly.
 
 ## Monitoring Data Persistence
 
-Prometheus, Loki, and Grafana data is stored on a **separate GCP Persistent Disk** (`travel-assistant-monitoring`).
+Prometheus and Grafana data is stored on a **separate GCP Persistent Disk** (`travel-assistant-monitoring`).
 This disk is protected with `prevent_destroy = true` in Terraform and will survive:
 - VM restarts
 - VM recreation
 - Redeployments
 
-The disk is mounted to `/mnt/monitoring-data` on the monitoring VM.
+The disk is mounted to `/mnt/monitoring-data` on the VM.
 
 ## Firestore Collections
 

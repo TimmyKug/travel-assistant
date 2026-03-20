@@ -40,11 +40,3 @@
     owner: 472
     group: 472
     mode: "0755"
-
-- name: Create Loki data directory
-  file:
-    path: "{{ monitoring_mount }}/loki"
-    state: directory
-    owner: 10001
-    group: 10001
-    mode: "0755"

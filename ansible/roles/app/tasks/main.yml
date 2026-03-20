@@ -30,22 +30,6 @@
     group: deploy
     mode: "0600"
 
-- name: Render nginx config for app VM
-  template:
-    src: nginx.conf.j2
-    dest: "{{ app_dir }}/nginx/nginx.conf"
-    owner: deploy
-    group: deploy
-    mode: "0644"
-
-- name: Render promtail config for app VM
-  template:
-    src: promtail.yml.j2
-    dest: "{{ app_dir }}/monitoring/promtail/promtail.yml"
-    owner: deploy
-    group: deploy
-    mode: "0644"
-
 - name: Write Prometheus htpasswd file
   copy:
     content: "{{ prometheus_htpasswd }}"
@@ -76,9 +60,9 @@
 - name: Pull and start all services
   community.docker.docker_compose_v2:
     project_src: "{{ app_dir }}"
-    files:
-      - docker-compose.app.yml
     build: never
     pull: missing
     state: present
     recreate: always
+  environment:
+    MONITORING_MOUNT: "{{ monitoring_mount }}"
