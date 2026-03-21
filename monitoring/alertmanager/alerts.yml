@@ -1,0 +1,117 @@
+groups:
+
+  - name: app-vm-availability
+    rules:
+
+      # Fires when the app VM's /metrics endpoint has been unreachable for 2 min.
+      # This is the primary signal that the VM is down or the app has crashed.
+      # The MIG autohealer acts independently of this alert — it fires as soon
+      # as the GCP health check fails three times (≈90 s), before this alert
+      # even fires. The alert exists to notify humans.
+      - alert: AppVMDown
+        expr: up{job="travel-assistant-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "App VM is unreachable"
+          description: >
+            The travel assistant API has not responded to Prometheus scrapes for
+            2 minutes. The MIG autohealer will have already triggered VM
+            replacement. Expected recovery time: ~5 minutes.
+
+      # Fires when the app VM's node-exporter is unreachable.
+      # A separate signal because the app could crash while the host stays up.
+      - alert: AppVMNodeExporterDown
+        expr: up{job="node-exporter-app"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "App VM node-exporter is unreachable"
+          description: >
+            The app VM's node-exporter has been unreachable for 2 minutes.
+            The app may still be serving traffic, but host-level metrics
+            (CPU, memory, disk) are unavailable.
+
+  - name: app-vm-performance
+    rules:
+
+      - alert: AppHighErrorRate
+        expr: >
+          sum(rate(http_requests_total{status=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High 5xx error rate (>5%)"
+          description: >
+            More than 5% of requests are returning 5xx errors over the last
+            5 minutes. Current rate: {{ $value | humanizePercentage }}.
+
+      - alert: AppHighLatency
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 latency above 2 s"
+          description: >
+            The 95th-percentile response time has exceeded 2 seconds for 5
+            minutes. Current p95: {{ $value | humanizeDuration }}.
+
+  - name: app-vm-resources
+    rules:
+
+      - alert: AppVMHighCPU
+        expr: >
+          100 - (avg by (instance) (
+            rate(node_cpu_seconds_total{mode="idle", job="node-exporter-app"}[5m])
+          ) * 100) > 90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "App VM CPU above 90% for 10 min"
+          description: >
+            CPU usage on the app VM has been above 90% for 10 minutes.
+            Current usage: {{ $value | humanize }}%.
+
+      - alert: AppVMDiskFull
+        expr: >
+          (
+            node_filesystem_avail_bytes{job="node-exporter-app", mountpoint="/"}
+            / node_filesystem_size_bytes{job="node-exporter-app", mountpoint="/"}
+          ) < 0.10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "App VM root disk below 10% free"
+          description: >
+            Less than 10% disk space remains on the app VM root filesystem.
+            Available: {{ $value | humanizePercentage }}.
+
+  - name: monitoring-vm-availability
+    rules:
+
+      - alert: MonitoringVMDiskFull
+        expr: >
+          (
+            node_filesystem_avail_bytes{job="node-exporter-monitoring", mountpoint="/mnt/monitoring-data"}
+            / node_filesystem_size_bytes{job="node-exporter-monitoring", mountpoint="/mnt/monitoring-data"}
+          ) < 0.15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Monitoring data disk below 15% free"
+          description: >
+            Less than 15% space remains on the monitoring persistent disk
+            (/mnt/monitoring-data). Prometheus or Loki may stop writing data.
+            Available: {{ $value | humanizePercentage }}.

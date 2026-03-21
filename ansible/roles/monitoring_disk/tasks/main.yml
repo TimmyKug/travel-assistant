@@ -48,3 +48,9 @@
     owner: 10001
     group: 10001
     mode: "0755"
+
+- name: Create Alertmanager data directory
+  file:
+    path: "{{ monitoring_mount }}/alertmanager"
+    state: directory
+    mode: "0755"

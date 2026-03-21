@@ -19,6 +19,7 @@ services:
     restart: always
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alertmanager/alerts.yml:/etc/prometheus/alerts.yml:ro
       - ${MONITORING_MOUNT}/prometheus:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -28,6 +29,22 @@ services:
       - '--web.route-prefix=/'
     expose:
       - "9090"
+    networks:
+      - monitoring-net
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    restart: always
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ${MONITORING_MOUNT}/alertmanager:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=/alertmanager/'
+      - '--web.route-prefix=/'
+    expose:
+      - "9093"
     networks:
       - monitoring-net
 
@@ -59,7 +76,8 @@ services:
       - ./loki/loki.yml:/etc/loki/loki.yml:ro
       - ${MONITORING_MOUNT}/loki:/loki
     ports:
-      # Exposed on host so promtail on the app VM can push logs here
+      # Exposed on host so promtail on the app VM can push logs here.
+      # Access restricted to the app VM by GCP firewall rule.
       - "3100:3100"
     networks:
       - monitoring-net

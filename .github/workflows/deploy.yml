@@ -74,8 +74,6 @@ jobs:
       - name: Remove Firestore from state if location is wrong
         working-directory: terraform
         run: |
-          # One-time fix: if the DB is in state with the wrong location, drop it
-          # so Terraform recreates it. Safe because deletion_policy = ABANDON.
           LOCATION=$(terraform state show google_firestore_database.travel_db 2>/dev/null | grep location_id | awk '{print $3}' | tr -d '"')
           if [ -n "$LOCATION" ] && [ "$LOCATION" != "eur3" ]; then
             echo "Firestore in state has wrong location ($LOCATION) — removing from state..."
@@ -85,6 +83,27 @@ jobs:
       - name: Terraform Apply
         working-directory: terraform
         run: terraform apply -auto-approve
+
+      # ── Resolve infrastructure outputs ───────────────────────────────
+      - name: Get infrastructure outputs
+        id: infra
+        working-directory: terraform
+        run: |
+          echo "app_ip=$(terraform output -raw app_static_ip)" >> $GITHUB_OUTPUT
+          echo "monitoring_ip=$(terraform output -raw monitoring_vm_external_ip)" >> $GITHUB_OUTPUT
+          echo "monitoring_internal_ip=$(terraform output -raw monitoring_vm_internal_ip)" >> $GITHUB_OUTPUT
+          echo "config_bucket=$(terraform output -raw config_bucket_name)" >> $GITHUB_OUTPUT
+
+      # ── Push secrets to Secret Manager ───────────────────────────────
+      # The startup script reads these when the MIG autohealer creates a new VM.
+      - name: Update Secret Manager secrets
+        run: |
+          echo -n "${{ secrets.JWT_SECRET_KEY }}" \
+            | gcloud secrets versions add travel-assistant-jwt-secret-key \
+                --project="${{ vars.GCP_PROJECT_ID }}" --data-file=-
+          echo -n "${{ secrets.GEMINI_API_KEY }}" \
+            | gcloud secrets versions add travel-assistant-gemini-api-key \
+                --project="${{ vars.GCP_PROJECT_ID }}" --data-file=-
 
       # ── Docker build & push to Artifact Registry ────────────────────
       - name: Configure Docker for Artifact Registry
@@ -123,15 +142,15 @@ jobs:
           cache-from: type=gha,scope=nginx
           cache-to: type=gha,scope=nginx,mode=max
 
-      # ── Resolve VM IPs from Terraform outputs ───────────────────────
-      - name: Get VM IPs
-        id: get_ips
-        working-directory: terraform
+      # ── Upload app configs to GCS ────────────────────────────────────
+      # The startup script pulls these when the MIG boots a replacement VM.
+      # Uploaded after every deploy so recovery always uses the latest config.
+      - name: Upload app configs to GCS
         run: |
-          echo "app_vm_ip=$(terraform output -raw vm_external_ip)" >> $GITHUB_OUTPUT
-          echo "app_vm_internal_ip=$(terraform output -raw vm_internal_ip)" >> $GITHUB_OUTPUT
-          echo "monitoring_vm_ip=$(terraform output -raw monitoring_vm_external_ip)" >> $GITHUB_OUTPUT
-          echo "monitoring_vm_internal_ip=$(terraform output -raw monitoring_vm_internal_ip)" >> $GITHUB_OUTPUT
+          BUCKET="${{ steps.infra.outputs.config_bucket }}"
+          gsutil cp docker-compose.yml "gs://$BUCKET/docker-compose.yml"
+          gsutil cp monitoring/promtail/promtail.yml \
+            "gs://$BUCKET/monitoring/promtail/promtail.yml"
 
       # ── Ansible ─────────────────────────────────────────────────────
       - name: Install Ansible
@@ -142,16 +161,17 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ steps.get_ips.outputs.app_vm_ip }} >> ~/.ssh/known_hosts
-          ssh-keyscan -H ${{ steps.get_ips.outputs.monitoring_vm_ip }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ steps.infra.outputs.app_ip }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ steps.infra.outputs.monitoring_ip }} >> ~/.ssh/known_hosts
 
       - name: Wait for VMs to be ready
         run: |
-          for HOST in ${{ steps.get_ips.outputs.app_vm_ip }} ${{ steps.get_ips.outputs.monitoring_vm_ip }}; do
+          for HOST in ${{ steps.infra.outputs.app_ip }} ${{ steps.infra.outputs.monitoring_ip }}; do
+            echo "Waiting for SSH on $HOST..."
             for i in $(seq 1 20); do
               ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
                 deploy@${HOST} "echo ready" && break
-              echo "Attempt $i for ${HOST} failed, waiting 15s..."
+              echo "Attempt $i failed, retrying in 15 s..."
               sleep 15
             done
           done
@@ -164,14 +184,14 @@ jobs:
               app:
                 hosts:
                   travel-vm:
-                    ansible_host: ${{ steps.get_ips.outputs.app_vm_ip }}
+                    ansible_host: ${{ steps.infra.outputs.app_ip }}
                     ansible_user: deploy
                     ansible_ssh_private_key_file: ~/.ssh/deploy_key
                     ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
               monitoring:
                 hosts:
                   monitoring-vm:
-                    ansible_host: ${{ steps.get_ips.outputs.monitoring_vm_ip }}
+                    ansible_host: ${{ steps.infra.outputs.monitoring_ip }}
                     ansible_user: deploy
                     ansible_ssh_private_key_file: ~/.ssh/deploy_key
                     ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
@@ -187,9 +207,6 @@ jobs:
           gcp_project_id: "${{ vars.GCP_PROJECT_ID }}"
           firebase_app_id: "${{ vars.FIREBASE_APP_ID }}"
           gcp_sa_key_json: '${{ secrets.GCP_SA_KEY }}'
-          vite_firebase_api_key: "${{ secrets.FIREBASE_API_KEY }}"
-          vite_firebase_storage_bucket: "${{ vars.FIREBASE_STORAGE_BUCKET }}"
-          vite_firebase_messaging_sender_id: "${{ vars.FIREBASE_MESSAGING_SENDER_ID }}"
           EOF
 
       - name: Run Ansible playbook
@@ -200,5 +217,5 @@ jobs:
             --extra-vars "app_dir=/opt/travel-assistant" \
             --extra-vars "repo_local_path=${{ github.workspace }}" \
             --extra-vars "image_tag=${{ github.sha }}" \
-            --extra-vars "app_vm_internal_ip=${{ steps.get_ips.outputs.app_vm_internal_ip }}" \
-            --extra-vars "monitoring_vm_internal_ip=${{ steps.get_ips.outputs.monitoring_vm_internal_ip }}"
+            --extra-vars "monitoring_vm_internal_ip=${{ steps.infra.outputs.monitoring_internal_ip }}" \
+            --extra-vars "zone=${{ vars.GCP_REGION || 'europe-west3' }}-a"

@@ -14,10 +14,10 @@ provider "google" {
   region  = var.region
 }
 
-# ── Service Account ──────────────────────────────────────────────────────────
+# ── Service Account — App VM ──────────────────────────────────────────────────
 resource "google_service_account" "travel_vm_sa" {
   account_id   = "travel-assistant-vm"
-  display_name = "Travel Assistant VM Service Account"
+  display_name = "Travel Assistant App VM Service Account"
 }
 
 resource "google_project_iam_member" "firestore_user" {
@@ -32,6 +32,40 @@ resource "google_project_iam_member" "firebase_auth" {
   member  = "serviceAccount:${google_service_account.travel_vm_sa.email}"
 }
 
+# App VM SA can read from Artifact Registry (for docker pull in startup script)
+resource "google_project_iam_member" "artifact_registry_reader" {
+  project = var.project_id
+  role    = "roles/artifactregistry.reader"
+  member  = "serviceAccount:${google_service_account.travel_vm_sa.email}"
+}
+
+# App VM SA can read secrets (for startup script self-healing bootstrap)
+resource "google_project_iam_member" "secret_accessor" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.travel_vm_sa.email}"
+}
+
+# App VM SA can read configs from GCS (for startup script self-healing bootstrap)
+resource "google_storage_bucket_iam_member" "app_sa_configs_reader" {
+  bucket = google_storage_bucket.app_configs.name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.travel_vm_sa.email}"
+}
+
+# ── Service Account — Monitoring VM ──────────────────────────────────────────
+resource "google_service_account" "monitoring_vm_sa" {
+  account_id   = "travel-assistant-monitoring"
+  display_name = "Travel Assistant Monitoring VM Service Account"
+}
+
+# Prometheus GCE service discovery needs to list and describe compute instances
+resource "google_project_iam_member" "monitoring_compute_viewer" {
+  project = var.project_id
+  role    = "roles/compute.viewer"
+  member  = "serviceAccount:${google_service_account.monitoring_vm_sa.email}"
+}
+
 # ── Artifact Registry ─────────────────────────────────────────────────────────
 resource "google_artifact_registry_repository" "travel_assistant" {
   location      = var.region
@@ -40,39 +74,77 @@ resource "google_artifact_registry_repository" "travel_assistant" {
   description   = "Travel Assistant Docker images"
 }
 
-# ── Persistent Disk for Monitoring Data ──────────────────────────────────────
-resource "google_compute_disk" "monitoring_data" {
-  name  = "travel-assistant-monitoring"
-  type  = "pd-standard"
-  zone  = var.zone
-  size  = var.monitoring_disk_size_gb
+# ── GCS Bucket — App Configs ──────────────────────────────────────────────────
+# Stores non-secret config files (docker-compose.yml, promtail.yml) so the
+# startup script can bootstrap a fresh VM without Ansible.
+resource "google_storage_bucket" "app_configs" {
+  name                        = "${var.project_id}-travel-assistant-configs"
+  location                    = var.region
+  force_destroy               = true
+  uniform_bucket_level_access = true
+}
 
-  lifecycle {
-    # Never destroy monitoring data even if disk config changes
-    prevent_destroy = true
+# ── Secret Manager — App Secrets ──────────────────────────────────────────────
+# Secrets are created empty here and populated by CI/CD on every deploy.
+# The startup script reads them to bootstrap a fresh VM during auto-healing.
+resource "google_secret_manager_secret" "jwt_secret_key" {
+  secret_id = "travel-assistant-jwt-secret-key"
+  replication { auto {} }
+}
+
+resource "google_secret_manager_secret" "gemini_api_key" {
+  secret_id = "travel-assistant-gemini-api-key"
+  replication { auto {} }
+}
+
+# ── Static IP — App VM ────────────────────────────────────────────────────────
+# Reserved so the app URL and Prometheus scrape target remain stable across
+# VM recreation by the Managed Instance Group autohealer.
+resource "google_compute_address" "app_static_ip" {
+  name   = "travel-assistant-app-ip"
+  region = var.region
+}
+
+# ── GCP Health Check — App VM ─────────────────────────────────────────────────
+# Used by the MIG autohealer. Three consecutive failures (90 s) → VM replaced.
+resource "google_compute_health_check" "app_health" {
+  name                = "travel-assistant-app-health"
+  check_interval_sec  = 30
+  timeout_sec         = 10
+  healthy_threshold   = 1
+  unhealthy_threshold = 3
+
+  http_health_check {
+    port         = 80
+    request_path = "/api/health"
   }
 }
 
-# ── App VM ───────────────────────────────────────────────────────────────────
-resource "google_compute_instance" "travel_vm" {
-  name         = "travel-assistant-vm"
+# ── Instance Template — App VM ────────────────────────────────────────────────
+# Defines the blueprint for every app VM the MIG creates.
+# The startup script bootstraps the full app stack without Ansible,
+# enabling zero-touch recovery when the MIG replaces an unhealthy VM.
+resource "google_compute_instance_template" "app" {
+  name_prefix  = "travel-assistant-app-"
   machine_type = var.machine_type
-  zone         = var.zone
+  region       = var.region
 
   tags = ["travel-assistant", "http-server"]
 
-  boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-12"
-      size  = 20
-      type  = "pd-standard"
-    }
+  disk {
+    source_image = "debian-cloud/debian-12"
+    auto_delete  = true
+    boot         = true
+    disk_size_gb = 20
+    disk_type    = "pd-standard"
   }
 
   network_interface {
     network = "default"
     access_config {
-      # Ephemeral public IP
+      # Always claim the same reserved static IP so DNS / Prometheus targets
+      # remain stable across MIG-driven VM replacements.
+      nat_ip = google_compute_address.app_static_ip.address
     }
   }
 
@@ -83,10 +155,63 @@ resource "google_compute_instance" "travel_vm" {
 
   metadata = {
     ssh-keys = "deploy:${var.ssh_public_key}"
+
+    # Startup script bootstraps the full app on a fresh VM.
+    # Variables are rendered at terraform-apply time.
+    startup-script = templatefile("${path.module}/../scripts/startup.sh", {
+      project_id    = var.project_id
+      region        = var.region
+      config_bucket = google_storage_bucket.app_configs.name
+      # Internal IP of the monitoring VM — stable for the VM's lifetime.
+      loki_url = "http://${google_compute_instance.monitoring_vm.network_interface[0].network_ip}:3100/loki/api/v1/push"
+    })
   }
 
   lifecycle {
-    ignore_changes = [metadata, tags]
+    # Ensure new template version exists before the MIG switches over.
+    create_before_destroy = true
+  }
+}
+
+# ── Managed Instance Group — App VM ──────────────────────────────────────────
+# Keeps exactly one app VM alive. If the GCP health check fails three times
+# in a row the MIG deletes the broken VM and provisions a new one from the
+# instance template above — no human intervention needed.
+resource "google_compute_instance_group_manager" "app" {
+  name               = "travel-assistant-app-mig"
+  base_instance_name = "travel-assistant-vm"
+  zone               = var.zone
+
+  version {
+    instance_template = google_compute_instance_template.app.id
+  }
+
+  target_size = 1
+
+  auto_healing_policies {
+    health_check = google_compute_health_check.app_health.id
+
+    # Give the startup script 5 min to install Docker, pull images and start
+    # the stack before the health check is first evaluated.
+    initial_delay_sec = 300
+  }
+
+  named_port {
+    name = "http"
+    port = 80
+  }
+}
+
+# ── Persistent Disk for Monitoring Data ──────────────────────────────────────
+resource "google_compute_disk" "monitoring_data" {
+  name = "travel-assistant-monitoring"
+  type = "pd-standard"
+  zone = var.zone
+  size = var.monitoring_disk_size_gb
+
+  lifecycle {
+    # Never destroy monitoring data even if disk config changes
+    prevent_destroy = true
   }
 }
 
@@ -118,6 +243,11 @@ resource "google_compute_instance" "monitoring_vm" {
     access_config {
       # Ephemeral public IP
     }
+  }
+
+  service_account {
+    email  = google_service_account.monitoring_vm_sa.email
+    scopes = ["cloud-platform"]
   }
 
   metadata = {

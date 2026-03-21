@@ -1,0 +1,56 @@
+global:
+  # How long to wait before declaring that an alert is resolved after it stops firing.
+  resolve_timeout: 5m
+
+  # ── Email (optional) ────────────────────────────────────────────────────────
+  # Uncomment and fill in to receive email alerts.
+  # smtp_smarthost: 'smtp.example.com:587'
+  # smtp_from: 'alertmanager@example.com'
+  # smtp_auth_username: 'alertmanager@example.com'
+  # smtp_auth_password: 'SECRET'
+
+route:
+  # Default grouping: one notification per alertname.
+  group_by: ['alertname', 'severity']
+  group_wait: 30s       # Wait 30 s to batch alerts firing at the same time.
+  group_interval: 5m    # Wait 5 min before sending an update for a group.
+  repeat_interval: 4h   # Re-notify every 4 h while an alert stays active.
+  receiver: 'default'
+
+  routes:
+    # Critical alerts get re-notified sooner.
+    - matchers:
+        - severity="critical"
+      repeat_interval: 1h
+      receiver: 'default'
+
+receivers:
+  - name: 'default'
+    # ── Webhook ────────────────────────────────────────────────────────────────
+    # Uncomment to POST alert payloads to any HTTP endpoint (Slack incoming
+    # webhook, custom handler, PagerDuty, etc.).
+    # webhook_configs:
+    #   - url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    #     send_resolved: true
+
+    # ── Slack (native) ─────────────────────────────────────────────────────────
+    # slack_configs:
+    #   - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    #     channel: '#alerts'
+    #     send_resolved: true
+    #     title: '{{ .GroupLabels.alertname }} [{{ .Status | toUpper }}]'
+    #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+    # ── Email ──────────────────────────────────────────────────────────────────
+    # email_configs:
+    #   - to: 'your@email.com'
+    #     send_resolved: true
+
+inhibit_rules:
+  # Suppress NodeExporterDown warnings when the whole VM is already flagged down,
+  # to avoid double-paging for the same incident.
+  - source_matchers:
+      - alertname="AppVMDown"
+    target_matchers:
+      - alertname="AppVMNodeExporterDown"
+    equal: []

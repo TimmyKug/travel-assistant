@@ -29,7 +29,7 @@
     group: deploy
     mode: "0600"
 
-- name: Template Prometheus config with app VM internal IP
+- name: Template Prometheus config (GCE SD discovers app VM automatically)
   template:
     src: prometheus.yml.j2
     dest: "{{ app_dir }}/monitoring/prometheus.yml"
