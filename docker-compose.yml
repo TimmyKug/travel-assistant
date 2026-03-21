@@ -25,72 +25,24 @@ services:
     restart: always
     ports:
       - "80:80"
-    volumes:
-      - ./nginx/prometheus.htpasswd:/etc/nginx/prometheus.htpasswd:ro
     depends_on:
       - backend
     networks:
       - app-net
 
-  prometheus:
-    image: prom/prometheus:latest
-    restart: always
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ${MONITORING_MOUNT}/prometheus:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=90d'
-      - '--web.external-url=/prometheus/'
-      - '--web.route-prefix=/'
-    networks:
-      - app-net
-
-  loki:
-    image: grafana/loki:3.0.0
-    restart: always
-    command: -config.file=/etc/loki/loki.yml
-    volumes:
-      - ./monitoring/loki/loki.yml:/etc/loki/loki.yml:ro
-      - ${MONITORING_MOUNT}/loki:/loki
-    expose:
-      - "3100"
-    networks:
-      - app-net
-
+  # Promtail runs on the app VM and ships container logs to Loki on the monitoring VM
   promtail:
     image: grafana/promtail:3.0.0
     restart: always
     command: -config.file=/etc/promtail/promtail.yml
     volumes:
       - ./monitoring/promtail/promtail.yml:/etc/promtail/promtail.yml:ro
-      # Read Docker container logs from the host
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - app-net
-    depends_on:
-      - loki
 
-  grafana:
-    image: grafana/grafana:latest
-    restart: always
-    volumes:
-      - ${MONITORING_MOUNT}/grafana:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-changeme}
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_ANALYTICS_REPORTING_ENABLED=false
-      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s/grafana/
-      - GF_SERVER_SERVE_FROM_SUB_PATH=true
-    networks:
-      - app-net
-    depends_on:
-      - prometheus
-      - loki
-
+  # Node-exporter is scraped by Prometheus on the monitoring VM (port exposed on host)
   node-exporter:
     image: prom/node-exporter:latest
     restart: always
@@ -103,8 +55,10 @@ services:
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-    expose:
-      - "9100"
+    ports:
+      # Exposed on host so the monitoring VM's Prometheus can scrape it.
+      # Access restricted to the monitoring VM by GCP firewall rule.
+      - "9100:9100"
     networks:
       - app-net
 

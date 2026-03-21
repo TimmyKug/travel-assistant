@@ -1,7 +1,3 @@
-# NOTE: This file is overwritten by Ansible during deployment.
-# The canonical template is ansible/roles/monitoring_vm/templates/prometheus.yml.j2,
-# which substitutes {{ app_vm_internal_ip }} with the actual GCP internal IP.
-
 global:
   scrape_interval:     15s
   evaluation_interval: 15s
@@ -11,13 +7,13 @@ scrape_configs:
   # FastAPI application metrics (scraped via app VM nginx on port 80)
   - job_name: travel-assistant-api
     static_configs:
-      - targets: ['APP_VM_INTERNAL_IP:80']
+      - targets: ['{{ app_vm_internal_ip }}:80']
     metrics_path: /metrics
 
   # Node Exporter on the app VM for host-level metrics (CPU, memory, disk)
   - job_name: node-exporter-app
     static_configs:
-      - targets: ['APP_VM_INTERNAL_IP:9100']
+      - targets: ['{{ app_vm_internal_ip }}:9100']
 
   # Node Exporter on the monitoring VM itself
   - job_name: node-exporter-monitoring

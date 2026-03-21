@@ -20,39 +20,42 @@
       - "--exclude=.terraform.lock.hcl"
       - "--exclude=ansible/secrets.yml"
       - "--exclude=ansible/inventory.yml"
-      - "--exclude=nginx/prometheus.htpasswd"
 
-- name: Write .env file
+- name: Write monitoring .env file
   template:
     src: env.j2
-    dest: "{{ app_dir }}/.env"
+    dest: "{{ app_dir }}/monitoring/.env"
     owner: deploy
     group: deploy
     mode: "0600"
 
-- name: Write GCP service account key
-  copy:
-    content: "{{ gcp_sa_key_json }}"
-    dest: "{{ app_dir }}/gcp-sa-key.json"
+- name: Template Prometheus config with app VM internal IP
+  template:
+    src: prometheus.yml.j2
+    dest: "{{ app_dir }}/monitoring/prometheus.yml"
     owner: deploy
     group: deploy
-    mode: "0600"
+    mode: "0644"
+
+- name: Write Prometheus htpasswd file
+  copy:
+    content: "{{ prometheus_htpasswd }}"
+    dest: "{{ app_dir }}/monitoring/prometheus.htpasswd"
+    owner: deploy
+    group: deploy
+    mode: "0644"
 
 - name: Install docker compose plugin for community.docker
   apt:
     name: python3-docker
     state: present
 
-- name: Authenticate Docker with Artifact Registry
-  shell: |
-    cat {{ app_dir }}/gcp-sa-key.json | \
-    docker login -u _json_key --password-stdin \
-    https://europe-west3-docker.pkg.dev
-
-- name: Pull and start all services
+- name: Pull and start all monitoring services
   community.docker.docker_compose_v2:
-    project_src: "{{ app_dir }}"
+    project_src: "{{ app_dir }}/monitoring"
     build: never
     pull: missing
     state: present
     recreate: always
+  environment:
+    MONITORING_MOUNT: "{{ monitoring_mount }}"

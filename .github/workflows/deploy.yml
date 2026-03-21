@@ -82,7 +82,6 @@ jobs:
             terraform state rm google_firestore_database.travel_db
           fi
 
-
       - name: Terraform Apply
         working-directory: terraform
         run: terraform apply -auto-approve
@@ -124,10 +123,15 @@ jobs:
           cache-from: type=gha,scope=nginx
           cache-to: type=gha,scope=nginx,mode=max
 
-      - name: Get VM IP
-        id: get_ip
+      # ── Resolve VM IPs from Terraform outputs ───────────────────────
+      - name: Get VM IPs
+        id: get_ips
         working-directory: terraform
-        run: echo "vm_ip=$(terraform output -raw vm_external_ip)" >> $GITHUB_OUTPUT
+        run: |
+          echo "app_vm_ip=$(terraform output -raw vm_external_ip)" >> $GITHUB_OUTPUT
+          echo "app_vm_internal_ip=$(terraform output -raw vm_internal_ip)" >> $GITHUB_OUTPUT
+          echo "monitoring_vm_ip=$(terraform output -raw monitoring_vm_external_ip)" >> $GITHUB_OUTPUT
+          echo "monitoring_vm_internal_ip=$(terraform output -raw monitoring_vm_internal_ip)" >> $GITHUB_OUTPUT
 
       # ── Ansible ─────────────────────────────────────────────────────
       - name: Install Ansible
@@ -138,27 +142,39 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ steps.get_ip.outputs.vm_ip }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ steps.get_ips.outputs.app_vm_ip }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ steps.get_ips.outputs.monitoring_vm_ip }} >> ~/.ssh/known_hosts
 
-      - name: Wait for VM SSH to be ready
+      - name: Wait for VMs to be ready
         run: |
-          for i in $(seq 1 20); do
-            ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-              deploy@${{ steps.get_ip.outputs.vm_ip }} "echo ready" && break
-            echo "Attempt $i failed, waiting 15s..."
-            sleep 15
+          for HOST in ${{ steps.get_ips.outputs.app_vm_ip }} ${{ steps.get_ips.outputs.monitoring_vm_ip }}; do
+            for i in $(seq 1 20); do
+              ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+                deploy@${HOST} "echo ready" && break
+              echo "Attempt $i for ${HOST} failed, waiting 15s..."
+              sleep 15
+            done
           done
 
       - name: Write Ansible inventory
         run: |
           cat > ansible/inventory.yml << EOF
           all:
-            hosts:
-              travel-vm:
-                ansible_host: ${{ steps.get_ip.outputs.vm_ip }}
-                ansible_user: deploy
-                ansible_ssh_private_key_file: ~/.ssh/deploy_key
-                ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+            children:
+              app:
+                hosts:
+                  travel-vm:
+                    ansible_host: ${{ steps.get_ips.outputs.app_vm_ip }}
+                    ansible_user: deploy
+                    ansible_ssh_private_key_file: ~/.ssh/deploy_key
+                    ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+              monitoring:
+                hosts:
+                  monitoring-vm:
+                    ansible_host: ${{ steps.get_ips.outputs.monitoring_vm_ip }}
+                    ansible_user: deploy
+                    ansible_ssh_private_key_file: ~/.ssh/deploy_key
+                    ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
           EOF
 
       - name: Write app secrets to Ansible vars
@@ -183,4 +199,6 @@ jobs:
             --extra-vars "@secrets.yml" \
             --extra-vars "app_dir=/opt/travel-assistant" \
             --extra-vars "repo_local_path=${{ github.workspace }}" \
-            --extra-vars "image_tag=${{ github.sha }}"
+            --extra-vars "image_tag=${{ github.sha }}" \
+            --extra-vars "app_vm_internal_ip=${{ steps.get_ips.outputs.app_vm_internal_ip }}" \
+            --extra-vars "monitoring_vm_internal_ip=${{ steps.get_ips.outputs.monitoring_vm_internal_ip }}"

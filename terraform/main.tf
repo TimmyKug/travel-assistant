@@ -53,7 +53,7 @@ resource "google_compute_disk" "monitoring_data" {
   }
 }
 
-# ── VM Instance ──────────────────────────────────────────────────────────────
+# ── App VM ───────────────────────────────────────────────────────────────────
 resource "google_compute_instance" "travel_vm" {
   name         = "travel-assistant-vm"
   machine_type = var.machine_type
@@ -67,13 +67,6 @@ resource "google_compute_instance" "travel_vm" {
       size  = 20
       type  = "pd-standard"
     }
-  }
-
-  # Persistent monitoring disk attached as secondary
-  attached_disk {
-    source      = google_compute_disk.monitoring_data.self_link
-    device_name = "monitoring-data"
-    mode        = "READ_WRITE"
   }
 
   network_interface {
@@ -93,12 +86,52 @@ resource "google_compute_instance" "travel_vm" {
   }
 
   lifecycle {
-    # Don't recreate the VM if only metadata/tags change
+    ignore_changes = [metadata, tags]
+  }
+}
+
+# ── Monitoring VM ─────────────────────────────────────────────────────────────
+resource "google_compute_instance" "monitoring_vm" {
+  name         = "travel-assistant-monitoring-vm"
+  machine_type = var.monitoring_machine_type
+  zone         = var.zone
+
+  tags = ["travel-monitoring", "http-server"]
+
+  boot_disk {
+    initialize_params {
+      image = "debian-cloud/debian-12"
+      size  = 20
+      type  = "pd-standard"
+    }
+  }
+
+  # Persistent monitoring disk (Prometheus + Grafana + Loki data)
+  attached_disk {
+    source      = google_compute_disk.monitoring_data.self_link
+    device_name = "monitoring-data"
+    mode        = "READ_WRITE"
+  }
+
+  network_interface {
+    network = "default"
+    access_config {
+      # Ephemeral public IP
+    }
+  }
+
+  metadata = {
+    ssh-keys = "deploy:${var.ssh_public_key}"
+  }
+
+  lifecycle {
     ignore_changes = [metadata, tags]
   }
 }
 
 # ── Firewall Rules ────────────────────────────────────────────────────────────
+
+# App VM — public HTTP and SSH
 resource "google_compute_firewall" "allow_http" {
   name    = "travel-assistant-allow-http"
   network = "default"
@@ -125,5 +158,57 @@ resource "google_compute_firewall" "allow_ssh" {
   target_tags   = ["travel-assistant"]
 }
 
-# Grafana and Prometheus are exposed only through nginx on port 80
-# Do NOT add a firewall rule for 3000/9090 — access via /grafana and /prometheus paths
+# Monitoring VM — public HTTP and SSH
+resource "google_compute_firewall" "monitoring_allow_http" {
+  name    = "travel-monitoring-allow-http"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["80", "443"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["travel-monitoring"]
+}
+
+resource "google_compute_firewall" "monitoring_allow_ssh" {
+  name    = "travel-monitoring-allow-ssh"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["travel-monitoring"]
+}
+
+# Allow monitoring VM to scrape node-exporter (9100) on the app VM
+resource "google_compute_firewall" "allow_node_exporter_from_monitoring" {
+  name    = "travel-allow-node-exporter-from-monitoring"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["9100"]
+  }
+
+  source_tags = ["travel-monitoring"]
+  target_tags = ["travel-assistant"]
+}
+
+# Allow app VM's promtail to push logs to Loki (3100) on the monitoring VM
+resource "google_compute_firewall" "allow_loki_from_app" {
+  name    = "travel-allow-loki-from-app"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["3100"]
+  }
+
+  source_tags = ["travel-assistant"]
+  target_tags = ["travel-monitoring"]
+}

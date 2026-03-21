@@ -1,6 +1,20 @@
 ---
-- name: Provision Travel Assistant VM
-  hosts: all
+- name: Provision App VM
+  hosts: app
+  become: true
+  gather_facts: true
+
+  vars:
+    app_dir: /opt/travel-assistant
+    # monitoring_mount intentionally absent — the app VM has no monitoring disk
+
+  roles:
+    - role: common
+    - role: app
+    - role: nginx
+
+- name: Provision Monitoring VM
+  hosts: monitoring
   become: true
   gather_facts: true
 
@@ -12,5 +26,4 @@
   roles:
     - role: common
     - role: monitoring_disk
-    - role: app
-    - role: nginx
+    - role: monitoring_vm
