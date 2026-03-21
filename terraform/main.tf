@@ -89,12 +89,16 @@ resource "google_storage_bucket" "app_configs" {
 # The startup script reads them to bootstrap a fresh VM during auto-healing.
 resource "google_secret_manager_secret" "jwt_secret_key" {
   secret_id = "travel-assistant-jwt-secret-key"
-  replication { auto {} }
+  replication {
+    auto {}
+  }
 }
 
 resource "google_secret_manager_secret" "gemini_api_key" {
   secret_id = "travel-assistant-gemini-api-key"
-  replication { auto {} }
+  replication {
+    auto {}
+  }
 }
 
 # ── Static IP — App VM ────────────────────────────────────────────────────────
