@@ -1,4 +1,14 @@
 ---
+# On a freshly created MIG VM the startup script runs apt-get concurrently.
+# Wait for it to release the lock before proceeding.
+- name: Wait for apt lock to be released
+  shell: |
+    while fuser /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock >/dev/null 2>&1; do
+      sleep 3
+    done
+  changed_when: false
+  timeout: 300
+
 - name: Update apt cache
   apt:
     update_cache: yes
