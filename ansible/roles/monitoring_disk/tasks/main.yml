@@ -41,13 +41,14 @@
     group: 472
     mode: "0755"
 
-- name: Create Loki data directory (owner = loki uid 10001)
+- name: Create Loki data directory and fix ownership recursively (owner = loki uid 10001)
   file:
     path: "{{ monitoring_mount }}/loki"
     state: directory
     owner: 10001
     group: 10001
     mode: "0755"
+    recurse: yes
 
 - name: Create Alertmanager data directory
   file:
