@@ -94,17 +94,6 @@ jobs:
           echo "monitoring_internal_ip=$(terraform output -raw monitoring_vm_internal_ip)" >> $GITHUB_OUTPUT
           echo "config_bucket=$(terraform output -raw config_bucket_name)" >> $GITHUB_OUTPUT
 
-      # ── Push secrets to Secret Manager ───────────────────────────────
-      # The startup script reads these when the MIG autohealer creates a new VM.
-      - name: Update Secret Manager secrets
-        run: |
-          echo -n "${{ secrets.JWT_SECRET_KEY }}" \
-            | gcloud secrets versions add travel-assistant-jwt-secret-key \
-                --project="${{ vars.GCP_PROJECT_ID }}" --data-file=-
-          echo -n "${{ secrets.GEMINI_API_KEY }}" \
-            | gcloud secrets versions add travel-assistant-gemini-api-key \
-                --project="${{ vars.GCP_PROJECT_ID }}" --data-file=-
-
       # ── Docker build & push to Artifact Registry ────────────────────
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ vars.GCP_REGION || 'europe-west3' }}-docker.pkg.dev --quiet
@@ -142,15 +131,27 @@ jobs:
           cache-from: type=gha,scope=nginx
           cache-to: type=gha,scope=nginx,mode=max
 
-      # ── Upload app configs to GCS ────────────────────────────────────
+      # ── Upload app configs and .env to GCS ──────────────────────────
       # The startup script pulls these when the MIG boots a replacement VM.
-      # Uploaded after every deploy so recovery always uses the latest config.
+      # .env is rendered here from GitHub secrets so the startup script has
+      # everything it needs for a self-contained recovery — no Secret Manager.
       - name: Upload app configs to GCS
         run: |
           BUCKET="${{ steps.infra.outputs.config_bucket }}"
-          gsutil cp docker-compose.yml "gs://$BUCKET/docker-compose.yml"
-          gsutil cp monitoring/promtail/promtail.yml \
-            "gs://$BUCKET/monitoring/promtail/promtail.yml"
+          MONITORING_IP="${{ steps.infra.outputs.monitoring_internal_ip }}"
+
+          # Render .env in the same format as the Ansible template
+          cat > /tmp/app.env << ENV
+          GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID }}
+          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          LOKI_URL=http://$${MONITORING_IP}:3100/loki/api/v1/push
+          IMAGE_TAG=latest
+          ENV
+
+          gsutil cp docker-compose.yml                      "gs://$BUCKET/docker-compose.yml"
+          gsutil cp monitoring/promtail/promtail.yml        "gs://$BUCKET/monitoring/promtail/promtail.yml"
+          gsutil cp /tmp/app.env                            "gs://$BUCKET/.env"
 
       # ── Ansible ─────────────────────────────────────────────────────
       - name: Install Ansible

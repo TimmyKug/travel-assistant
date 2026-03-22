@@ -40,12 +40,6 @@ resource "google_project_iam_member" "artifact_registry_reader" {
 }
 
 # App VM SA can read secrets (for startup script self-healing bootstrap)
-resource "google_project_iam_member" "secret_accessor" {
-  project = var.project_id
-  role    = "roles/secretmanager.secretAccessor"
-  member  = "serviceAccount:${google_service_account.travel_vm_sa.email}"
-}
-
 # App VM SA can read configs from GCS (for startup script self-healing bootstrap)
 resource "google_storage_bucket_iam_member" "app_sa_configs_reader" {
   bucket = google_storage_bucket.app_configs.name
@@ -82,23 +76,6 @@ resource "google_storage_bucket" "app_configs" {
   location                    = var.region
   force_destroy               = true
   uniform_bucket_level_access = true
-}
-
-# ── Secret Manager — App Secrets ──────────────────────────────────────────────
-# Secrets are created empty here and populated by CI/CD on every deploy.
-# The startup script reads them to bootstrap a fresh VM during auto-healing.
-resource "google_secret_manager_secret" "jwt_secret_key" {
-  secret_id = "travel-assistant-jwt-secret-key"
-  replication {
-    auto {}
-  }
-}
-
-resource "google_secret_manager_secret" "gemini_api_key" {
-  secret_id = "travel-assistant-gemini-api-key"
-  replication {
-    auto {}
-  }
 }
 
 # ── Static IP — App VM ────────────────────────────────────────────────────────
@@ -260,6 +237,9 @@ resource "google_compute_instance" "monitoring_vm" {
 
   lifecycle {
     ignore_changes = [metadata, tags]
+    # Adding a service account to an already-running VM requires a stop/start.
+    # This allows Terraform to do that automatically.
+    allow_stopping_for_update = true
   }
 }
 
