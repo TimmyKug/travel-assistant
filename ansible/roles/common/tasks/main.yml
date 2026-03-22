@@ -9,6 +9,11 @@
   changed_when: false
   timeout: 300
 
+- name: Remove stale Docker source list that lacks signed-by
+  file:
+    path: /etc/apt/sources.list.d/docker.list
+    state: absent
+
 - name: Update apt cache
   apt:
     update_cache: yes
