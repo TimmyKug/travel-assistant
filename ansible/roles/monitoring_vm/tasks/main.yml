@@ -25,9 +25,9 @@
   template:
     src: env.j2
     dest: "{{ app_dir }}/monitoring/.env"
-    owner: deploy
-    group: deploy
-    mode: "0600"
+    owner: root
+    group: docker
+    mode: "0640"
 
 - name: Template Prometheus config (GCE SD discovers app VM automatically)
   template:
