@@ -235,11 +235,11 @@ resource "google_compute_instance" "monitoring_vm" {
     ssh-keys = "deploy:${var.ssh_public_key}"
   }
 
+  # Adding a service account to an already-running VM requires a stop/start.
+  allow_stopping_for_update = true
+
   lifecycle {
     ignore_changes = [metadata, tags]
-    # Adding a service account to an already-running VM requires a stop/start.
-    # This allows Terraform to do that automatically.
-    allow_stopping_for_update = true
   }
 }
 
