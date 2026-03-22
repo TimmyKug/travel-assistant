@@ -40,10 +40,10 @@
     creates: /etc/apt/keyrings/docker.gpg
 
 - name: Add Docker repository
-  apt_repository:
-    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
-    filename: docker
-    state: present
+  copy:
+    dest: /etc/apt/sources.list.d/docker.list
+    content: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable\n"
+    mode: "0644"
 
 - name: Install Docker CE and Compose plugin
   apt:
