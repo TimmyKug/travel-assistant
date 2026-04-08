@@ -48,3 +48,9 @@ variable "firestore_location" {
   type        = string
   default     = "eur3"
 }
+
+variable "app_image_tag" {
+  description = "Image tag the app startup script pins into the VM-local .env so MIG rollouts track a specific release."
+  type        = string
+  default     = "latest"
+}

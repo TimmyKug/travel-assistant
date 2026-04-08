@@ -1,6 +1,6 @@
 output "app_static_ip" {
-  description = "Reserved static external IP for the app VM — stable across MIG replacements"
-  value       = google_compute_address.app_static_ip.address
+  description = "Global static external IP for the app HTTP load balancer"
+  value       = google_compute_global_address.app_static_ip.address
 }
 
 output "app_mig_name" {

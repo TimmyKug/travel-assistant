@@ -103,7 +103,6 @@ jobs:
         id: infra
         working-directory: terraform
         run: |
-          echo "app_ip=$(terraform output -raw app_static_ip)" >> $GITHUB_OUTPUT
           echo "monitoring_ip=$(terraform output -raw monitoring_vm_external_ip)" >> $GITHUB_OUTPUT
           echo "monitoring_internal_ip=$(terraform output -raw monitoring_vm_internal_ip)" >> $GITHUB_OUTPUT
           echo "config_bucket=$(terraform output -raw config_bucket_name)" >> $GITHUB_OUTPUT
@@ -160,12 +159,18 @@ jobs:
           JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
           LOKI_URL=http://$${MONITORING_IP}:3100/loki/api/v1/push
-          IMAGE_TAG=latest
+          IMAGE_TAG=${{ github.sha }}
           ENV
 
           gsutil cp docker-compose.yml                      "gs://$BUCKET/docker-compose.yml"
           gsutil cp monitoring/promtail/promtail.yml        "gs://$BUCKET/monitoring/promtail/promtail.yml"
           gsutil cp /tmp/app.env                            "gs://$BUCKET/.env"
+
+      - name: Terraform Apply App Rollout
+        working-directory: terraform
+        env:
+          TF_VAR_app_image_tag: ${{ github.sha }}
+        run: terraform apply -auto-approve
 
       # ── Ansible ─────────────────────────────────────────────────────
       - name: Install Ansible
@@ -176,19 +181,17 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ steps.infra.outputs.app_ip }} >> ~/.ssh/known_hosts
           ssh-keyscan -H ${{ steps.infra.outputs.monitoring_ip }} >> ~/.ssh/known_hosts
 
       - name: Wait for VMs to be ready
         run: |
-          for HOST in ${{ steps.infra.outputs.app_ip }} ${{ steps.infra.outputs.monitoring_ip }}; do
-            echo "Waiting for SSH on $HOST..."
-            for i in $(seq 1 20); do
-              ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-                deploy@${HOST} "echo ready" && break
-              echo "Attempt $i failed, retrying in 15 s..."
-              sleep 15
-            done
+          HOST="${{ steps.infra.outputs.monitoring_ip }}"
+          echo "Waiting for SSH on $HOST..."
+          for i in $(seq 1 20); do
+            ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+              deploy@${HOST} "echo ready" && break
+            echo "Attempt $i failed, retrying in 15 s..."
+            sleep 15
           done
 
       - name: Write Ansible inventory
@@ -196,13 +199,6 @@ jobs:
           cat > ansible/inventory.yml << EOF
           all:
             children:
-              app:
-                hosts:
-                  travel-vm:
-                    ansible_host: ${{ steps.infra.outputs.app_ip }}
-                    ansible_user: deploy
-                    ansible_ssh_private_key_file: ~/.ssh/deploy_key
-                    ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
               monitoring:
                 hosts:
                   monitoring-vm:
@@ -212,16 +208,12 @@ jobs:
                     ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
           EOF
 
-      - name: Write app secrets to Ansible vars
+      - name: Write monitoring secrets to Ansible vars
         run: |
           cat > ansible/secrets.yml << 'EOF'
-          jwt_secret_key: "${{ secrets.JWT_SECRET_KEY }}"
-          gemini_api_key: "${{ secrets.GEMINI_API_KEY }}"
           grafana_admin_password: "${{ secrets.GRAFANA_ADMIN_PASSWORD }}"
           prometheus_htpasswd: "${{ secrets.PROMETHEUS_HTPASSWD }}"
           gcp_project_id: "${{ vars.GCP_PROJECT_ID }}"
-          firebase_app_id: "${{ vars.FIREBASE_APP_ID }}"
-          gcp_sa_key_json: '${{ secrets.GCP_SA_KEY }}'
           EOF
 
       - name: Run Ansible playbook
@@ -231,6 +223,4 @@ jobs:
             --extra-vars "@secrets.yml" \
             --extra-vars "app_dir=/opt/travel-assistant" \
             --extra-vars "repo_local_path=${{ github.workspace }}" \
-            --extra-vars "image_tag=${{ github.sha }}" \
-            --extra-vars "monitoring_vm_internal_ip=${{ steps.infra.outputs.monitoring_internal_ip }}" \
             --extra-vars "zone=${{ vars.GCP_REGION || 'europe-west3' }}-a"

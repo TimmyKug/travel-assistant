@@ -78,12 +78,11 @@ resource "google_storage_bucket" "app_configs" {
   uniform_bucket_level_access = true
 }
 
-# ── Static IP — App VM ────────────────────────────────────────────────────────
-# Reserved so the app URL and Prometheus scrape target remain stable across
-# VM recreation by the Managed Instance Group autohealer.
-resource "google_compute_address" "app_static_ip" {
-  name   = "travel-assistant-app-ip"
-  region = var.region
+# ── Global Static IP — App Load Balancer ─────────────────────────────────────
+# Reserved for the external HTTP load balancer so the app entrypoint remains
+# stable while the MIG rolls or autoheals individual VMs behind it.
+resource "google_compute_global_address" "app_static_ip" {
+  name = "travel-assistant-app-ip"
 }
 
 # ── GCP Health Check — App VM ─────────────────────────────────────────────────
@@ -123,9 +122,9 @@ resource "google_compute_instance_template" "app" {
   network_interface {
     network = "default"
     access_config {
-      # Always claim the same reserved static IP so DNS / Prometheus targets
-      # remain stable across MIG-driven VM replacements.
-      nat_ip = google_compute_address.app_static_ip.address
+      # Keep an ephemeral public IP so the VM can install packages and pull
+      # images without requiring Cloud NAT. User traffic still enters via the
+      # external HTTP load balancer plus firewall restrictions below.
     }
   }
 
@@ -143,6 +142,7 @@ resource "google_compute_instance_template" "app" {
       project_id    = var.project_id
       region        = var.region
       config_bucket = google_storage_bucket.app_configs.name
+      image_tag     = var.app_image_tag
       # Internal IP of the monitoring VM — stable for the VM's lifetime.
       loki_url = "http://${google_compute_instance.monitoring_vm.network_interface[0].network_ip}:3100/loki/api/v1/push"
     })
@@ -155,9 +155,8 @@ resource "google_compute_instance_template" "app" {
 }
 
 # ── Managed Instance Group — App VM ──────────────────────────────────────────
-# Keeps exactly one app VM alive. If the GCP health check fails three times
-# in a row the MIG deletes the broken VM and provisions a new one from the
-# instance template above — no human intervention needed.
+# Keeps the app fleet alive. If the GCP health check fails three times in a
+# row the MIG replaces unhealthy VMs from the instance template above.
 resource "google_compute_instance_group_manager" "app" {
   name               = "travel-assistant-app-mig"
   base_instance_name = "travel-assistant-vm"
@@ -167,7 +166,15 @@ resource "google_compute_instance_group_manager" "app" {
     instance_template = google_compute_instance_template.app.id
   }
 
-  target_size = 1
+  target_size = 2
+
+  update_policy {
+    type                  = "PROACTIVE"
+    minimal_action        = "REPLACE"
+    max_surge_fixed       = 1
+    max_unavailable_fixed = 0
+    replacement_method    = "SUBSTITUTE"
+  }
 
   auto_healing_policies {
     health_check = google_compute_health_check.app_health.id
@@ -181,6 +188,38 @@ resource "google_compute_instance_group_manager" "app" {
     name = "http"
     port = 80
   }
+}
+
+resource "google_compute_backend_service" "app" {
+  name                  = "travel-assistant-app-bes"
+  protocol              = "HTTP"
+  port_name             = "http"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  timeout_sec           = 30
+  health_checks         = [google_compute_health_check.app_health.id]
+
+  backend {
+    group = google_compute_instance_group_manager.app.instance_group
+  }
+}
+
+resource "google_compute_url_map" "app" {
+  name            = "travel-assistant-app-url-map"
+  default_service = google_compute_backend_service.app.id
+}
+
+resource "google_compute_target_http_proxy" "app" {
+  name    = "travel-assistant-app-http-proxy"
+  url_map = google_compute_url_map.app.id
+}
+
+resource "google_compute_global_forwarding_rule" "app" {
+  name                  = "travel-assistant-app-http-fr"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  ip_protocol           = "TCP"
+  port_range            = "80"
+  ip_address            = google_compute_global_address.app_static_ip.address
+  target                = google_compute_target_http_proxy.app.id
 }
 
 # ── Persistent Disk for Monitoring Data ──────────────────────────────────────
@@ -245,18 +284,32 @@ resource "google_compute_instance" "monitoring_vm" {
 
 # ── Firewall Rules ────────────────────────────────────────────────────────────
 
-# App VM — public HTTP and SSH
-resource "google_compute_firewall" "allow_http" {
-  name    = "travel-assistant-allow-http"
+# App VM — allow traffic only from the external HTTP load balancer and health checks
+resource "google_compute_firewall" "allow_lb_http" {
+  name    = "travel-assistant-allow-lb-http"
   network = "default"
 
   allow {
     protocol = "tcp"
-    ports    = ["80", "443"]
+    ports    = ["80"]
   }
 
-  source_ranges = ["0.0.0.0/0"]
+  source_ranges = ["130.211.0.0/22", "35.191.0.0/16"]
   target_tags   = ["travel-assistant"]
+}
+
+# Monitoring VM scrapes the app's /metrics endpoint over the instance private IP
+resource "google_compute_firewall" "allow_metrics_from_monitoring" {
+  name    = "travel-assistant-allow-monitoring-http"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["80"]
+  }
+
+  source_tags = ["travel-monitoring"]
+  target_tags = ["travel-assistant"]
 }
 
 resource "google_compute_firewall" "allow_ssh" {

@@ -13,11 +13,13 @@
 #   project_id    — GCP project ID
 #   region        — GCP region (for Artifact Registry auth)
 #   config_bucket — GCS bucket name
+#   image_tag     — release image tag pinned into .env for this VM template
 set -euo pipefail
 
 PROJECT_ID="${project_id}"
 REGION="${region}"
 CONFIG_BUCKET="${config_bucket}"
+IMAGE_TAG="${image_tag}"
 
 APP_DIR=/opt/travel-assistant
 LOG=/var/log/startup.log
@@ -56,6 +58,14 @@ echo "[startup] pulling configs from gs://$CONFIG_BUCKET/"
 gsutil -m cp "gs://$CONFIG_BUCKET/docker-compose.yml"                      "$APP_DIR/docker-compose.yml"
 gsutil -m cp "gs://$CONFIG_BUCKET/monitoring/promtail/promtail.yml"        "$APP_DIR/monitoring/promtail/promtail.yml"
 gsutil -m cp "gs://$CONFIG_BUCKET/.env"                                    "$APP_DIR/.env"
+
+# The MIG rollout is keyed off the instance template's image tag. Pin that tag
+# locally even if the bucket contents lag briefly during the deploy pipeline.
+if grep -q '^IMAGE_TAG=' "$APP_DIR/.env"; then
+  sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=$IMAGE_TAG/" "$APP_DIR/.env"
+else
+  printf '\nIMAGE_TAG=%s\n' "$IMAGE_TAG" >> "$APP_DIR/.env"
+fi
 
 chmod 600 "$APP_DIR/.env"
 chown -R deploy:deploy "$APP_DIR"
