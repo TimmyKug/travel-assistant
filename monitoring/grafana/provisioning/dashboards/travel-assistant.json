@@ -2,149 +2,252 @@
   "title": "Travel Assistant",
   "uid": "travel-assistant",
   "schemaVersion": 36,
-  "version": 2,
+  "version": 3,
   "refresh": "30s",
   "panels": [
     {
       "id": 1,
-      "title": "HTTP Request Rate",
-      "type": "timeseries",
-      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
-      "targets": [{
-        "expr": "rate(http_requests_total[5m])",
-        "legendFormat": "{{method}} {{handler}} {{status_code}}"
-      }]
+      "title": "Healthy App Instances",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "count(up{job=\"travel-assistant-api\"} == 1)",
+          "legendFormat": "healthy"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      }
     },
     {
       "id": 2,
-      "title": "Request Latency (p95)",
-      "type": "timeseries",
-      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
-      "targets": [{
-        "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
-        "legendFormat": "p95 {{handler}}"
-      }]
+      "title": "Request Rate",
+      "type": "stat",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{handler!=\"/metrics\",handler!=\"/api/health\"}[5m]))",
+          "legendFormat": "req/s"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      }
     },
     {
       "id": 3,
-      "title": "CPU Usage %",
-      "type": "timeseries",
-      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
-      "targets": [{
-        "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
-        "legendFormat": "CPU %"
-      }]
+      "title": "5xx Error Ratio",
+      "type": "stat",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "100 * sum(rate(http_requests_total{status_code=~\"5..\",handler!=\"/metrics\",handler!=\"/api/health\"}[5m])) / clamp_min(sum(rate(http_requests_total{handler!=\"/metrics\",handler!=\"/api/health\"}[5m])), 0.0001)",
+          "legendFormat": "5xx %"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      }
     },
     {
       "id": 4,
-      "title": "Memory Usage %",
-      "type": "timeseries",
-      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
-      "targets": [{
-        "expr": "100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)",
-        "legendFormat": "Memory %"
-      }]
+      "title": "Request Latency p95",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{handler!=\"/metrics\",handler!=\"/api/health\"}[5m])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      }
     },
     {
       "id": 5,
-      "title": "Disk Usage %",
+      "title": "Rate Limit Hits (1h)",
       "type": "stat",
-      "gridPos": { "x": 0, "y": 16, "w": 8, "h": 4 },
-      "targets": [{
-        "expr": "100 * (1 - node_filesystem_avail_bytes{mountpoint=\"/data\"} / node_filesystem_size_bytes{mountpoint=\"/data\"})",
-        "legendFormat": "Disk %"
-      }]
+      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "sum(increase(ai_requests_total{status=\"rate_limited\"}[1h]))",
+          "legendFormat": "rate_limited"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      }
     },
     {
       "id": 6,
-      "title": "Error Rate (5xx)",
+      "title": "Disk Usage /",
       "type": "stat",
-      "gridPos": { "x": 8, "y": 16, "w": 8, "h": 4 },
-      "targets": [{
-        "expr": "sum(rate(http_requests_total{status_code=~\"5..\"}[5m]))",
-        "legendFormat": "Errors/s"
-      }]
-    },
-    {
-      "id": 11,
-      "title": "Rate Limit Hits (last 1h)",
-      "type": "stat",
-      "gridPos": { "x": 16, "y": 16, "w": 8, "h": 4 },
-      "targets": [{
-        "expr": "sum(increase(ai_requests_total{status=\"rate_limited\"}[1h]))",
-        "legendFormat": "Rate Limited"
-      }]
+      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "100 * (1 - node_filesystem_avail_bytes{mountpoint=\"/\",fstype!=\"rootfs\"} / node_filesystem_size_bytes{mountpoint=\"/\",fstype!=\"rootfs\"})",
+          "legendFormat": "disk %"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      }
     },
     {
       "id": 7,
-      "title": "Auth Events",
+      "title": "HTTP Request Rate by Route",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
-      "targets": [{
-        "expr": "sum by (event) (rate(auth_events_total[5m]))",
-        "legendFormat": "{{event}}"
-      }]
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "topk(5, sum by (handler) (rate(http_requests_total{handler!=\"/metrics\",handler!=\"/api/health\"}[5m])))",
+          "legendFormat": "{{handler}}"
+        }
+      ]
     },
     {
       "id": 8,
-      "title": "AI Chat Requests",
+      "title": "Request Latency p95 by Route",
       "type": "timeseries",
-      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
-      "targets": [{
-        "expr": "sum by (status) (rate(ai_requests_total[5m]))",
-        "legendFormat": "{{status}}"
-      }]
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "topk(5, histogram_quantile(0.95, sum by (le, handler) (rate(http_request_duration_seconds_bucket{handler!=\"/metrics\",handler!=\"/api/health\"}[5m]))))",
+          "legendFormat": "{{handler}}"
+        }
+      ]
     },
     {
       "id": 9,
-      "title": "Gemini Response Duration",
+      "title": "CPU Usage by App Instance",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 28, "w": 12, "h": 8 },
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, rate(gemini_request_duration_seconds_bucket[5m]))",
-          "legendFormat": "p95"
-        },
-        {
-          "expr": "histogram_quantile(0.50, rate(gemini_request_duration_seconds_bucket[5m]))",
-          "legendFormat": "p50"
+          "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{job=\"node-exporter-app\",mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "{{instance}}"
         }
       ]
     },
     {
       "id": 10,
-      "title": "Trip Operations",
+      "title": "Memory Usage by App Instance",
       "type": "timeseries",
-      "gridPos": { "x": 12, "y": 28, "w": 12, "h": 8 },
-      "targets": [{
-        "expr": "sum by (operation) (rate(trips_operations_total[5m]))",
-        "legendFormat": "{{operation}}"
-      }]
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "100 * (1 - (node_memory_MemAvailable_bytes{job=\"node-exporter-app\"} / node_memory_MemTotal_bytes{job=\"node-exporter-app\"}))",
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Auth Events (1h)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 20, "w": 8, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum by (event) (increase(auth_events_total[1h]))",
+          "legendFormat": "{{event}}"
+        }
+      ]
     },
     {
       "id": 12,
-      "title": "Backend Logs",
-      "type": "logs",
-      "gridPos": { "x": 0, "y": 36, "w": 24, "h": 12 },
-      "datasource": { "type": "loki", "uid": "Loki" },
-      "options": {
-        "showTime": true,
-        "showLabels": true,
-        "wrapLogMessage": true,
-        "sortOrder": "Descending",
-        "dedupStrategy": "none"
-      },
-      "targets": [{
-        "datasource": { "type": "loki", "uid": "Loki" },
-        "expr": "{service=\"backend\"}",
-        "legendFormat": ""
-      }]
+      "title": "AI Chat Requests by Status",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 20, "w": 8, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum by (status) (rate(ai_requests_total[5m]))",
+          "legendFormat": "{{status}}"
+        }
+      ]
     },
     {
       "id": 13,
-      "title": "Warning & Error Logs",
+      "title": "Gemini Response Duration",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 20, "w": 8, "h": 7 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(gemini_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(gemini_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p50"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Trip Operations (1h)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 27, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum by (operation) (increase(trips_operations_total[1h]))",
+          "legendFormat": "{{operation}}"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "Recent Backend Logs",
       "type": "logs",
-      "gridPos": { "x": 0, "y": 48, "w": 24, "h": 8 },
+      "gridPos": { "x": 12, "y": 27, "w": 12, "h": 7 },
       "datasource": { "type": "loki", "uid": "Loki" },
       "options": {
         "showTime": true,
@@ -153,11 +256,34 @@
         "sortOrder": "Descending",
         "dedupStrategy": "none"
       },
-      "targets": [{
-        "datasource": { "type": "loki", "uid": "Loki" },
-        "expr": "{service=\"backend\", level=~\"WARNING|ERROR\"}",
-        "legendFormat": ""
-      }]
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "Loki" },
+          "expr": "{service=~\".*backend.*\"}",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "Warnings & Errors",
+      "type": "logs",
+      "gridPos": { "x": 0, "y": 34, "w": 24, "h": 8 },
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "Loki" },
+          "expr": "{service=~\".*backend.*\", level=~\"warning|error|WARNING|ERROR\"}",
+          "legendFormat": ""
+        }
+      ]
     }
   ]
 }
