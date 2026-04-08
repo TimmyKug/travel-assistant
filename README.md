@@ -14,27 +14,27 @@ graph TD
     end
 
     subgraph AppVM ["App VM (MIG — auto-healed, static IP)"]
-        nginx["nginx\nport 80"]
-        backend["backend\nFastAPI + Gemini Flash"]
-        frontend["frontend\nReact static files"]
-        promtail["promtail\nlog shipper"]
-        node_exp["node-exporter\n:9100"]
+        nginx[nginx :80]
+        backend[backend: FastAPI + Gemini Flash]
+        frontend[frontend: React static files]
+        promtail[promtail: log shipper]
+        node_exp[node-exporter :9100]
         nginx --> backend
         nginx --> frontend
     end
 
     subgraph MonVM ["Monitoring VM (persistent disk)"]
-        prometheus["Prometheus\nGCE service discovery"]
-        loki["Loki\n:3100"]
-        grafana["Grafana\n/grafana/"]
+        prometheus[Prometheus: GCE service discovery]
+        loki[Loki :3100]
+        grafana[Grafana /grafana/]
         prometheus --> grafana
         loki --> grafana
     end
 
     subgraph Storage ["GCP Managed Storage"]
-        AR["Artifact Registry\nDocker images"]
-        FS["Firestore\nusers · conversations · trips · rate limits"]
-        PD["Persistent Disk\nPrometheus + Loki + Grafana state"]
+        AR[Artifact Registry: Docker images]
+        FS[Firestore: users / conversations / trips / rate limits]
+        PD[Persistent Disk: Prometheus + Loki + Grafana state]
     end
 
     GHA1 -- push --> AR
