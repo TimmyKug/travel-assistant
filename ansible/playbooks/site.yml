@@ -1,15 +1,16 @@
 ---
-- name: Configure Travel Assistant VM
-  hosts: all
+- name: Configure Monitoring VM
+  hosts: monitoring
   become: true
 
   vars:
     app_dir: /opt/travel-assistant
-    monitoring_mount: /mnt/monitoring
+    monitoring_mount: /mnt/monitoring-data
+    monitoring_device: /dev/disk/by-id/google-monitoring-data
 
   pre_tasks:
     - name: Check if monitoring disk is formatted
-      command: blkid /dev/disk/by-id/google-monitoring-disk
+      command: blkid {{ monitoring_device }}
       register: disk_check
       failed_when: false
       changed_when: false
@@ -17,7 +18,7 @@
     - name: Format monitoring disk (first run only)
       filesystem:
         fstype: ext4
-        dev: /dev/disk/by-id/google-monitoring-disk
+        dev: "{{ monitoring_device }}"
       when: disk_check.rc != 0
 
     - name: Create monitoring mount point
@@ -29,7 +30,7 @@
     - name: Mount monitoring disk (persists across reboots)
       mount:
         path: "{{ monitoring_mount }}"
-        src: /dev/disk/by-id/google-monitoring-disk
+        src: "{{ monitoring_device }}"
         fstype: ext4
         opts: defaults,nofail
         state: mounted
@@ -37,4 +38,5 @@
   roles:
     - role: common
     - role: monitoring
-    - role: app
+    - role: monitoring_disk
+    - role: monitoring_vm
