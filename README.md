@@ -1,24 +1,52 @@
 # AI Travel Assistant
 
-A full-stack AI travel assistant powered by Gemini Flash, running on a GCP VM managed with Terraform + Ansible.
+A full-stack AI travel assistant powered by Gemini Flash 3, running on a GCP VM managed with Terraform + Ansible.
 
 ## Architecture
 
-```
-GitHub Actions (push to main)
-  ├─► Build Docker images (with layer caching) → push to Artifact Registry
-  ├─► Terraform apply (idempotent — creates VM + Artifact Registry repo if not exists)
-  └─► Ansible playbook (provisions VM, writes secrets, pulls images, starts Docker Compose)
-        └─► Docker Compose on VM (pulls pre-built images — no build on VM)
-              ├─► nginx (port 80 — reverse proxy for everything)
-              ├─► backend (FastAPI + Gemini + Firestore)
-              ├─► frontend (React, served as static files)
-              ├─► prometheus (scrapes /metrics, data on persistent disk)
-              └─► grafana (/grafana/ path, dashboards on persistent disk)
+```mermaid
+graph TD
+    subgraph CI ["GitHub Actions (push to main)"]
+        GHA1[Build & push Docker images]
+        GHA2[Terraform apply]
+        GHA3[Ansible playbook]
+        GHA1 --> GHA2 --> GHA3
+    end
 
-GCP Artifact Registry      — pre-built Docker images (backend, nginx/frontend)
-GCP Firestore (serverless) — user data, conversations, trips, analytics
-GCP Persistent Disk        — Prometheus TSDB + Grafana state (survives VM recreation)
+    subgraph AppVM ["App VM (MIG — auto-healed, static IP)"]
+        nginx["nginx\nport 80"]
+        backend["backend\nFastAPI + Gemini Flash"]
+        frontend["frontend\nReact static files"]
+        promtail["promtail\nlog shipper"]
+        node_exp["node-exporter\n:9100"]
+        nginx --> backend
+        nginx --> frontend
+    end
+
+    subgraph MonVM ["Monitoring VM (persistent disk)"]
+        prometheus["Prometheus\nGCE service discovery"]
+        loki["Loki\n:3100"]
+        grafana["Grafana\n/grafana/"]
+        prometheus --> grafana
+        loki --> grafana
+    end
+
+    subgraph Storage ["GCP Managed Storage"]
+        AR["Artifact Registry\nDocker images"]
+        FS["Firestore\nusers · conversations · trips · rate limits"]
+        PD["Persistent Disk\nPrometheus + Loki + Grafana state"]
+    end
+
+    GHA1 -- push --> AR
+    GHA3 -- provision --> AppVM
+    GHA3 -- provision --> MonVM
+    AR -- pull --> AppVM
+    backend -- read/write --> FS
+    promtail -- logs :3100 --> loki
+    prometheus -- scrape :9100 --> node_exp
+    prometheus -- store --> PD
+    loki -- store --> PD
+    grafana -- store --> PD
 ```
 
 ## First-time Setup
