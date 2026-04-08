@@ -11,6 +11,7 @@ services:
     depends_on:
       - grafana
       - prometheus
+      - alertmanager
     networks:
       - monitoring-net
 
@@ -41,8 +42,9 @@ services:
     command:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
       - '--storage.path=/alertmanager'
-      - '--web.external-url=/alertmanager/'
-      - '--web.route-prefix=/'
+      # No --web.external-url: AM requires an absolute URL and we don't have a
+      # stable hostname. nginx strips the /alertmanager/ prefix via proxy_pass,
+      # so AM can keep serving from / with the default route prefix.
     expose:
       - "9093"
     networks:

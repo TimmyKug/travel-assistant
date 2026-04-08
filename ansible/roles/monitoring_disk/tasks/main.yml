@@ -50,8 +50,11 @@
     mode: "0755"
     recurse: yes
 
-- name: Create Alertmanager data directory
+- name: Create Alertmanager data directory (owner = nobody uid 65534)
   file:
     path: "{{ monitoring_mount }}/alertmanager"
     state: directory
+    owner: 65534
+    group: 65534
     mode: "0755"
+    recurse: yes

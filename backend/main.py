@@ -72,6 +72,6 @@ app.include_router(ai.router,    prefix="/api/ai",    tags=["ai"])
 app.include_router(trips.router, prefix="/api/trips", tags=["trips"])
 
 
-@app.get("/health")
+@app.get("/api/health")
 def health_check():
     return {"status": "ok"}
