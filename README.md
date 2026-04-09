@@ -55,7 +55,12 @@ graph TD
 
 ```bash
 # Enable required APIs
-gcloud services enable compute.googleapis.com firestore.googleapis.com iam.googleapis.com artifactregistry.googleapis.com
+gcloud services enable \
+  compute.googleapis.com \
+  firestore.googleapis.com \
+  iam.googleapis.com \
+  artifactregistry.googleapis.com \
+  cloudscheduler.googleapis.com
 
 # Create a GCS bucket for Terraform state
 gsutil mb -l europe-west3 gs://YOUR_PROJECT_ID-tf-state
@@ -66,9 +71,11 @@ gcloud iam service-accounts create github-actions --display-name="GitHub Actions
 # Grant permissions — all of these are required
 for role in \
   roles/compute.admin \
+  roles/cloudscheduler.admin \
   roles/iam.serviceAccountAdmin \
   roles/iam.serviceAccountUser \
   roles/resourcemanager.projectIamAdmin \
+  roles/serviceusage.serviceUsageAdmin \
   roles/datastore.owner \
   roles/storage.admin \
   roles/firebase.admin \
@@ -87,6 +94,13 @@ gcloud iam service-accounts keys create sa-key.json \
 # Initialize Firestore (choose Native mode)
 gcloud firestore databases create --location=europe-west3
 ```
+
+Important:
+- The GitHub Actions deploy identity is the service account whose JSON key is stored in `GCP_SA_KEY`.
+- In the example above that is `github-actions@YOUR_PROJECT_ID.iam.gserviceaccount.com`.
+- It needs `roles/serviceusage.serviceUsageAdmin` so Terraform can enable APIs such as Cloud Scheduler during deploys.
+- It also needs `roles/cloudscheduler.admin` so Terraform can create the scheduled Firestore export job.
+- If `cloudscheduler.googleapis.com` is already enabled manually, deploys will also work without that role, but the role is the cleaner long-term setup.
 
 ### 2. SSH Key Pair
 

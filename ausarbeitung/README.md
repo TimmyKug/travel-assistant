@@ -5,6 +5,10 @@ for the written report (`Ausarbeitung`) and presentation.
 
 ## Files
 
+- `disaster-recovery.md`
+  Documents the disaster recovery concept, including the separation between VM
+  self-healing and Firestore data recovery, the monitoring path, and the final
+  live demo flow used in the presentation.
 - `load-balancer-migration.md`
   Documents the move from a single externally addressed app VM to a
   load-balanced Managed Instance Group, including the deployment changes,
@@ -25,6 +29,9 @@ for the written report (`Ausarbeitung`) and presentation.
 - Use the "Architecture decisions" section to justify why Terraform and the
   startup script now own the app deployment while Ansible remains responsible
   for the monitoring VM.
+- Use `disaster-recovery.md` for the resilience chapter, especially when you
+  want to explain the difference between app-instance recovery and Firestore
+  data recovery.
 - Use the "Observed issues and fixes" section as material for lessons learned
   or troubleshooting.
 - Use the "Final result" section for presentation notes and grading-related
