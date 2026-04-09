@@ -432,7 +432,7 @@
       },
       "targets": [
         {
-          "expr": "probe_success{job=\"db-health\"} or vector(0)",
+          "expr": "min(probe_success{job=\"db-health\"}) or vector(0)",
           "legendFormat": "integrity"
         }
       ],
