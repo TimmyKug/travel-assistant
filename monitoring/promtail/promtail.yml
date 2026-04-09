@@ -34,3 +34,24 @@ scrape_configs:
       - labels:
           level:
           logger:
+
+  - job_name: startup-log
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: startup-log
+          service: vm-startup
+          __path__: /var/log/startup.log
+    pipeline_stages:
+      - json:
+          expressions:
+            level: level
+            event: event
+            reason: reason
+            message: message
+            instance: instance
+      - labels:
+          level:
+          event:
+          reason:
+          instance:

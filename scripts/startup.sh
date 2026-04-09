@@ -28,6 +28,17 @@ LOG=/var/log/startup.log
 exec > >(tee -a "$LOG") 2>&1
 echo "[startup] $(date -u +%FT%TZ) — beginning bootstrap"
 
+log_json() {
+  local level="$1"
+  local event="$2"
+  local reason="$3"
+  local message="$4"
+  printf '{"level":"%s","event":"%s","reason":"%s","message":"%s","project_id":"%s","image_tag":"%s","instance":"%s","time":"%s"}\n' \
+    "$level" "$event" "$reason" "$message" "$PROJECT_ID" "$IMAGE_TAG" "$(hostname)" "$(date -u +%FT%TZ)"
+}
+
+log_json "INFO" "vm_recovery_event" "vm_boot" "App VM bootstrap started"
+
 # ── 1. Install Docker ─────────────────────────────────────────────────────────
 apt-get update -qq
 apt-get install -y --no-install-recommends ca-certificates curl gnupg
@@ -89,3 +100,4 @@ docker compose pull --quiet
 docker compose up -d
 
 echo "[startup] $(date -u +%FT%TZ) — bootstrap complete"
+log_json "INFO" "app_instance_started" "vm_boot" "App services started after VM bootstrap"
