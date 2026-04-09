@@ -75,4 +75,4 @@ jobs:
           TF_VAR_zone: "${{ vars.GCP_REGION || 'europe-west3' }}-a"
           TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
           TF_VAR_firebase_app_id: ${{ vars.FIREBASE_APP_ID }}
-        run: terraform destroy -auto-approve -var-file="terraform.tfvars" || true
+        run: terraform apply "destroy.tfplan"
