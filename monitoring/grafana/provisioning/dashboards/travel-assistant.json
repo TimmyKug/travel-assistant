@@ -3,7 +3,11 @@
   "uid": "travel-assistant",
   "schemaVersion": 36,
   "version": 3,
-  "refresh": "30s",
+  "refresh": "5s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
   "panels": [
     {
       "id": 1,
