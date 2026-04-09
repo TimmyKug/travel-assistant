@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>AI Travel Assistant - Cloud Computing II</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.0.4/reset.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.0.4/reveal.min.css">
+    
+    <!-- Code Highlight Theme -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --r-main-font: 'Inter', sans-serif;
+            --r-heading-font: 'Inter', sans-serif;
+            --r-heading-font-weight: 800;
+            --r-background-color: #0a0a1a;
+            --r-main-color: #f0f0f0;
+            --r-heading-color: #ffffff;
+            --r-link-color: #00d4ff;
+            --r-link-color-hover: #ff6b35;
+        }
+        
+        .reveal {
+            font-family: var(--r-main-font);
+            color: var(--r-main-color);
+            background-color: var(--r-background-color);
+            background-image: radial-gradient(circle at 50% 0%, #151530 0%, #0a0a1a 70%);
+        }
+        
+        /* Architecture Diagram Styles */
+        .arch-box {
+            fill: #151530;
+            stroke: #333366;
+            stroke-width: 2;
+            rx: 10;
+        }
+        .arch-box-highlight { stroke: #00d4ff; }
+        .arch-text {
+            fill: #ffffff;
+            font-family: 'Inter', sans-serif;
+            font-size: 16px;
+        }
+        .arch-title { font-weight: 800; font-size: 18px; fill: #00d4ff; }
+        .arch-line {
+            stroke: #444488;
+            stroke-width: 2;
+            stroke-dasharray: 4;
+            marker-end: url(#arrow);
+        }
+        .text-cyan { color: #00d4ff; }
+        .text-orange { color: #ff6b35; }
+        
+        /* iFrame Styles */
+        .demo-iframe {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #333366;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            background: #fff;
+        }
+        
+        /* Two Column Layout */
+        .col-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+        .col { flex: 1; }
+        
+        /* Warning Box */
+        .warning-box {
+            background: rgba(255, 107, 53, 0.1);
+            border: 2px solid #ff6b35;
+            padding: 20px;
+            border-radius: 8px;
+            color: #ff6b35;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+<div class="reveal">
+    <div class="slides">
+
+        <!-- Slide 1: Title -->
+        <section>
+            <h1 style="font-size: 3.5em; margin-bottom: 0;">AI Travel <span class="text-cyan">Assistant</span></h1>
+            <h3 style="color: #888; font-weight: 400; margin-top: 20px;">Cloud Computing II Projekt</h3>
+            <p style="margin-top: 50px;">GCP Workspace • Terraform • Ansible • Docker</p>
+        </section>
+
+        <!-- Slide 2: The Problem -->
+        <section>
+            <h2 class="text-orange">Das Problem</h2>
+            <p>Reiseplanung ist chaotisch, unübersichtlich und kostet Nerven.</p>
+            <ul style="margin-top: 30px;">
+                <li class="fragment">Zehn geöffnete Tabs</li>
+                <li class="fragment">Excel-Listen für Ausflüge</li>
+                <li class="fragment">Kein roter Faden</li>
+            </ul>
+            <h3 class="fragment text-cyan" style="margin-top: 40px;">Die Lösung: AI generierte Pläne.</h3>
+        </section>
+
+        <!-- Slide 3: Live Showcase App -->
+        <section>
+            <h2>Live Demo</h2>
+            <p style="font-size: 0.6em; color: #888;">Live Load-Balancer IP (MIG)</p>
+            <!-- 
+              TODO: Falls sich die Load-Balancer IP ändert, hier anpassen.
+            -->
+            <iframe class="demo-iframe" src="http://136.110.247.56/" data-src="http://136.110.247.56/"></iframe>
+        </section>
+
+        <!-- Slide 4: The Crash -->
+        <section data-background-color="#2a0000">
+            <h1 style="color: #ff3333; font-size: 4em;">💥 Der Crash</h1>
+            <div class="warning-box fragment">
+                Um unser automatisches Disaster Recovery zu beweisen, <b>löschen wir jetzt die Haupt-VM</b> live im GCP Portal!
+            </div>
+            <p class="fragment" style="margin-top: 40px;">Während die App offline geht und die Cloud reagiert, schauen wir uns den Motor an...</p>
+        </section>
+
+        <!-- Slide 5: Architektur -->
+        <section>
+            <h2><span class="text-cyan">XaaS Architektur</span></h2>
+            
+            <object type="image/svg+xml" data-src="arch.svg" style="width: 100%; height: 500px; margin-top: 20px;">
+                <svg viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#444488" />
+                        </marker>
+                    </defs>
+
+                    <!-- SaaS -->
+                    <rect class="arch-box arch-box-highlight" x="700" y="50" width="280" height="100"/>
+                    <text class="arch-text arch-title" x="720" y="80">SaaS</text>
+                    <text class="arch-text" x="720" y="110">Gemini Flash 3 API</text>
+                    <text class="arch-text" x="720" y="130" style="font-size: 12px; fill:#888;">(Google AI Studio)</text>
+
+                    <!-- PaaS -->
+                    <rect class="arch-box" x="700" y="200" width="280" height="150"/>
+                    <text class="arch-text arch-title" x="720" y="230">PaaS</text>
+                    <text class="arch-text" x="720" y="260">Firestore (Users/Trips)</text>
+                    <text class="arch-text" x="720" y="290">GCS Bucket (TF-State)</text>
+                    <text class="arch-text" x="720" y="320">Artifact Registry</text>
+
+                    <!-- IaaS: App VM -->
+                    <rect class="arch-box" x="20" y="50" width="300" height="250"/>
+                    <text class="arch-text arch-title" x="40" y="80">IaaS (Managed Instance Group)</text>
+                    <text class="arch-text" x="40" y="120">Nginx / Load Balancer</text>
+                    <text class="arch-text" x="40" y="160">FastAPI Backend</text>
+                    <text class="arch-text" x="40" y="200">React Frontend</text>
+                    <text class="arch-text" x="40" y="240">Promtail & Node Exporter</text>
+                    
+                    <path class="arch-line" d="M 320 120 C 500 120, 500 100, 700 100" />
+                    <path class="arch-line" d="M 320 260 C 500 260, 500 260, 700 260" />
+
+                    <!-- IaaS: Monitoring VM -->
+                    <rect class="arch-box" x="350" y="300" width="280" height="180"/>
+                    <text class="arch-text arch-title" x="370" y="330">Monitoring VM (Persistent)</text>
+                    <text class="arch-text" x="370" y="370">Prometheus</text>
+                    <text class="arch-text" x="370" y="410">Grafana Dashboard</text>
+                    <text class="arch-text" x="370" y="450">Loki Logs</text>
+
+                    <path class="arch-line" d="M 170 300 L 170 390 L 350 390" />
+                    <path class="arch-line" d="M 630 390 L 840 390 L 840 350" />
+                    
+                </svg>
+            </object>
+        </section>
+
+        <!-- Slide 6: IaC & Automation -->
+        <section>
+            <h2>Automation <span class="text-orange">&</span> CI/CD</h2>
+            <div class="col-container">
+                <div class="col">
+                    <h3 class="text-cyan">Terraform</h3>
+                    <ul>
+                        <li class="fragment">GCP Ressourcen (VMs, Netze)</li>
+                        <li class="fragment">Managed Instance Group</li>
+                        <li class="fragment">Persistent Disks</li>
+                    </ul>
+                </div>
+                <div class="col">
+                    <h3 class="text-orange">Ansible</h3>
+                    <ul>
+                        <li class="fragment">Docker Setup</li>
+                        <li class="fragment">Monitoring Stack (Prometheus)</li>
+                        <li class="fragment">Secrets Injektion (.env)</li>
+                    </ul>
+                </div>
+            </div>
+            <p class="fragment" style="margin-top:30px; font-weight:bold; border-top:1px solid #333; padding-top:20px;">
+                Voll integriert in <span style="color:#2ea44f;">GitHub Actions</span>
+            </p>
+        </section>
+
+        <!-- Slide 7: Disaster Recovery Konzept -->
+        <section>
+            <h2>Disaster <span class="text-cyan">Recovery</span> 🛠️</h2>
+            <ul style="font-size: 0.9em;">
+                <li><b>GCP Health Check:</b> Ping auf `/api/health` alle 30s.</li>
+                <li>Bei 3 Fails wirft die Managed Instance Group die VM weg.</li>
+                <li class="fragment"><b>Startup Script (Self-Healing):</b></li>
+            </ul>
+            
+            <pre class="fragment"><code class="language-bash" data-trim data-noescape>
+            # Auszug startup-script (Metadata)
+            gsutil -m cp "gs://$CONFIG_BUCKET/docker-compose.yml" "$APP_DIR/"
+            gsutil -m cp "gs://$CONFIG_BUCKET/.env" "$APP_DIR/"
+            docker compose pull
+            docker compose up -d
+            </code></pre>
+            <p class="fragment" style="font-size: 0.8em; color: #888;">Dank IaaS / Startup-Scripts bootet die App 100% autark neu.</p>
+        </section>
+
+        <!-- Slide 8: Live Monitoring -->
+        <section data-background-color="#050510">
+            <h2 style="font-size: 1.5em; margin-bottom: 20px;">Live Monitoring (Ist die VM weg?)</h2>
+            
+            <!-- 
+              TODO: Hier die echte Monitoring-IP einfügen.
+              Beispiel: http://<MONITORING_IP>/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark
+            -->
+            <iframe class="demo-iframe" src="YOUR_GRAFANA_URL_HERE_WITH_HTTP" data-src="YOUR_GRAFANA_URL_HERE_WITH_HTTP" style="height: 550px;"></iframe>
+            <p style="font-size: 0.5em; color: #666; margin-top: 5px;">* Erfordert <code style="color:#ff6b35;">YOUR_GRAFANA_URL</code> in index.html (oder klickt auf den externen Link)</p>
+        </section>
+
+        <!-- Slide 9: The Magic Return -->
+        <section>
+            <h2 class="text-cyan">Die App ist zurück!</h2>
+            <p>Die Instance Group hat in der Zwischenzeit eine neue VM gesponnen.</p>
+            <!-- Erneut App-IP eintragen -->
+            <iframe class="demo-iframe fragment" src="http://136.110.247.56/" data-src="http://136.110.247.56/" style="height: 450px;"></iframe>
+        </section>
+
+        <!-- Slide 10: Fazit -->
+        <section>
+            <h2>Fazit & Learnings</h2>
+            <ul style="line-height: 1.5;">
+                <li class="fragment"><b>Terraform + Ansible</b> ist eine steile, aber lohnenswerte Lernkurve.</li>
+                <li class="fragment"><b>GCP MIGs</b> nehmen unfassbar viel Last beim Incident-Management.</li>
+                <li class="fragment"><b>SaaS (Gemini)</b> lässt uns in Wochen statt Monaten intelligente Apps bauen.</li>
+            </ul>
+            <h3 class="fragment text-cyan" style="margin-top: 50px;">Fragen?</h3>
+        </section>
+
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.0.4/reveal.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.0.4/plugin/highlight/highlight.min.js"></script>
+<script>
+    Reveal.initialize({
+        controls: true,
+        progress: true,
+        center: true,
+        hash: true,
+        transition: 'slide',
+        
+        plugins: [ RevealHighlight ],
+        
+        // Iframe lazy loading setup
+        viewDistance: 2,
+        preloadIframes: true
+    });
+</script>
+
+</body>
+</html>
