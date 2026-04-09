@@ -7,83 +7,182 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.0.4/reset.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/5.0.4/reveal.min.css">
-    
-    <!-- Code Highlight Theme -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/tokyo-night-dark.min.css">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
 
     <style>
         :root {
             --r-main-font: 'Inter', sans-serif;
-            --r-heading-font: 'Inter', sans-serif;
-            --r-heading-font-weight: 800;
-            --r-background-color: #0a0a1a;
-            --r-main-color: #f0f0f0;
+            --r-heading-font: 'Outfit', sans-serif;
+            --r-heading-font-weight: 900;
+            --r-background-color: #05050a;
+            --r-main-color: #e2e8f0;
             --r-heading-color: #ffffff;
-            --r-link-color: #00d4ff;
-            --r-link-color-hover: #ff6b35;
+            --r-link-color: #00f0ff;
+            --r-link-color-hover: #ff0055;
+            --glass-bg: rgba(20, 20, 40, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.08);
         }
         
+        /* Set background on both body and .reveal to override Reveal.js defaults */
+        body, .reveal, .reveal-viewport {
+            background-color: var(--r-background-color) !important;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(0, 240, 255, 0.05), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(255, 0, 85, 0.05), transparent 25%) !important;
+        }
+
         .reveal {
             font-family: var(--r-main-font);
             color: var(--r-main-color);
-            background-color: var(--r-background-color);
-            background-image: radial-gradient(circle at 50% 0%, #151530 0%, #0a0a1a 70%);
         }
-        
-        /* Architecture Diagram Styles */
-        .arch-box {
-            fill: #151530;
-            stroke: #333366;
-            stroke-width: 2;
-            rx: 10;
+
+        .reveal h1, .reveal h2, .reveal h3, .reveal h4, .reveal h5, .reveal h6 {
+            font-family: var(--r-heading-font);
+            text-transform: none;
+            letter-spacing: -0.02em;
         }
-        .arch-box-highlight { stroke: #00d4ff; }
-        .arch-text {
-            fill: #ffffff;
-            font-family: 'Inter', sans-serif;
-            font-size: 16px;
+
+        .text-gradient {
+            background: linear-gradient(135deg, #00f0ff 0%, #0080ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 900;
         }
-        .arch-title { font-weight: 800; font-size: 18px; fill: #00d4ff; }
-        .arch-line {
-            stroke: #444488;
-            stroke-width: 2;
-            stroke-dasharray: 4;
-            marker-end: url(#arrow);
+
+        .text-gradient-orange {
+            background: linear-gradient(135deg, #ff6a00 0%, #ee0979 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 900;
         }
-        .text-cyan { color: #00d4ff; }
-        .text-orange { color: #ff6b35; }
-        
+
+        .glow-text {
+            text-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+        }
+
+        /* Glassmorphism Cards */
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px 0 rgba(0, 240, 255, 0.15);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+        }
+
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 40px; }
+        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 30px; margin-top: 40px; }
+
+        .list-none { list-style-type: none; padding: 0; margin: 0; }
+        .list-none li { padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .list-none li:last-child { border-bottom: none; }
+
         /* iFrame Styles */
         .demo-iframe {
             width: 100%;
             height: 600px;
-            border: 2px solid #333366;
+            border: 1px solid rgba(255,255,255,0.1);
             border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
             background: #fff;
         }
-        
-        /* Two Column Layout */
-        .col-container {
-            display: flex;
-            justify-content: space-between;
-            gap: 20px;
+
+        .browser-mockup {
+            border-top: 30px solid #2a2a35;
+            position: relative;
+            border-radius: 12px 12px 0 0;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
         }
-        .col { flex: 1; }
-        
-        /* Warning Box */
-        .warning-box {
-            background: rgba(255, 107, 53, 0.1);
-            border: 2px solid #ff6b35;
-            padding: 20px;
+        .browser-mockup::before {
+            content: '';
+            position: absolute;
+            top: -20px;
+            left: 15px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff5f56;
+            box-shadow: 20px 0 0 #ffbd2e, 40px 0 0 #27c93f;
+        }
+
+        /* Neon Button */
+        .neon-btn {
+            padding: 20px 40px; 
+            font-family: var(--r-heading-font);
+            font-size: 1.2em; 
+            background: rgba(255, 0, 50, 0.1); 
+            color: #ff3366; 
+            border: 2px solid #ff3366; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            font-weight: 800; 
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            box-shadow: 0 0 20px rgba(255,51,51,0.4), inset 0 0 10px rgba(255,51,51,0.2); 
+            transition: all 0.3s ease;
+        }
+        .neon-btn:hover {
+            background: #ff3366;
+            color: white;
+            box-shadow: 0 0 40px rgba(255,51,51,0.8), inset 0 0 20px rgba(255,255,255,0.5); 
+            transform: scale(1.05);
+        }
+        .neon-btn:disabled {
+            background: rgba(255,255,255,0.05);
+            color: #888;
+            border-color: #333;
+            box-shadow: none;
+            transform: none;
+            cursor: not-allowed;
+        }
+
+        /* Mac Window for Code */
+        .mac-window {
+            background: #1e1e1e;
             border-radius: 8px;
-            color: #ff6b35;
-            font-weight: 600;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            overflow: hidden;
+            margin-top: 30px;
         }
+        .mac-header {
+            background: #2d2d2d;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid rgba(0,0,0,0.5);
+        }
+        .mac-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .mac-title {
+            color: #aaa;
+            font-size: 0.8em;
+            font-family: monospace;
+            margin-left: auto;
+            margin-right: auto;
+            padding-right: 40px;
+        }
+
+        /* Architecture Diagram Styles */
+        .arch-text { fill: #e2e8f0; font-family: var(--r-main-font); font-size: 16px; text-anchor: middle; }
+        .arch-title { font-family: var(--r-heading-font); font-weight: 800; font-size: 20px; }
+        .arch-line { stroke: rgba(255,255,255,0.2); stroke-width: 3; stroke-dasharray: 6; marker-end: url(#arrow); }
     </style>
 </head>
 <body>
@@ -93,45 +192,71 @@
 
         <!-- Slide 1: Title -->
         <section>
-            <h1 style="font-size: 3.5em; margin-bottom: 0;">AI Travel <span class="text-cyan">Assistant</span></h1>
-            <h3 style="color: #888; font-weight: 400; margin-top: 20px;">Cloud Computing II Projekt</h3>
-            <p style="margin-top: 50px;">GCP Workspace • Terraform • Ansible • Docker</p>
+            <div class="glass-card" style="padding: 60px;">
+                <h1 style="font-size: 4em; margin-bottom: 0;" class="glow-text">AI Travel <span class="text-gradient">Assistant</span></h1>
+                <h3 style="color: #a0aec0; font-weight: 400; font-family: var(--r-main-font); margin-top: 20px; font-size: 1.2em;">Cloud Computing II Projekt</h3>
+                <div style="margin-top: 50px; display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
+                    <span style="background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; font-size: 0.8em;">GCP</span>
+                    <span style="background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; font-size: 0.8em;">Terraform</span>
+                    <span style="background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; font-size: 0.8em;">Ansible</span>
+                    <span style="background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; font-size: 0.8em;">Docker</span>
+                </div>
+            </div>
         </section>
 
         <!-- Slide 2: The Problem -->
         <section>
-            <h2 class="text-orange">Das Problem</h2>
-            <p>Reiseplanung ist chaotisch, unübersichtlich und kostet Nerven.</p>
-            <ul style="margin-top: 30px;">
-                <li class="fragment">Zehn geöffnete Tabs</li>
-                <li class="fragment">Excel-Listen für Ausflüge</li>
-                <li class="fragment">Kein roter Faden</li>
-            </ul>
-            <h3 class="fragment text-cyan" style="margin-top: 40px;">Die Lösung: AI generierte Pläne.</h3>
+            <h2 class="text-gradient-orange">Das Problem</h2>
+            <p style="font-size: 1.2em; color: #a0aec0; margin-bottom: 40px;">Reiseplanung ist chaotisch, unübersichtlich und kostet Nerven.</p>
+
+            <div class="grid-3">
+                <div class="glass-card fragment">
+                    <div style="font-size: 2.5em; margin-bottom: 15px;">🤯</div>
+                    <h4 style="margin:0;">Zehn geöffnete Tabs</h4>
+                    <p style="font-size: 0.8em; color: #888; margin-top: 10px; line-height: 1.4;">Endloses Vergleichen von Hotels, Flügen und Routen.</p>
+                </div>
+                <div class="glass-card fragment">
+                    <div style="font-size: 2.5em; margin-bottom: 15px;">📊</div>
+                    <h4 style="margin:0;">Excel-Chaos</h4>
+                    <p style="font-size: 0.8em; color: #888; margin-top: 10px; line-height: 1.4;">Manuelle Listen für Ausflüge und Kosten, die nie aktuell sind.</p>
+                </div>
+                <div class="glass-card fragment">
+                    <div style="font-size: 2.5em; margin-bottom: 15px;">🧵</div>
+                    <h4 style="margin:0;">Kein roter Faden</h4>
+                    <p style="font-size: 0.8em; color: #888; margin-top: 10px; line-height: 1.4;">Die logische Verknüpfung aller Elemente fehlt komplett.</p>
+                </div>
+            </div>
+            
+            <div class="fragment" style="margin-top: 50px;">
+                <h3 class="text-gradient" style="display: inline-block; border-bottom: 2px solid #00f0ff; padding-bottom: 10px;">Die Lösung: AI generierte Pläne.</h3>
+            </div>
         </section>
 
         <!-- Slide 3: Live Showcase App -->
         <section>
-            <h2>Live Demo</h2>
-            <p style="font-size: 0.6em; color: #888;">Live Load-Balancer IP (MIG)</p>
-            <!-- 
-              TODO: Falls sich die Load-Balancer IP ändert, hier anpassen.
-            -->
-            <iframe class="demo-iframe" src="http://34.160.96.220/" data-src="http://34.160.96.220/"></iframe>
+            <h2>Live <span class="text-gradient">Demo</span></h2>
+            <p style="font-size: 0.6em; color: #888; margin-bottom: 20px;">Live Load-Balancer IP (MIG)</p>
+            <div class="browser-mockup">
+                <iframe class="demo-iframe" src="http://34.160.96.220/" data-src="http://34.160.96.220/" style="border:none; border-radius: 0 0 12px 12px;"></iframe>
+            </div>
         </section>
 
         <!-- Slide 4: The Crash -->
-        <section data-background-color="#2a0000">
-            <h1 style="color: #ff3333; font-size: 4em;">💥 Der Crash</h1>
+        <section data-background-gradient="radial-gradient(circle at 50% 50%, #2a0005 0%, #050000 100%)">
+            <h1 style="color: #ff3333; font-size: 4.5em; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 20px rgba(255,0,0,0.5);">💥 Der Crash</h1>
             
-            <div class="fragment" style="margin-top: 40px;">
-                <button id="killBtn" style="padding: 20px 40px; font-size: 1.2em; background: #ff3333; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 0 20px rgba(255,51,51,0.6); transition: 0.3s;">
+            <div class="fragment" style="margin-top: 50px;">
+                <button id="killBtn" class="neon-btn">
                     ☠️ VM JETZT ZERSTÖREN ☠️
                 </button>
-                <p id="killStatus" style="color: #ff6b35; font-size: 0.8em; margin-top: 20px; font-weight: bold;"></p>
+                <div style="margin-top: 30px; height: 30px;">
+                    <p id="killStatus" style="color: #ff6b35; font-size: 0.9em; font-weight: bold;"></p>
+                </div>
             </div>
 
-            <p class="fragment" style="margin-top: 20px;">Während die App offline geht, schauen wir uns unsere Cloud-Architektur an...</p>
+            <p class="fragment glass-card" style="margin-top: 30px; display: inline-block; padding: 15px 30px; font-size: 0.9em;">
+                Während die App offline geht, schauen wir uns unsere Cloud-Architektur an... 🔍
+            </p>
 
             <script>
             document.addEventListener("DOMContentLoaded", () => {
@@ -140,22 +265,23 @@
                     const status = document.getElementById('killStatus');
                     
                     btn.disabled = true;
-                    btn.style.background = '#880000';
                     btn.innerHTML = '🔥 ZERSTÖRUNG EINGELEITET... 🔥';
-                    status.innerHTML = 'Skript arbeitet (führe gcloud compute instances delete aus)...';
+                    status.innerHTML = 'Führe Kommando aus (gcloud compute instances delete)...';
 
                     try {
                         const res = await fetch('http://localhost:8080/kill-vm', { method: 'POST' });
                         if (res.ok) {
                             const data = await res.json();
                             btn.innerHTML = '☠️ VM GEKILLT: ' + data.instance;
-                            status.innerHTML = 'Instanz gelöscht! Schau im nächsten Slide ins Monitoring.';
+                            status.innerHTML = 'Instanz erfolgreich gelöscht! Nächster Slide -> Monitoring.';
+                            status.style.color = '#00f0ff';
                         } else {
                             status.innerHTML = 'Fehler beim Löschen. Läuft der lokale Python-Server?';
-                            btn.innerHTML = 'FEHLER!';
+                            btn.innerHTML = '❌ FEHLER ❌';
                         }
                     } catch (e) {
                         status.innerHTML = 'Netzwerkfehler zum Python-Server. Hast du ihn gestartet?';
+                        btn.innerHTML = '❌ FEHLER ❌';
                     }
                 });
             });
@@ -164,128 +290,166 @@
 
         <!-- Slide 5: Architektur -->
         <section>
-            <h2><span class="text-cyan">XaaS Architektur</span></h2>
+            <h2><span class="text-gradient">XaaS Architektur</span></h2>
             
             <object type="image/svg+xml" data-src="arch.svg" style="width: 100%; height: 500px; margin-top: 20px;">
                 <svg viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg">
                     <defs>
-                        <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#444488" />
+                        <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(255,255,255,0.4)" />
                         </marker>
+                        <linearGradient id="iaas-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="rgba(30,30,80,0.8)" />
+                            <stop offset="100%" stop-color="rgba(10,10,30,0.8)" />
+                        </linearGradient>
                     </defs>
 
-                    <!-- SaaS -->
-                    <rect class="arch-box arch-box-highlight" x="700" y="50" width="280" height="100"/>
-                    <text class="arch-text arch-title" x="720" y="80">SaaS</text>
-                    <text class="arch-text" x="720" y="110">Gemini Flash 3 API</text>
-                    <text class="arch-text" x="720" y="130" style="font-size: 12px; fill:#888;">(Google AI Studio)</text>
-
-                    <!-- PaaS -->
-                    <rect class="arch-box" x="700" y="200" width="280" height="150"/>
-                    <text class="arch-text arch-title" x="720" y="230">PaaS</text>
-                    <text class="arch-text" x="720" y="260">Firestore (Users/Trips)</text>
-                    <text class="arch-text" x="720" y="290">GCS Bucket (TF-State)</text>
-                    <text class="arch-text" x="720" y="320">Artifact Registry</text>
-
                     <!-- IaaS: App VM -->
-                    <rect class="arch-box" x="20" y="50" width="300" height="250"/>
-                    <text class="arch-text arch-title" x="40" y="80">IaaS (Managed Instance Group)</text>
-                    <text class="arch-text" x="40" y="120">Nginx / Load Balancer</text>
-                    <text class="arch-text" x="40" y="160">FastAPI Backend</text>
-                    <text class="arch-text" x="40" y="200">React Frontend</text>
-                    <text class="arch-text" x="40" y="240">Promtail & Node Exporter</text>
+                    <rect x="20" y="50" width="300" height="260" fill="url(#iaas-grad)" stroke="#00f0ff" stroke-width="2" rx="16" style="filter: drop-shadow(0 0 15px rgba(0,240,255,0.2));"/>
+                    <text class="arch-text arch-title" x="170" y="90" fill="#00f0ff">IaaS (MIG)</text>
+                    <text class="arch-text" x="170" y="140">Nginx / Load Balancer</text>
+                    <text class="arch-text" x="170" y="180">FastAPI Backend</text>
+                    <text class="arch-text" x="170" y="220">React Frontend</text>
+                    <text class="arch-text" x="170" y="260" fill="#888" font-size="14px">Promtail & Node Exporter</text>
                     
-                    <path class="arch-line" d="M 320 120 C 500 120, 500 100, 700 100" />
-                    <path class="arch-line" d="M 320 260 C 500 260, 500 260, 700 260" />
+                    <!-- PaaS -->
+                    <rect x="680" y="200" width="300" height="150" fill="url(#iaas-grad)" stroke="rgba(255,255,255,0.1)" stroke-width="2" rx="16"/>
+                    <text class="arch-text arch-title" x="830" y="240" fill="#ffffff">PaaS</text>
+                    <text class="arch-text" x="830" y="280">Firestore (NoSQL)</text>
+                    <text class="arch-text" x="830" y="320">GCS (TF-State) / Art. Registry</text>
+
+                    <!-- SaaS -->
+                    <rect x="680" y="50" width="300" height="100" fill="url(#iaas-grad)" stroke="#ff0055" stroke-width="2" rx="16" style="filter: drop-shadow(0 0 15px rgba(255,0,85,0.2));"/>
+                    <text class="arch-text arch-title" x="830" y="85" fill="#ff0055">SaaS</text>
+                    <text class="arch-text" x="830" y="120">Gemini Flash 3 API</text>
 
                     <!-- IaaS: Monitoring VM -->
-                    <rect class="arch-box" x="350" y="300" width="280" height="180"/>
-                    <text class="arch-text arch-title" x="370" y="330">Monitoring VM (Persistent)</text>
-                    <text class="arch-text" x="370" y="370">Prometheus</text>
-                    <text class="arch-text" x="370" y="410">Grafana Dashboard</text>
-                    <text class="arch-text" x="370" y="450">Loki Logs</text>
+                    <rect x="350" y="320" width="300" height="160" fill="url(#iaas-grad)" stroke="rgba(255,255,255,0.1)" stroke-width="2" rx="16"/>
+                    <text class="arch-text arch-title" x="500" y="360" fill="#ffffff">Monitoring VM</text>
+                    <text class="arch-text" x="500" y="400">Prometheus & Grafana</text>
+                    <text class="arch-text" x="500" y="440" fill="#888" font-size="14px">Loki Logs</text>
 
-                    <path class="arch-line" d="M 170 300 L 170 390 L 350 390" />
-                    <path class="arch-line" d="M 630 390 L 840 390 L 840 350" />
-                    
+                    <!-- Connections -->
+                    <path class="arch-line" d="M 320 100 C 500 100, 500 100, 680 100" />
+                    <path class="arch-line" d="M 320 180 C 500 180, 500 240, 680 240" />
+                    <path class="arch-line" d="M 170 310 L 170 400 L 350 400" />
+                    <path class="arch-line" d="M 830 350 L 830 400 L 650 400" />
                 </svg>
             </object>
         </section>
 
         <!-- Slide 6: IaC & Automation -->
         <section>
-            <h2>Automation <span class="text-orange">&</span> CI/CD</h2>
-            <div class="col-container">
-                <div class="col">
-                    <h3 class="text-cyan">Terraform</h3>
-                    <ul>
-                        <li class="fragment">GCP Ressourcen (VMs, Netze)</li>
-                        <li class="fragment">Managed Instance Group</li>
-                        <li class="fragment">Persistent Disks</li>
+            <h2 style="margin-bottom: 20px;">Automation & <span class="text-gradient">CI/CD</span></h2>
+            <div class="grid-2">
+                <div class="glass-card fragment">
+                    <div style="font-size: 3em; margin-bottom: 20px;">🏗️</div>
+                    <h3 class="text-gradient-orange" style="margin-bottom: 20px;">Terraform</h3>
+                    <ul class="list-none" style="text-align: left; font-size: 0.9em;">
+                        <li><span style="color:#ff6a00; margin-right:10px;">✓</span>GCP Ressourcen (VMs, Netze)</li>
+                        <li><span style="color:#ff6a00; margin-right:10px;">✓</span>Managed Instance Group (MIG)</li>
+                        <li><span style="color:#ff6a00; margin-right:10px;">✓</span>Persistent Disks</li>
                     </ul>
                 </div>
-                <div class="col">
-                    <h3 class="text-orange">Ansible</h3>
-                    <ul>
-                        <li class="fragment">Docker Setup</li>
-                        <li class="fragment">Monitoring Stack (Prometheus)</li>
-                        <li class="fragment">Secrets Injektion (.env)</li>
+                <div class="glass-card fragment">
+                    <div style="font-size: 3em; margin-bottom: 20px;">⚙️</div>
+                    <h3 class="text-gradient" style="margin-bottom: 20px;">Ansible</h3>
+                    <ul class="list-none" style="text-align: left; font-size: 0.9em;">
+                        <li><span style="color:#00f0ff; margin-right:10px;">✓</span>Docker Host Setup</li>
+                        <li><span style="color:#00f0ff; margin-right:10px;">✓</span>Monitoring Stack Deploy</li>
+                        <li><span style="color:#00f0ff; margin-right:10px;">✓</span>Secrets Injection (.env)</li>
                     </ul>
                 </div>
             </div>
-            <p class="fragment" style="margin-top:30px; font-weight:bold; border-top:1px solid #333; padding-top:20px;">
-                Voll integriert in <span style="color:#2ea44f;">GitHub Actions</span>
-            </p>
+            <div class="glass-card fragment" style="margin-top: 30px; padding: 20px; border-color: rgba(46, 164, 79, 0.4); display: inline-block;">
+                <span style="color:#2ea44f; font-weight: 800; margin-right: 10px;">✓</span> Voll integriert in <b style="color:white;">GitHub Actions</b>
+            </div>
         </section>
 
         <!-- Slide 7: Disaster Recovery Konzept -->
         <section>
-            <h2>Disaster <span class="text-cyan">Recovery</span> 🛠️</h2>
-            <ul style="font-size: 0.9em;">
-                <li><b>GCP Health Check:</b> Ping auf `/api/health` alle 30s.</li>
-                <li>Bei 3 Fails wirft die Managed Instance Group die VM weg.</li>
-                <li class="fragment"><b>Startup Script (Self-Healing):</b></li>
-            </ul>
+            <h2>Disaster <span class="text-gradient">Recovery</span> 🛠️</h2>
             
-            <pre class="fragment"><code class="language-bash" data-trim data-noescape>
-            # Auszug startup-script (Metadata)
-            gsutil -m cp "gs://$CONFIG_BUCKET/docker-compose.yml" "$APP_DIR/"
-            gsutil -m cp "gs://$CONFIG_BUCKET/.env" "$APP_DIR/"
-            docker compose pull
-            docker compose up -d
-            </code></pre>
-            <p class="fragment" style="font-size: 0.8em; color: #888;">Dank IaaS / Startup-Scripts bootet die App 100% autark neu.</p>
+            <div class="glass-card" style="text-align: left; margin-bottom: 30px;">
+                <ul class="list-none" style="font-size: 1em;">
+                    <li><b style="color:#00f0ff;">GCP Health Check:</b> Ping auf <code>/api/health</code> alle 30s.</li>
+                    <li><b style="color:#ff0055;">Failover:</b> Bei 3 Fails wirft die MIG die VM unwiderruflich weg.</li>
+                </ul>
+            </div>
+            
+            <h4 class="fragment" style="text-align: left; font-size: 1.1em; color: #a0aec0; margin-bottom: 0;">Startup Script (Self-Healing):</h4>
+            
+            <div class="mac-window fragment" style="text-align: left;">
+                <div class="mac-header">
+                    <span class="mac-dot" style="background:#ff5f56;"></span>
+                    <span class="mac-dot" style="background:#ffbd2e;"></span>
+                    <span class="mac-dot" style="background:#27c93f;"></span>
+                    <span class="mac-title">startup-script.sh (Metadata)</span>
+                </div>
+                <pre style="margin: 0; box-shadow: none; width: 100%; border-radius: 0 0 8px 8px;"><code class="language-bash" data-trim data-noescape style="padding: 20px; font-size: 0.9em; line-height: 1.5;">
+                # Lade Konfiguration aus geschütztem Bucket
+                gsutil -m cp "gs://$CONFIG_BUCKET/docker-compose.yml" "$APP_DIR/"
+                gsutil -m cp "gs://$CONFIG_BUCKET/.env" "$APP_DIR/"
+                
+                # Starte Stack komplett neu
+                docker compose pull
+                docker compose up -d
+                </code></pre>
+            </div>
+            <p class="fragment" style="font-size: 0.8em; color: #888; margin-top: 20px;">Dank IaaS / Startup-Scripts bootet die App vollkommen autark neu.</p>
         </section>
 
         <!-- Slide 8: Live Monitoring -->
-        <section data-background-color="#050510">
-            <h2 style="font-size: 1.5em; margin-bottom: 20px;">Live Monitoring (Ist die VM weg?)</h2>
+        <section data-background-gradient="radial-gradient(circle at 50% 50%, #0a1128 0%, #050510 100%)">
+            <h2 style="font-size: 1.8em; margin-bottom: 30px;">Live Monitoring <span style="color:#888; font-size: 0.6em;">(Ist die VM weg?)</span></h2>
             
-            <!-- 
-              TODO: Hier die echte Monitoring-IP einfügen.
-              Beispiel: http://<MONITORING_IP>/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark
-            -->
-            <iframe class="demo-iframe" src="http://34.179.217.49/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" data-src="http://34.179.217.49/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" style="height: 550px;"></iframe>
-            <p style="font-size: 0.5em; color: #666; margin-top: 5px;">* Erfordert <code style="color:#ff6b35;">YOUR_GRAFANA_URL</code> in index.html (oder klickt auf den externen Link)</p>
+            <div class="browser-mockup">
+                <iframe class="demo-iframe" src="http://34.179.217.49/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" data-src="http://34.179.217.49/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" style="height: 500px; border:none; border-radius: 0 0 12px 12px;"></iframe>
+            </div>
+            <p style="font-size: 0.5em; color: #666; margin-top: 15px;">* Erfordert <code style="color:#ff6b35;">YOUR_GRAFANA_URL</code> in index.html (oder klickt auf den externen Link)</p>
         </section>
 
         <!-- Slide 9: The Magic Return -->
         <section>
-            <h2 class="text-cyan">Die App ist zurück!</h2>
-            <p>Die Instance Group hat in der Zwischenzeit eine neue VM gesponnen.</p>
-            <!-- Erneut App-IP eintragen -->
-            <iframe class="demo-iframe fragment" src="http://34.160.96.220/" data-src="http://34.160.96.220/" style="height: 450px;"></iframe>
+            <h2 class="text-gradient">Die App ist zurück!</h2>
+            <p style="color: #a0aec0; margin-bottom: 40px;">Die Instance Group hat in der Zwischenzeit eine neue VM gesponnen.</p>
+            
+            <div class="browser-mockup fragment">
+                <iframe class="demo-iframe" src="http://34.160.96.220/" data-src="http://34.160.96.220/" style="height: 450px; border:none; border-radius: 0 0 12px 12px;"></iframe>
+            </div>
         </section>
 
         <!-- Slide 10: Fazit -->
         <section>
-            <h2>Fazit & Learnings</h2>
-            <ul style="line-height: 1.5;">
-                <li class="fragment"><b>Terraform + Ansible</b> ist eine steile, aber lohnenswerte Lernkurve.</li>
-                <li class="fragment"><b>GCP MIGs</b> nehmen unfassbar viel Last beim Incident-Management.</li>
-                <li class="fragment"><b>SaaS (Gemini)</b> lässt uns in Wochen statt Monaten intelligente Apps bauen.</li>
-            </ul>
-            <h3 class="fragment text-cyan" style="margin-top: 50px;">Fragen?</h3>
+            <h2 class="text-gradient" style="margin-bottom: 50px;">Fazit & Learnings</h2>
+
+            <div style="display: flex; flex-direction: column; gap: 20px; align-items: center;">
+                <div class="glass-card fragment" style="width: 85%; display: flex; align-items: center; text-align: left; padding: 20px 30px;">
+                    <div style="font-size: 2.5em; margin-right: 30px;">🏔️</div>
+                    <div>
+                        <h4 style="margin: 0; color: #fff; font-size: 1.3em;">Terraform & Ansible</h4>
+                        <p style="margin: 5px 0 0 0; color: #a0aec0; font-size: 0.9em;">Steile, aber unfassbar lohnenswerte Lernkurve für vollautomatisiertes IaC.</p>
+                    </div>
+                </div>
+
+                <div class="glass-card fragment" style="width: 85%; display: flex; align-items: center; text-align: left; padding: 20px 30px;">
+                    <div style="font-size: 2.5em; margin-right: 30px;">🛡️</div>
+                    <div>
+                        <h4 style="margin: 0; color: #fff; font-size: 1.3em;">MIGs als Gamechanger</h4>
+                        <p style="margin: 5px 0 0 0; color: #a0aec0; font-size: 0.9em;">Managed Instance Groups in der GCP nehmen massiv Last beim Incident-Management.</p>
+                    </div>
+                </div>
+
+                <div class="glass-card fragment" style="width: 85%; display: flex; align-items: center; text-align: left; padding: 20px 30px;">
+                    <div style="font-size: 2.5em; margin-right: 30px;">🚀</div>
+                    <div>
+                        <h4 style="margin: 0; color: #fff; font-size: 1.3em;">SaaS Acceleration</h4>
+                        <p style="margin: 5px 0 0 0; color: #a0aec0; font-size: 0.9em;">Moderne APIs wie Gemini Flash erlauben das Bauen intelligenter Apps in Rekordzeit.</p>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="fragment text-gradient-orange" style="margin-top: 50px; font-size: 2em;">Fragen?</h3>
         </section>
 
     </div>
@@ -299,11 +463,11 @@
         progress: true,
         center: true,
         hash: true,
-        transition: 'slide',
+        transition: 'none',
+        backgroundTransition: 'fade',
         
         plugins: [ RevealHighlight ],
         
-        // Iframe lazy loading setup
         viewDistance: 2,
         preloadIframes: true
     });
