@@ -432,7 +432,7 @@
       },
       "targets": [
         {
-          "expr": "min(probe_success{job=\"db-health\"}) or vector(0)",
+          "expr": "min(probe_success{job=\"db-health\"} and on(instance) up{job=\"travel-assistant-api\"} == 1) or on() vector(1)",
           "legendFormat": "integrity"
         }
       ],
