@@ -19,7 +19,7 @@ class PresentationHandler(http.server.SimpleHTTPRequestHandler):
         if self.path == '/kill-vm':
             try:
                 # Hole die erste gefundene App VM aus der MIG
-                cmd_list = 'gcloud compute instances list --filter="name~^travel-assistant-app-" --format="value(name)" --limit=1'
+                cmd_list = 'gcloud compute instances list --filter="name~^travel-assistant-vm-" --format="value(name)" --limit=1'
                 instance_name = subprocess.check_output(cmd_list, shell=True).decode().strip()
                 
                 if not instance_name:
