@@ -228,11 +228,6 @@ resource "google_compute_disk" "monitoring_data" {
   type = "pd-standard"
   zone = var.zone
   size = var.monitoring_disk_size_gb
-
-  lifecycle {
-    # Never destroy monitoring data even if disk config changes
-    prevent_destroy = true
-  }
 }
 
 # ── Monitoring VM ─────────────────────────────────────────────────────────────
