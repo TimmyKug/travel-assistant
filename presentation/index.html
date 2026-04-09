@@ -288,7 +288,25 @@
             </script>
         </section>
 
-        <!-- Slide 5: Architektur -->
+        <!-- Slide 5: App nicht erreichbar -->
+        <section data-background-gradient="radial-gradient(circle at 50% 50%, #2a0005 0%, #050000 100%)">
+            <h2 style="color: #ff3333; margin-bottom: 10px;">App nicht erreichbar</h2>
+            <p style="color: #a0aec0; margin-bottom: 30px;">Der Load Balancer findet kein gesundes Backend mehr.</p>
+            <div class="browser-mockup">
+                <iframe class="demo-iframe" src="http://34.160.96.220/" data-src="http://34.160.96.220/" style="height: 450px; border:none; border-radius: 0 0 12px 12px;"></iframe>
+            </div>
+        </section>
+
+        <!-- Slide 6: Grafana zeigt 0 healthy -->
+        <section data-background-gradient="radial-gradient(circle at 50% 50%, #0a1128 0%, #050510 100%)">
+            <h2 style="margin-bottom: 10px;">Monitoring <span style="color: #ff3333;">bestätigt</span></h2>
+            <p style="color: #a0aec0; margin-bottom: 30px;">Grafana zeigt: 0 gesunde Instanzen in der MIG.</p>
+            <div class="browser-mockup">
+                <iframe class="demo-iframe" src="http://34.185.149.86/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" data-src="http://34.185.149.86/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" style="height: 500px; border:none; border-radius: 0 0 12px 12px;"></iframe>
+            </div>
+        </section>
+
+        <!-- Slide 7: Architektur -->
         <section>
             <h2><span class="text-gradient">XaaS Architektur</span></h2>
             
@@ -402,7 +420,7 @@
             <h2 style="font-size: 1.8em; margin-bottom: 30px;">Live Monitoring <span style="color:#888; font-size: 0.6em;">(Ist die VM weg?)</span></h2>
             
             <div class="browser-mockup">
-                <iframe class="demo-iframe" src="http://34.179.217.49/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" data-src="http://34.179.217.49/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" style="height: 500px; border:none; border-radius: 0 0 12px 12px;"></iframe>
+                <iframe class="demo-iframe" src="http://34.185.149.86/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" data-src="http://34.185.149.86/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" style="height: 500px; border:none; border-radius: 0 0 12px 12px;"></iframe>
             </div>
             <p style="font-size: 0.5em; color: #666; margin-top: 15px;">* Erfordert <code style="color:#ff6b35;">YOUR_GRAFANA_URL</code> in index.html (oder klickt auf den externen Link)</p>
         </section>
