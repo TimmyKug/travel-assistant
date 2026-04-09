@@ -2,11 +2,16 @@ import http.server
 import socketserver
 import subprocess
 import json
+import os
+import re
 from pathlib import Path
 
 PORT = 8080
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CORRUPT_SCRIPT = REPO_ROOT / "scripts" / "demo-corrupt-db.sh"
+RESTORE_SCRIPT = REPO_ROOT / "scripts" / "firestore-restore.sh"
+PROJECT_ID = "timmys-travel-assistant"
+LAST_RESTORE_OPERATION = None
 
 class PresentationHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -17,6 +22,90 @@ class PresentationHandler(http.server.SimpleHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(200)
         self.end_headers()
+
+    def do_GET(self):
+        if self.path == '/restore-status':
+            global LAST_RESTORE_OPERATION
+            if not LAST_RESTORE_OPERATION:
+                self.send_response(404)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "idle",
+                    "message": "No restore operation has been started yet.",
+                }).encode())
+                return
+
+            try:
+                output = subprocess.check_output(
+                    [
+                        "gcloud",
+                        "firestore",
+                        "operations",
+                        "list",
+                        f"--project={PROJECT_ID}",
+                        "--format=json",
+                    ],
+                    cwd=REPO_ROOT,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+                operations = json.loads(output)
+                operation = next(
+                    (item for item in operations if item.get("name") == LAST_RESTORE_OPERATION),
+                    None,
+                )
+                if operation is None:
+                    import_operations = [
+                        item for item in operations
+                        if item.get("metadata", {}).get("@type", "").endswith("ImportDocumentsMetadata")
+                    ]
+                    import_operations.sort(
+                        key=lambda item: item.get("metadata", {}).get("startTime", ""),
+                        reverse=True,
+                    )
+                    operation = import_operations[0] if import_operations else None
+
+                if operation is None:
+                    self.send_response(404)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({
+                        "status": "error",
+                        "message": "Restore operation could not be found in Firestore operations.",
+                    }).encode())
+                    return
+
+                done = operation.get("done", False)
+                metadata = operation.get("metadata", {})
+                response = {
+                    "status": "completed" if done else "restoring",
+                    "done": done,
+                    "operation": LAST_RESTORE_OPERATION,
+                    "operation_state": metadata.get("operationState"),
+                }
+                if done:
+                    response["message"] = "Firestore restore is complete."
+                else:
+                    response["message"] = "Firestore restore is still running."
+
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(response).encode())
+                return
+            except subprocess.CalledProcessError as e:
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "error",
+                    "message": "Failed to query restore status.",
+                    "output": e.output,
+                }).encode())
+                return
+
+        return super().do_GET()
 
     def do_POST(self):
         if self.path == '/kill-vm':
@@ -82,6 +171,46 @@ class PresentationHandler(http.server.SimpleHTTPRequestHandler):
                 response = json.dumps({
                     "status": "error",
                     "message": "Failed to corrupt Firestore demo data.",
+                    "output": e.output,
+                })
+                self.wfile.write(response.encode())
+            except Exception as e:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(str(e).encode())
+        elif self.path == '/restore-db':
+            try:
+                global LAST_RESTORE_OPERATION
+                print("🛠️ RESTORE EINGELEITET: Starte firestore-restore.sh 🛠️")
+                output = subprocess.check_output(
+                    [str(RESTORE_SCRIPT), PROJECT_ID],
+                    cwd=REPO_ROOT,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    env={**os.environ, "AUTO_CONFIRM": "1"},
+                )
+                match = re.search(r'^name:\s*(.+)$', output, re.MULTILINE)
+                LAST_RESTORE_OPERATION = match.group(1).strip() if match else None
+
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                response = json.dumps({
+                    "status": "restoring",
+                    "message": "Firestore restore was started successfully.",
+                    "operation": LAST_RESTORE_OPERATION,
+                    "output": output,
+                })
+                self.wfile.write(response.encode())
+            except subprocess.CalledProcessError as e:
+                print("❌ RESTORE FEHLGESCHLAGEN")
+                print(e.output)
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                response = json.dumps({
+                    "status": "error",
+                    "message": "Failed to start Firestore restore.",
                     "output": e.output,
                 })
                 self.wfile.write(response.encode())

@@ -3,6 +3,7 @@
 set -euo pipefail
 
 PROJECT_ID="${1:-$(gcloud config get-value project 2>/dev/null)}"
+AUTO_CONFIRM="${AUTO_CONFIRM:-0}"
 
 if [ -z "${PROJECT_ID}" ]; then
   echo "ERROR: PROJECT_ID argument missing and no gcloud default project set."
@@ -10,6 +11,16 @@ if [ -z "${PROJECT_ID}" ]; then
 fi
 
 BUCKET="gs://${PROJECT_ID}-firestore-backups"
+
+log_restore_event() {
+  local event="$1"
+  local message="$2"
+  gcloud logging write travel-assistant-demo \
+    "{\"event\":\"${event}\",\"message\":\"${message}\",\"project_id\":\"${PROJECT_ID}\",\"backup_uri\":\"${BACKUP_URI}\",\"time\":\"$(date -u +%FT%TZ)\"}" \
+    --project="${PROJECT_ID}" \
+    --payload-type=json \
+    >/dev/null 2>&1 || true
+}
 
 if [ -n "${2:-}" ]; then
   BACKUP_URI="$2"
@@ -24,15 +35,21 @@ fi
 
 echo "Restoring Firestore from: ${BACKUP_URI}"
 echo "WARNING: Firestore import is asynchronous and may take some time."
-read -r -p "Continue? [y/N] " confirm
-if [[ "${confirm}" != [yY] ]]; then
-  echo "Aborted."
-  exit 0
+if [ "${AUTO_CONFIRM}" != "1" ]; then
+  read -r -p "Continue? [y/N] " confirm
+  if [[ "${confirm}" != [yY] ]]; then
+    echo "Aborted."
+    exit 0
+  fi
 fi
+
+log_restore_event "db_restore_started" "Firestore restore command started"
 
 gcloud firestore import "${BACKUP_URI}" \
   --project="${PROJECT_ID}" \
   --async
+
+log_restore_event "db_restore_triggered" "Firestore import operation submitted"
 
 echo "Import initiated. Check status with:"
 echo "  gcloud firestore operations list --project=${PROJECT_ID}"

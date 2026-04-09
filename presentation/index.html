@@ -245,7 +245,16 @@
             </div>
         </section>
 
-        <!-- Slide 4: Data Corruption -->
+        <!-- Slide 4: Healthy Monitoring -->
+        <section data-background-gradient="radial-gradient(circle at 50% 50%, #021c12 0%, #050510 100%)">
+            <h2 style="margin-bottom: 10px;">Monitoring <span style="color: #55f2a5;">im Normalzustand</span></h2>
+            <p style="color: #a0aec0; margin-bottom: 30px;">Grafana zeigt vor der Demo grüne App- und Database-Integrity-Signale als Ausgangszustand.</p>
+            <div class="browser-mockup">
+                <iframe class="demo-iframe" src="http://34.179.217.49/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" data-src="http://34.179.217.49/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" style="height: 500px; border:none; border-radius: 0 0 12px 12px;"></iframe>
+            </div>
+        </section>
+
+        <!-- Slide 5: Data Corruption -->
         <section data-background-gradient="radial-gradient(circle at 50% 50%, #2a1200 0%, #050000 100%)">
             <h1 style="color: #ffb347; font-size: 4.2em; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 20px rgba(255,166,0,0.35);">⚠️ Datenverlust</h1>
 
@@ -323,13 +332,128 @@
             </div>
         </section>
 
-        <!-- Slide 7: The Crash -->
+        <!-- Slide 7: Repair Database -->
+        <section data-background-gradient="radial-gradient(circle at 50% 50%, #021c12 0%, #020805 100%)">
+            <h1 style="color: #55f2a5; font-size: 4.1em; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 20px rgba(85,242,165,0.35);">🛠️ Reparatur</h1>
+
+            <div class="fragment" style="margin-top: 50px;">
+                <button id="restoreBtn" class="neon-btn" style="background: rgba(85, 242, 165, 0.1); color: #55f2a5; border-color: #55f2a5; box-shadow: 0 0 20px rgba(85,242,165,0.35), inset 0 0 10px rgba(85,242,165,0.18);">
+                    🔄 BACKUP JETZT WIEDERHERSTELLEN 🔄
+                </button>
+                <div style="margin-top: 30px; height: 30px;">
+                    <p id="restoreStatus" style="color: #55f2a5; font-size: 0.9em; font-weight: bold;"></p>
+                </div>
+            </div>
+
+            <p class="fragment glass-card" style="margin-top: 30px; display: inline-block; padding: 15px 30px; font-size: 0.9em;">
+                Der neueste Firestore-Backup wird manuell importiert und stellt die Demo-Daten wieder her.
+            </p>
+
+            <script>
+            document.addEventListener("DOMContentLoaded", () => {
+                let restorePoll = null;
+
+                document.getElementById('restoreBtn').addEventListener('click', async () => {
+                    const btn = document.getElementById('restoreBtn');
+                    const status = document.getElementById('restoreStatus');
+
+                    btn.disabled = true;
+                    btn.innerHTML = '🔄 RESTORE STARTET... 🔄';
+                    status.innerHTML = 'Starte Firestore-Restore aus dem neuesten Backup...';
+
+                    try {
+                        const res = await fetch('http://localhost:8080/restore-db', { method: 'POST' });
+                        if (res.ok) {
+                            const data = await res.json();
+                            btn.innerHTML = '✅ RESTORE GESTARTET ✅';
+                            status.innerHTML = 'Restore gestartet. Warte auf Abschluss...';
+                            status.style.color = '#00f0ff';
+
+                            if (restorePoll) {
+                                clearInterval(restorePoll);
+                            }
+
+                            restorePoll = setInterval(async () => {
+                                try {
+                                    const statusRes = await fetch('http://localhost:8080/restore-status');
+                                    if (!statusRes.ok) {
+                                        let errorText = 'Restore-Status konnte nicht abgefragt werden.';
+                                        try {
+                                            const errorData = await statusRes.json();
+                                            if (errorData.message) {
+                                                errorText = errorData.message;
+                                            }
+                                        } catch (_) {}
+                                        status.innerHTML = errorText;
+                                        status.style.color = '#ffb347';
+                                        return;
+                                    }
+                                    const statusData = await statusRes.json();
+                                    if (statusData.done) {
+                                        btn.innerHTML = '✅ RESTORE FERTIG ✅';
+                                        status.innerHTML = 'Restore abgeschlossen. Nächster Slide -> App wieder gesund.';
+                                        status.style.color = '#55f2a5';
+                                        clearInterval(restorePoll);
+                                        restorePoll = null;
+                                    } else {
+                                        status.innerHTML = 'Restore gestartet. Firestore importiert gerade das Backup...';
+                                    }
+                                } catch (_) {
+                                    status.innerHTML = 'Restore-Status konnte nicht abgefragt werden.';
+                                    status.style.color = '#ffb347';
+                                }
+                            }, 1500);
+                        } else {
+                            let errorText = 'Fehler beim Starten des Restores.';
+                            try {
+                                const data = await res.json();
+                                if (data.output) {
+                                    errorText = data.output.trim().split('\n').slice(-2).join(' | ');
+                                } else if (data.message) {
+                                    errorText = data.message;
+                                }
+                            } catch (_) {}
+                            status.innerHTML = errorText;
+                            btn.innerHTML = '❌ FEHLER ❌';
+                        }
+                    } catch (e) {
+                        status.innerHTML = 'Netzwerkfehler zum Python-Server. Hast du ihn gestartet?';
+                        btn.innerHTML = '❌ FEHLER ❌';
+                    }
+                });
+            });
+            </script>
+        </section>
+
+        <!-- Slide 8: Recovered App -->
+        <section data-background-gradient="radial-gradient(circle at 50% 50%, #021c12 0%, #050510 100%)">
+            <h2 style="color: #55f2a5; margin-bottom: 10px;">Daten wiederhergestellt</h2>
+            <p style="color: #a0aec0; margin-bottom: 30px;">Die Anwendung ist wieder vollständig und die Referenzdaten sind aus dem Backup zurückgekehrt.</p>
+            <div style="display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+                <span style="background: rgba(0, 240, 255, 0.12); color: #00f0ff; padding: 8px 16px; border-radius: 999px; font-size: 0.7em; font-weight: 700; letter-spacing: 0.04em;">APP ALIVE</span>
+                <span style="background: rgba(85, 242, 165, 0.15); color: #55f2a5; padding: 8px 16px; border-radius: 999px; font-size: 0.7em; font-weight: 700; letter-spacing: 0.04em;">DATA HEALTHY</span>
+            </div>
+            <div class="browser-mockup">
+                <iframe class="demo-iframe" src="http://34.149.106.36/" data-src="http://34.149.106.36/" style="height: 450px; border:none; border-radius: 0 0 12px 12px;"></iframe>
+            </div>
+        </section>
+
+        <!-- Slide 9: Recovered Monitoring -->
+        <section data-background-gradient="radial-gradient(circle at 50% 50%, #021c12 0%, #050510 100%)">
+            <h2 style="margin-bottom: 10px;">Monitoring <span style="color: #55f2a5;">bestätigt die Reparatur</span></h2>
+            <p style="color: #a0aec0; margin-bottom: 30px;">Grafana zeigt wieder eine grüne Database-Integrity-Prüfung und damit den erfolgreichen Restore.</p>
+            <div class="browser-mockup">
+                <iframe class="demo-iframe" src="http://34.179.217.49/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" data-src="http://34.179.217.49/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" style="height: 500px; border:none; border-radius: 0 0 12px 12px;"></iframe>
+            </div>
+        </section>
+
+        <!-- Slide 10: The Crash -->
         <section data-background-gradient="radial-gradient(circle at 50% 50%, #2a0005 0%, #050000 100%)">
             <h1 style="color: #ff3333; font-size: 4.5em; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 20px rgba(255,0,0,0.5);">💥 Der Crash</h1>
             
             <div class="fragment" style="margin-top: 50px;">
                 <button id="killBtn" class="neon-btn">
-                    ☠️ VM JETZT ZERSTÖREN ☠️
+                    ☠️ VMs JETZT ZERSTÖREN ☠️
                 </button>
                 <div style="margin-top: 30px; height: 30px;">
                     <p id="killStatus" style="color: #ff6b35; font-size: 0.9em; font-weight: bold;"></p>
@@ -354,8 +478,8 @@
                         const res = await fetch('http://localhost:8080/kill-vm', { method: 'POST' });
                         if (res.ok) {
                             const data = await res.json();
-                            btn.innerHTML = '☠️ VM GEKILLT: ' + data.instance;
-                            status.innerHTML = 'Instanz erfolgreich gelöscht! Nächster Slide -> Monitoring.';
+                            btn.innerHTML = '☠️ VMs GEKILLT: ' + data.instance;
+                            status.innerHTML = 'Instanzen erfolgreich gelöscht! Nächster Slide -> Monitoring.';
                             status.style.color = '#00f0ff';
                         } else {
                             status.innerHTML = 'Fehler beim Löschen. Läuft der lokale Python-Server?';
@@ -370,7 +494,7 @@
             </script>
         </section>
 
-        <!-- Slide 8: App nicht erreichbar -->
+        <!-- Slide 10: App nicht erreichbar -->
         <section data-background-gradient="radial-gradient(circle at 50% 50%, #2a0005 0%, #050000 100%)">
             <h2 style="color: #ff3333; margin-bottom: 10px;">App nicht erreichbar</h2>
             <p style="color: #a0aec0; margin-bottom: 30px;">Der Load Balancer findet kein gesundes Backend mehr.</p>
@@ -379,7 +503,7 @@
             </div>
         </section>
 
-        <!-- Slide 9: Grafana zeigt 0 healthy -->
+        <!-- Slide 11: Grafana zeigt 0 healthy -->
         <section data-background-gradient="radial-gradient(circle at 50% 50%, #0a1128 0%, #050510 100%)">
             <h2 style="margin-bottom: 10px;">Monitoring <span style="color: #ff3333;">bestätigt</span></h2>
             <p style="color: #a0aec0; margin-bottom: 30px;">Grafana zeigt jetzt beides: Instanzproblem in der MIG und davor schon den kaputten Datenzustand.</p>
