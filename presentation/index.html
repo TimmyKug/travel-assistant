@@ -145,7 +145,7 @@
                     status.innerHTML = 'Skript arbeitet (führe gcloud compute instances delete aus)...';
 
                     try {
-                        const res = await fetch('/kill-vm', { method: 'POST' });
+                        const res = await fetch('http://localhost:8080/kill-vm', { method: 'POST' });
                         if (res.ok) {
                             const data = await res.json();
                             btn.innerHTML = '☠️ VM GEKILLT: ' + data.instance;
