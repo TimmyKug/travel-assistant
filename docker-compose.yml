@@ -34,7 +34,10 @@ services:
   promtail:
     image: grafana/promtail:3.0.0
     restart: always
-    command: -config.file=/etc/promtail/promtail.yml
+    env_file: .env
+    command:
+      - -config.file=/etc/promtail/promtail.yml
+      - -config.expand-env=true
     volumes:
       - ./monitoring/promtail/promtail.yml:/etc/promtail/promtail.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro

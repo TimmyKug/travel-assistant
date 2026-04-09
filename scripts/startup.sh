@@ -20,6 +20,7 @@ PROJECT_ID="${project_id}"
 REGION="${region}"
 CONFIG_BUCKET="${config_bucket}"
 IMAGE_TAG="${image_tag}"
+LOKI_URL="${loki_url}"
 
 APP_DIR=/opt/travel-assistant
 LOG=/var/log/startup.log
@@ -65,6 +66,13 @@ if grep -q '^IMAGE_TAG=' "$APP_DIR/.env"; then
   sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=$IMAGE_TAG/" "$APP_DIR/.env"
 else
   printf '\nIMAGE_TAG=%s\n' "$IMAGE_TAG" >> "$APP_DIR/.env"
+fi
+
+# Ensure promtail can reach Loki on the monitoring VM.
+if grep -q '^LOKI_URL=' "$APP_DIR/.env"; then
+  sed -i "s|^LOKI_URL=.*|LOKI_URL=$LOKI_URL|" "$APP_DIR/.env"
+else
+  printf 'LOKI_URL=%s\n' "$LOKI_URL" >> "$APP_DIR/.env"
 fi
 
 chmod 600 "$APP_DIR/.env"
