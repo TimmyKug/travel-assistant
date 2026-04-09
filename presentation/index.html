@@ -117,16 +117,49 @@
             <!-- 
               TODO: Falls sich die Load-Balancer IP ändert, hier anpassen.
             -->
-            <iframe class="demo-iframe" src="http://136.110.247.56/" data-src="http://136.110.247.56/"></iframe>
+            <iframe class="demo-iframe" src="http://34.160.96.220/" data-src="http://34.160.96.220/"></iframe>
         </section>
 
         <!-- Slide 4: The Crash -->
         <section data-background-color="#2a0000">
             <h1 style="color: #ff3333; font-size: 4em;">💥 Der Crash</h1>
-            <div class="warning-box fragment">
-                Um unser automatisches Disaster Recovery zu beweisen, <b>löschen wir jetzt die Haupt-VM</b> live im GCP Portal!
+            
+            <div class="fragment" style="margin-top: 40px;">
+                <button id="killBtn" style="padding: 20px 40px; font-size: 1.2em; background: #ff3333; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 0 20px rgba(255,51,51,0.6); transition: 0.3s;">
+                    ☠️ VM JETZT ZERSTÖREN ☠️
+                </button>
+                <p id="killStatus" style="color: #ff6b35; font-size: 0.8em; margin-top: 20px; font-weight: bold;"></p>
             </div>
-            <p class="fragment" style="margin-top: 40px;">Während die App offline geht und die Cloud reagiert, schauen wir uns den Motor an...</p>
+
+            <p class="fragment" style="margin-top: 20px;">Während die App offline geht, schauen wir uns unsere Cloud-Architektur an...</p>
+
+            <script>
+            document.addEventListener("DOMContentLoaded", () => {
+                document.getElementById('killBtn').addEventListener('click', async () => {
+                    const btn = document.getElementById('killBtn');
+                    const status = document.getElementById('killStatus');
+                    
+                    btn.disabled = true;
+                    btn.style.background = '#880000';
+                    btn.innerHTML = '🔥 ZERSTÖRUNG EINGELEITET... 🔥';
+                    status.innerHTML = 'Skript arbeitet (führe gcloud compute instances delete aus)...';
+
+                    try {
+                        const res = await fetch('/kill-vm', { method: 'POST' });
+                        if (res.ok) {
+                            const data = await res.json();
+                            btn.innerHTML = '☠️ VM GEKILLT: ' + data.instance;
+                            status.innerHTML = 'Instanz gelöscht! Schau im nächsten Slide ins Monitoring.';
+                        } else {
+                            status.innerHTML = 'Fehler beim Löschen. Läuft der lokale Python-Server?';
+                            btn.innerHTML = 'FEHLER!';
+                        }
+                    } catch (e) {
+                        status.innerHTML = 'Netzwerkfehler zum Python-Server. Hast du ihn gestartet?';
+                    }
+                });
+            });
+            </script>
         </section>
 
         <!-- Slide 5: Architektur -->
@@ -232,7 +265,7 @@
               TODO: Hier die echte Monitoring-IP einfügen.
               Beispiel: http://<MONITORING_IP>/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark
             -->
-            <iframe class="demo-iframe" src="YOUR_GRAFANA_URL_HERE_WITH_HTTP" data-src="YOUR_GRAFANA_URL_HERE_WITH_HTTP" style="height: 550px;"></iframe>
+            <iframe class="demo-iframe" src="http://34.179.217.49/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" data-src="http://34.179.217.49/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" style="height: 550px;"></iframe>
             <p style="font-size: 0.5em; color: #666; margin-top: 5px;">* Erfordert <code style="color:#ff6b35;">YOUR_GRAFANA_URL</code> in index.html (oder klickt auf den externen Link)</p>
         </section>
 
@@ -241,7 +274,7 @@
             <h2 class="text-cyan">Die App ist zurück!</h2>
             <p>Die Instance Group hat in der Zwischenzeit eine neue VM gesponnen.</p>
             <!-- Erneut App-IP eintragen -->
-            <iframe class="demo-iframe fragment" src="http://136.110.247.56/" data-src="http://136.110.247.56/" style="height: 450px;"></iframe>
+            <iframe class="demo-iframe fragment" src="http://34.160.96.220/" data-src="http://34.160.96.220/" style="height: 450px;"></iframe>
         </section>
 
         <!-- Slide 10: Fazit -->
