@@ -487,6 +487,14 @@
         viewDistance: 2,
         preloadIframes: true
     });
+
+    // Reload iframes with cache-busting when navigating to a slide
+    Reveal.on('slidechanged', event => {
+        event.currentSlide.querySelectorAll('iframe[data-src]').forEach(iframe => {
+            const base = iframe.getAttribute('data-src');
+            iframe.src = base + (base.includes('?') ? '&' : '?') + '_t=' + Date.now();
+        });
+    });
 </script>
 
 </body>

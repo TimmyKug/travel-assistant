@@ -28,7 +28,7 @@ class PresentationHandler(http.server.SimpleHTTPRequestHandler):
                     self.wfile.write(b'Keine laufende App VM gefunden.')
                     return
 
-                deleted = []
+                killed = []
                 for line in output.splitlines():
                     parts = line.split()
                     if len(parts) < 2:
@@ -37,15 +37,15 @@ class PresentationHandler(http.server.SimpleHTTPRequestHandler):
 
                     print(f"🔥 ZERSTÖRUNG EINGELEITET: Lösche Instanz {instance_name} in Zone {zone} 🔥")
 
-                    # Delete instance (asynchronously so UI updates instantly)
-                    cmd_delete = f'gcloud compute instances delete {instance_name} --zone={zone} --quiet'
-                    subprocess.Popen(cmd_delete, shell=True)
-                    deleted.append(instance_name)
+                    # Delete VM — MIG will automatically create a new one
+                    cmd_kill = f'gcloud compute instances delete {instance_name} --zone={zone} --quiet'
+                    subprocess.Popen(cmd_kill, shell=True)
+                    killed.append(instance_name)
 
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
-                response = json.dumps({"status": "destroyed", "instances": deleted, "instance": ", ".join(deleted)})
+                response = json.dumps({"status": "destroyed", "instances": killed, "instance": ", ".join(killed)})
                 self.wfile.write(response.encode())
             except Exception as e:
                 self.send_response(500)
