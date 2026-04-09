@@ -36,6 +36,25 @@ scrape_configs:
         target_label:  instance
     metrics_path: /metrics
 
+  # ── App VM — Firestore integrity probe via Blackbox Exporter ───────────────
+  - job_name: db-health
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    gce_sd_configs:
+      - project: {{ gcp_project_id }}
+        zone:    {{ zone }}
+        filter:  'tags.items:travel-assistant'
+        refresh_interval: 30s
+    relabel_configs:
+      - source_labels: [__meta_gce_private_ip]
+        target_label: __param_target
+        replacement: http://$1/api/health/db
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+      - source_labels: [__meta_gce_instance_name]
+        target_label: instance
+
   # ── App VM — host metrics (node-exporter) ──────────────────────────────────
   - job_name: node-exporter-app
     gce_sd_configs:

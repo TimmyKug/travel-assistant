@@ -65,6 +65,20 @@ groups:
             The 95th-percentile response time has exceeded 2 seconds for 5
             minutes. Current p95: {{ $value | humanizeDuration }}.
 
+  - name: firestore-integrity
+    rules:
+
+      - alert: FirestoreIntegrityCheckFailed
+        expr: probe_success{job="db-health"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Firestore integrity check failed"
+          description: >
+            The /api/health/db endpoint returned a non-success status for at
+            least 30 seconds. Demo reference data may be missing or corrupted.
+
   - name: app-vm-resources
     rules:
 

@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from routers import ai, trips, auth
+from routers import ai, trips, auth, health
 
 # ---------------------------------------------------------------------------
 # Structured JSON logging
@@ -70,6 +70,7 @@ Instrumentator().instrument(app).expose(app)
 app.include_router(auth.router,  prefix="/api/auth",  tags=["auth"])
 app.include_router(ai.router,    prefix="/api/ai",    tags=["ai"])
 app.include_router(trips.router, prefix="/api/trips", tags=["trips"])
+app.include_router(health.router, prefix="/api", tags=["health"])
 
 
 @app.get("/api/health")
