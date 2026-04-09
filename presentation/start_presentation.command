@@ -43,8 +43,13 @@ rm -f index.html.bak
 
 echo "Erfolg! index.html wurde mit der IP $MONITORING_IP aktualisiert."
 
-# Starte den lokalen Python-Server für den "VM Kill" Button
+# Starte den lokalen Python-Server für den "VM Kill" Button im Hintergrund
 echo "Starte Präsentations-Server auf http://localhost:8080..."
-sleep 1
+python3 server.py &
+SERVER_PID=$!
+
+sleep 2
 open "http://localhost:8080"
-python3 server.py
+
+# Warte auf den Server, damit das Terminal offen bleibt
+wait $SERVER_PID
