@@ -9,6 +9,13 @@ resource "google_firestore_database" "travel_db" {
   deletion_policy = "ABANDON"
 }
 
+resource "google_project_service" "cloud_scheduler_api" {
+  project = var.project_id
+  service = "cloudscheduler.googleapis.com"
+
+  disable_on_destroy = false
+}
+
 resource "google_storage_bucket" "firestore_backups" {
   name                        = "${var.project_id}-firestore-backups"
   location                    = var.region
@@ -48,6 +55,8 @@ resource "google_cloud_scheduler_job" "firestore_daily_export" {
   schedule    = "0 3 * * *"
   time_zone   = "Europe/Berlin"
   region      = var.region
+
+  depends_on = [google_project_service.cloud_scheduler_api]
 
   http_target {
     http_method = "POST"
