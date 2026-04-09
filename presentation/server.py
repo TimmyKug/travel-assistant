@@ -2,8 +2,11 @@ import http.server
 import socketserver
 import subprocess
 import json
+from pathlib import Path
 
 PORT = 8080
+REPO_ROOT = Path(__file__).resolve().parent.parent
+CORRUPT_SCRIPT = REPO_ROOT / "scripts" / "demo-corrupt-db.sh"
 
 class PresentationHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -51,6 +54,41 @@ class PresentationHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(str(e).encode())
+        elif self.path == '/corrupt-db':
+            try:
+                print("☠️ DATENKORRUPTION EINGELEITET: Starte demo-corrupt-db.sh ☠️")
+                output = subprocess.check_output(
+                    [str(CORRUPT_SCRIPT)],
+                    cwd=REPO_ROOT,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                response = json.dumps({
+                    "status": "corrupted",
+                    "message": "Firestore demo data was corrupted successfully.",
+                    "output": output,
+                })
+                self.wfile.write(response.encode())
+            except subprocess.CalledProcessError as e:
+                print("❌ DATENKORRUPTION FEHLGESCHLAGEN")
+                print(e.output)
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                response = json.dumps({
+                    "status": "error",
+                    "message": "Failed to corrupt Firestore demo data.",
+                    "output": e.output,
+                })
+                self.wfile.write(response.encode())
+            except Exception as e:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(str(e).encode())
         else:
             self.send_response(404)
             self.end_headers()
@@ -59,6 +97,6 @@ class PresentationHandler(http.server.SimpleHTTPRequestHandler):
 socketserver.TCPServer.allow_reuse_address = True
 
 print(f"🚀 Präsentations-Server läuft auf http://localhost:{PORT}")
-print("   Der KILL-VM Button wird gcloud-Befehle von diesem Terminal aus starten.")
+print("   Die Demo-Buttons werden lokale Skripte und gcloud-Befehle von diesem Terminal aus starten.")
 with socketserver.TCPServer(("", PORT), PresentationHandler) as httpd:
     httpd.serve_forever()
