@@ -13,8 +13,10 @@ env:
   TF_VAR_firebase_app_id: ${{ vars.FIREBASE_APP_ID }}
 
 jobs:
-  deploy:
-    name: Provision & Deploy
+  # ── Parallel: test, build, provision ────────────────────────────────
+
+  test:
+    name: Test Backend
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -23,7 +25,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── Tests ────────────────────────────────────────────────────────
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
         with:
@@ -35,7 +36,26 @@ jobs:
           cd backend
           pytest tests/ -v
 
-      # ── GCP Auth ────────────────────────────────────────────────────
+  build:
+    name: Build ${{ matrix.image.name }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      matrix:
+        image:
+          - name: backend
+            context: ./backend
+            dockerfile: backend/Dockerfile
+          - name: nginx
+            context: .
+            dockerfile: nginx/Dockerfile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
@@ -44,7 +64,49 @@ jobs:
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v2
 
-      # ── Terraform ───────────────────────────────────────────────────
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ vars.GCP_REGION || 'europe-west3' }}-docker.pkg.dev --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push ${{ matrix.image.name }} image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.image.context }}
+          file: ${{ matrix.image.dockerfile }}
+          push: true
+          tags: |
+            ${{ vars.GCP_REGION || 'europe-west3' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/travel-assistant/${{ matrix.image.name }}:${{ github.sha }}
+            ${{ vars.GCP_REGION || 'europe-west3' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/travel-assistant/${{ matrix.image.name }}:latest
+          # Only nginx needs Firebase build-args (Vite frontend); backend ignores them
+          build-args: ${{ matrix.image.name == 'nginx' && format('VITE_FIREBASE_API_KEY={0}\nVITE_FIREBASE_AUTH_DOMAIN={1}.firebaseapp.com\nVITE_FIREBASE_PROJECT_ID={1}\nVITE_FIREBASE_STORAGE_BUCKET={2}\nVITE_FIREBASE_MESSAGING_SENDER_ID={3}\nVITE_FIREBASE_APP_ID={4}', secrets.FIREBASE_API_KEY, vars.GCP_PROJECT_ID, vars.FIREBASE_STORAGE_BUCKET, vars.FIREBASE_MESSAGING_SENDER_ID, vars.FIREBASE_APP_ID) || '' }}
+          cache-from: type=gha,scope=${{ matrix.image.name }}
+          cache-to: type=gha,scope=${{ matrix.image.name }},mode=max
+
+  provision:
+    name: Provision Infrastructure
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      monitoring_ip: ${{ steps.infra.outputs.monitoring_ip }}
+      monitoring_internal_ip: ${{ steps.infra.outputs.monitoring_internal_ip }}
+      config_bucket: ${{ steps.infra.outputs.config_bucket }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -98,7 +160,6 @@ jobs:
         working-directory: terraform
         run: terraform apply -auto-approve
 
-      # ── Resolve infrastructure outputs ───────────────────────────────
       - name: Get infrastructure outputs
         id: infra
         working-directory: terraform
@@ -107,51 +168,33 @@ jobs:
           echo "monitoring_internal_ip=$(terraform output -raw monitoring_vm_internal_ip)" >> $GITHUB_OUTPUT
           echo "config_bucket=$(terraform output -raw config_bucket_name)" >> $GITHUB_OUTPUT
 
-      # ── Docker build & push to Artifact Registry ────────────────────
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker ${{ vars.GCP_REGION || 'europe-west3' }}-docker.pkg.dev --quiet
+  # ── Sequential: deploy (after all parallel jobs) ────────────────────
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    needs: [test, build, provision]
 
-      - name: Build and push backend image
-        uses: docker/build-push-action@v6
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
         with:
-          context: ./backend
-          push: true
-          tags: |
-            ${{ vars.GCP_REGION || 'europe-west3' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/travel-assistant/backend:${{ github.sha }}
-            ${{ vars.GCP_REGION || 'europe-west3' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/travel-assistant/backend:latest
-          cache-from: type=gha,scope=backend
-          cache-to: type=gha,scope=backend,mode=max
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Build and push nginx image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: nginx/Dockerfile
-          push: true
-          tags: |
-            ${{ vars.GCP_REGION || 'europe-west3' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/travel-assistant/nginx:${{ github.sha }}
-            ${{ vars.GCP_REGION || 'europe-west3' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/travel-assistant/nginx:latest
-          build-args: |
-            VITE_FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}
-            VITE_FIREBASE_AUTH_DOMAIN=${{ vars.GCP_PROJECT_ID }}.firebaseapp.com
-            VITE_FIREBASE_PROJECT_ID=${{ vars.GCP_PROJECT_ID }}
-            VITE_FIREBASE_STORAGE_BUCKET=${{ vars.FIREBASE_STORAGE_BUCKET }}
-            VITE_FIREBASE_MESSAGING_SENDER_ID=${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
-            VITE_FIREBASE_APP_ID=${{ vars.FIREBASE_APP_ID }}
-          cache-from: type=gha,scope=nginx
-          cache-to: type=gha,scope=nginx,mode=max
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
 
       # ── Upload app configs and .env to GCS ──────────────────────────
-      # The startup script pulls these when the MIG boots a replacement VM.
-      # .env is rendered here from GitHub secrets so the startup script has
-      # everything it needs for a self-contained recovery — no Secret Manager.
       - name: Upload app configs to GCS
         run: |
-          BUCKET="${{ steps.infra.outputs.config_bucket }}"
-          MONITORING_IP="${{ steps.infra.outputs.monitoring_internal_ip }}"
+          BUCKET="${{ needs.provision.outputs.config_bucket }}"
+          MONITORING_IP="${{ needs.provision.outputs.monitoring_internal_ip }}"
 
           # Render .env in the same format as the Ansible template
           cat > /tmp/app.env << ENV
@@ -165,6 +208,20 @@ jobs:
           gsutil cp docker-compose.yml                      "gs://$BUCKET/docker-compose.yml"
           gsutil cp monitoring/promtail/promtail.yml        "gs://$BUCKET/monitoring/promtail/promtail.yml"
           gsutil cp /tmp/app.env                            "gs://$BUCKET/.env"
+
+      # ── Terraform rollout (updates instance template with new image tag) ─
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.0
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="prefix=travel-assistant/state"
 
       - name: Terraform Apply App Rollout
         working-directory: terraform
@@ -181,11 +238,11 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ steps.infra.outputs.monitoring_ip }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ needs.provision.outputs.monitoring_ip }} >> ~/.ssh/known_hosts
 
       - name: Wait for VMs to be ready
         run: |
-          HOST="${{ steps.infra.outputs.monitoring_ip }}"
+          HOST="${{ needs.provision.outputs.monitoring_ip }}"
           echo "Waiting for SSH on $HOST..."
           for i in $(seq 1 20); do
             ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
@@ -202,7 +259,7 @@ jobs:
               monitoring:
                 hosts:
                   monitoring-vm:
-                    ansible_host: ${{ steps.infra.outputs.monitoring_ip }}
+                    ansible_host: ${{ needs.provision.outputs.monitoring_ip }}
                     ansible_user: deploy
                     ansible_ssh_private_key_file: ~/.ssh/deploy_key
                     ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
