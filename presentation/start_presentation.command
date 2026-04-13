@@ -4,6 +4,50 @@ set -e
 # Wechselt in das Verzeichnis dieses Skripts
 cd "$(dirname "$0")"
 
+PROJECT_ID="$(gcloud config get-value project 2>/dev/null)"
+
+if [ -z "$PROJECT_ID" ]; then
+    echo "Fehler: Kein aktives gcloud-Projekt gefunden."
+    exit 1
+fi
+
+echo "Aktives gcloud-Projekt: $PROJECT_ID"
+echo "Spiele Demo-Daten in Firestore ein..."
+"../scripts/firestore-seed-demo-data.sh" "$PROJECT_ID"
+
+BACKUP_STATUS_FILE="backup-status.json"
+printf '{"status":"starting","message":"Backup wird gestartet..."}\n' > "$BACKUP_STATUS_FILE"
+
+echo "Erstelle manuelles Firestore-Backup..."
+BACKUP_OUTPUT="$("../scripts/firestore-backup.sh" "$PROJECT_ID")"
+echo "$BACKUP_OUTPUT"
+
+BACKUP_OPERATION="$(printf '%s\n' "$BACKUP_OUTPUT" | sed -n 's/^name: //p' | tail -1)"
+if [ -n "$BACKUP_OPERATION" ]; then
+    printf '{"status":"running","message":"Backup laeuft...","operation":"%s"}\n' "$BACKUP_OPERATION" > "$BACKUP_STATUS_FILE"
+    (
+        while true; do
+            OPERATION_JSON="$(gcloud firestore operations describe "$BACKUP_OPERATION" --project="$PROJECT_ID" --format=json 2>/dev/null || true)"
+
+            if [ -z "$OPERATION_JSON" ]; then
+                printf '{"status":"running","message":"Backup-Status wird geprueft...","operation":"%s"}\n' "$BACKUP_OPERATION" > "$BACKUP_STATUS_FILE"
+                sleep 5
+                continue
+            fi
+
+            if printf '%s' "$OPERATION_JSON" | grep -q '"done":[[:space:]]*true'; then
+                printf '{"status":"completed","message":"Backup erfolgreich erstellt.","operation":"%s"}\n' "$BACKUP_OPERATION" > "$BACKUP_STATUS_FILE"
+                break
+            fi
+
+            printf '{"status":"running","message":"Backup laeuft...","operation":"%s"}\n' "$BACKUP_OPERATION" > "$BACKUP_STATUS_FILE"
+            sleep 5
+        done
+    ) &
+else
+    printf '{"status":"unknown","message":"Backup wurde gestartet, Operation konnte aber nicht gelesen werden."}\n' > "$BACKUP_STATUS_FILE"
+fi
+
 echo "Suche Monitoring VM IP via gcloud..."
 
 # Holt die öffentliche IP der Monitoring-VM
