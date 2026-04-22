@@ -1,8 +1,10 @@
 """
 Trips router — CRUD for saved travel itineraries.
 """
+
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -32,18 +34,22 @@ class TripOut(TripIn):
 
 @router.get("/", response_model=list[TripOut])
 async def list_trips(user: dict = Depends(get_current_user)):
-    db   = get_db()
-    docs = db.collection("users").document(user["uid"]) \
-             .collection("trips") \
-             .order_by("updated_at", direction="DESCENDING") \
-             .limit(100).stream()
+    db = get_db()
+    docs = (
+        db.collection("users")
+        .document(user["uid"])
+        .collection("trips")
+        .order_by("updated_at", direction="DESCENDING")
+        .limit(100)
+        .stream()
+    )
     return [TripOut(id=d.id, **d.to_dict()) for d in docs]
 
 
 @router.post("/", response_model=TripOut)
 async def create_trip(body: TripIn, user: dict = Depends(get_current_user)):
-    db  = get_db()
-    now = datetime.now(timezone.utc)
+    db = get_db()
+    now = datetime.now(UTC)
     ref = db.collection("users").document(user["uid"]).collection("trips").document()
     data = {**body.model_dump(), "created_at": now, "updated_at": now}
     ref.set(data)
@@ -54,12 +60,12 @@ async def create_trip(body: TripIn, user: dict = Depends(get_current_user)):
 
 @router.put("/{trip_id}", response_model=TripOut)
 async def update_trip(trip_id: str, body: TripIn, user: dict = Depends(get_current_user)):
-    db  = get_db()
+    db = get_db()
     ref = db.collection("users").document(user["uid"]).collection("trips").document(trip_id)
     doc = ref.get()
     if not doc.exists:
         raise HTTPException(status_code=404, detail="Trip not found")
-    now  = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     data = {**body.model_dump(), "updated_at": now}
     ref.update(data)
     trips_operations_total.labels(operation="update").inc()
@@ -69,7 +75,7 @@ async def update_trip(trip_id: str, body: TripIn, user: dict = Depends(get_curre
 
 @router.delete("/{trip_id}", status_code=204)
 async def delete_trip(trip_id: str, user: dict = Depends(get_current_user)):
-    db  = get_db()
+    db = get_db()
     ref = db.collection("users").document(user["uid"]).collection("trips").document(trip_id)
     if not ref.get().exists:
         raise HTTPException(status_code=404, detail="Trip not found")

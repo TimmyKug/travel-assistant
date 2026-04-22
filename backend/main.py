@@ -6,28 +6,48 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from routers import ai, trips, auth, health
+from routers import ai, auth, health, trips
 
 # ---------------------------------------------------------------------------
 # Structured JSON logging
 # ---------------------------------------------------------------------------
 
-_STANDARD_LOG_ATTRS = frozenset({
-    "args", "created", "exc_info", "exc_text", "filename", "funcName",
-    "levelname", "levelno", "lineno", "message", "module", "msecs",
-    "msg", "name", "pathname", "process", "processName", "relativeCreated",
-    "stack_info", "thread", "threadName", "taskName",
-})
+_STANDARD_LOG_ATTRS = frozenset(
+    {
+        "args",
+        "created",
+        "exc_info",
+        "exc_text",
+        "filename",
+        "funcName",
+        "levelname",
+        "levelno",
+        "lineno",
+        "message",
+        "module",
+        "msecs",
+        "msg",
+        "name",
+        "pathname",
+        "process",
+        "processName",
+        "relativeCreated",
+        "stack_info",
+        "thread",
+        "threadName",
+        "taskName",
+    }
+)
 
 
 class _JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         record.message = record.getMessage()
         log: dict = {
-            "level":   record.levelname,
-            "logger":  record.name,
+            "level": record.levelname,
+            "logger": record.name,
             "message": record.message,
-            "time":    self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
+            "time": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
         }
         extras = {k: v for k, v in record.__dict__.items() if k not in _STANDARD_LOG_ATTRS}
         log.update(extras)
@@ -67,8 +87,8 @@ app.add_middleware(
 # Expose /metrics for Prometheus scraping
 Instrumentator().instrument(app).expose(app)
 
-app.include_router(auth.router,  prefix="/api/auth",  tags=["auth"])
-app.include_router(ai.router,    prefix="/api/ai",    tags=["ai"])
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(ai.router, prefix="/api/ai", tags=["ai"])
 app.include_router(trips.router, prefix="/api/trips", tags=["trips"])
 app.include_router(health.router, prefix="/api", tags=["health"])
 

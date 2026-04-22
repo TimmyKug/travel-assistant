@@ -4,6 +4,7 @@ Application-level Prometheus metrics.
 Import and increment these in routers/services rather than creating
 counters inline — prometheus_client raises on duplicate registration.
 """
+
 from prometheus_client import Counter, Histogram
 
 auth_events_total = Counter(

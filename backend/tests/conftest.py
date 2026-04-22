@@ -2,6 +2,7 @@
 Test configuration — sets required env vars and stubs heavy dependencies
 before any app import so module-level initialisations don't fail.
 """
+
 import os
 import sys
 from unittest.mock import MagicMock
@@ -34,9 +35,10 @@ def mock_db():
 @pytest.fixture()
 def client(mock_db):
     from fastapi.testclient import TestClient
+
+    import services.firestore_client as _fc
     from main import app
     from services.firebase_auth import get_current_user
-    import services.firestore_client as _fc
 
     app.dependency_overrides[get_current_user] = lambda: TEST_USER
     # get_db() is called directly (not via Depends), so inject into the

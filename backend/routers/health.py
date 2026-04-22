@@ -1,6 +1,7 @@
 """
 Health and Firestore integrity checks.
 """
+
 import logging
 
 from fastapi import APIRouter

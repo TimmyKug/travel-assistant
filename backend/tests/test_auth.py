@@ -1,12 +1,15 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 
 def test_register_creates_user(client, mock_db):
-    mock_db.collection.return_value.where.return_value.limit.return_value.stream.return_value = iter([])
+    mock_db.collection.return_value.where.return_value.limit.return_value.stream.return_value = (
+        iter([])
+    )
 
-    response = client.post("/api/auth/register", json={
-        "name": "Alice", "email": "alice@example.com", "password": "password123"
-    })
+    response = client.post(
+        "/api/auth/register",
+        json={"name": "Alice", "email": "alice@example.com", "password": "password123"},
+    )
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "Alice"
@@ -17,17 +20,21 @@ def test_register_creates_user(client, mock_db):
 
 def test_register_duplicate_email(client, mock_db):
     existing = MagicMock()
-    mock_db.collection.return_value.where.return_value.limit.return_value.stream.return_value = iter([existing])
+    mock_db.collection.return_value.where.return_value.limit.return_value.stream.return_value = (
+        iter([existing])
+    )
 
-    response = client.post("/api/auth/register", json={
-        "name": "Alice", "email": "alice@example.com", "password": "password123"
-    })
+    response = client.post(
+        "/api/auth/register",
+        json={"name": "Alice", "email": "alice@example.com", "password": "password123"},
+    )
     assert response.status_code == 400
     assert "already registered" in response.json()["detail"]
 
 
 def test_login_success(client, mock_db):
     from services.firebase_auth import hash_password
+
     user_doc = MagicMock()
     user_doc.to_dict.return_value = {
         "uid": "test-uid",
@@ -35,11 +42,13 @@ def test_login_success(client, mock_db):
         "display_name": "Alice",
         "password_hash": hash_password("password123"),
     }
-    mock_db.collection.return_value.where.return_value.limit.return_value.stream.return_value = iter([user_doc])
+    mock_db.collection.return_value.where.return_value.limit.return_value.stream.return_value = (
+        iter([user_doc])
+    )
 
-    response = client.post("/api/auth/login", json={
-        "email": "alice@example.com", "password": "password123"
-    })
+    response = client.post(
+        "/api/auth/login", json={"email": "alice@example.com", "password": "password123"}
+    )
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "Alice"
@@ -48,6 +57,7 @@ def test_login_success(client, mock_db):
 
 def test_login_wrong_password(client, mock_db):
     from services.firebase_auth import hash_password
+
     user_doc = MagicMock()
     user_doc.to_dict.return_value = {
         "uid": "test-uid",
@@ -55,20 +65,24 @@ def test_login_wrong_password(client, mock_db):
         "display_name": "Alice",
         "password_hash": hash_password("correct-password"),
     }
-    mock_db.collection.return_value.where.return_value.limit.return_value.stream.return_value = iter([user_doc])
+    mock_db.collection.return_value.where.return_value.limit.return_value.stream.return_value = (
+        iter([user_doc])
+    )
 
-    response = client.post("/api/auth/login", json={
-        "email": "alice@example.com", "password": "wrong-password"
-    })
+    response = client.post(
+        "/api/auth/login", json={"email": "alice@example.com", "password": "wrong-password"}
+    )
     assert response.status_code == 401
 
 
 def test_login_unknown_email(client, mock_db):
-    mock_db.collection.return_value.where.return_value.limit.return_value.stream.return_value = iter([])
+    mock_db.collection.return_value.where.return_value.limit.return_value.stream.return_value = (
+        iter([])
+    )
 
-    response = client.post("/api/auth/login", json={
-        "email": "nobody@example.com", "password": "password123"
-    })
+    response = client.post(
+        "/api/auth/login", json={"email": "nobody@example.com", "password": "password123"}
+    )
     assert response.status_code == 401
 
 

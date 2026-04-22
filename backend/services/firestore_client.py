@@ -7,7 +7,9 @@ Collections:
   analytics/daily_usage               — aggregated stats (not per-user)
   rate_limits/{uid}                   — Gemini API daily usage tracking
 """
+
 import os
+
 from google.cloud import firestore
 
 _db: firestore.Client | None = None

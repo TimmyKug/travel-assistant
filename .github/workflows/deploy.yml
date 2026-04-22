@@ -37,11 +37,49 @@ jobs:
             backend/requirements.txt
             backend/requirements-test.txt
 
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt -r backend/requirements-test.txt ruff==0.8.4
+
+      - name: Ruff check
+        working-directory: backend
+        run: ruff check .
+
+      - name: Ruff format check
+        working-directory: backend
+        run: ruff format --check .
+
       - name: Run backend tests
-        run: |
-          pip install -r backend/requirements.txt -r backend/requirements-test.txt
-          cd backend
-          pytest tests/
+        working-directory: backend
+        run: pytest tests/
+
+  lint_frontend:
+    name: Lint Frontend
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: ESLint
+        working-directory: frontend
+        run: npm run lint
 
   build:
     name: Build ${{ matrix.image.name }}
@@ -184,7 +222,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    needs: [test, build, provision]
+    needs: [test, lint_frontend, build, provision]
 
     steps:
       - name: Checkout repository

@@ -1,19 +1,20 @@
 """
 Auth router — email/password registration and login with JWT tokens.
 """
+
+import datetime
 import logging
 import uuid
-import datetime
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from metrics import auth_events_total
 from services.firebase_auth import (
+    create_access_token,
     get_current_user,
     hash_password,
     verify_password,
-    create_access_token,
 )
 from services.firestore_client import get_db
 
@@ -47,9 +48,7 @@ class UserProfile(BaseModel):
 @router.post("/register", response_model=AuthOut)
 async def register(body: RegisterIn):
     db = get_db()
-    existing = list(
-        db.collection("users").where("email", "==", body.email).limit(1).stream()
-    )
+    existing = list(db.collection("users").where("email", "==", body.email).limit(1).stream())
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -57,13 +56,15 @@ async def register(body: RegisterIn):
         )
 
     uid = str(uuid.uuid4())
-    db.collection("users").document(uid).set({
-        "uid": uid,
-        "email": body.email,
-        "display_name": body.name,
-        "password_hash": hash_password(body.password),
-        "created_at": datetime.datetime.now(datetime.timezone.utc),
-    })
+    db.collection("users").document(uid).set(
+        {
+            "uid": uid,
+            "email": body.email,
+            "display_name": body.name,
+            "password_hash": hash_password(body.password),
+            "created_at": datetime.datetime.now(datetime.UTC),
+        }
+    )
 
     auth_events_total.labels(event="register").inc()
     logger.info("user_registered", extra={"uid": uid, "email": body.email})
@@ -75,9 +76,7 @@ async def register(body: RegisterIn):
 @router.post("/login", response_model=AuthOut)
 async def login(body: LoginIn):
     db = get_db()
-    docs = list(
-        db.collection("users").where("email", "==", body.email).limit(1).stream()
-    )
+    docs = list(db.collection("users").where("email", "==", body.email).limit(1).stream())
     if not docs:
         auth_events_total.labels(event="login_failure").inc()
         logger.warning("login_failed", extra={"email": body.email, "reason": "user_not_found"})

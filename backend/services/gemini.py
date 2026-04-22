@@ -2,10 +2,11 @@
 Gemini Flash client with daily rate-limit enforcement.
 Free tier: 500 requests/day tracked in Firestore.
 """
+
 import logging
 import os
 import time
-from datetime import date, datetime, timezone
+from datetime import date
 
 import google.generativeai as genai
 from fastapi import HTTPException, status
@@ -17,7 +18,7 @@ from services.firestore_client import get_db
 logger = logging.getLogger(__name__)
 
 DAILY_LIMIT = 500
-MODEL_NAME  = "gemini-3.1-flash-lite-preview"
+MODEL_NAME = "gemini-3.1-flash-lite-preview"
 
 SYSTEM_PROMPT = """You are an expert AI travel assistant. You help users plan trips,
 find destinations, suggest itineraries, recommend restaurants and hotels, and answer
@@ -45,11 +46,8 @@ async def check_and_increment_rate_limit(uid: str) -> int:
         snapshot = ref.get(transaction=transaction)
         data = snapshot.to_dict() if snapshot.exists else {}
 
-        if data.get("date") != today:
-            # New day — reset counter
-            new_count = 1
-        else:
-            new_count = data.get("count", 0) + 1
+        # New day resets counter; otherwise increment.
+        new_count = 1 if data.get("date") != today else data.get("count", 0) + 1
 
         if new_count > DAILY_LIMIT:
             raise HTTPException(
@@ -79,7 +77,7 @@ async def chat(uid: str, messages: list[dict]) -> str:
 
     # Separate history from the latest message
     history = messages[:-1]
-    latest  = messages[-1]["parts"][0] if messages else ""
+    latest = messages[-1]["parts"][0] if messages else ""
 
     chat_session = _model.start_chat(history=history)
     t0 = time.perf_counter()

@@ -569,6 +569,29 @@ Der erzeugte Backup-Pfad wird in der Job Summary ausgegeben, sodass der spätere
 Für den Restore existiert analog der Workflow `Manual Firestore Restore`, der nach manueller Bestätigung entweder das jüngste manuelle Backup oder einen explizit angegebenen `gs://`-Backup-Pfad importiert.
 Das lokale Script `presentation/demo-scripts/firestore-restore.sh` bleibt als Demo- und Fallback-Werkzeug erhalten.
 
+=== Recovery-Zeit und Kostenbewertung
+
+Die im Projekt beobachteten Wiederherstellungszeiten unterscheiden sich deutlich zwischen Compute- und Datenpfad.
+Die #acr("MIG")-basierte Compute-Recovery dauerte typischerweise etwa fünf bis zehn Minuten.
+Diese Zeit setzt sich im Wesentlichen aus Health-Check-Erkennung, Autohealing-Entscheidung, Provisionierung einer Ersatz-#acr("VM"), Startup-Script, Docker-Image-Pull und erneutem Health-Check zusammen.
+Für die Datenrecovery lagen Backup und Restore im Demo-Szenario jeweils nur bei wenigen Sekunden.
+Diese Werte sind jedoch nicht auf größere Produktivdatenmengen übertragbar: Der Datenbestand war bewusst sehr klein, und der Integritätscheck bezieht sich auf wenige Referenzdokumente.
+Außerdem laufen die geplanten Backups asynchron und beeinflussen daher nicht direkt die Nutzerverfügbarkeit; für die #acr("RTO")-Betrachtung ist vor allem der Restore-Pfad relevant.
+Eine belastbare Messreihe mit größeren Datenmengen konnte nicht mehr durchgeführt werden, weil die verbleibenden Google-Cloud-Credits am Projektende bereits stark begrenzt waren.
+
+Auch die Kosten lassen sich daher nur überschlägig anhand der veröffentlichten Google-Cloud-Preise berechnen.
+Die produktive Redundanz besteht aus zwei App-#acrpl("VM") in der #acr("MIG") sowie einer Monitoring-#acr("VM"), jeweils als `e2-small` in `europe-west3`.
+Bei einem On-Demand-Preis von 0,016752855 USD pro Stunde ergibt das für drei laufende #acrpl("VM") rund 36,69 USD pro Monat bei 730 Stunden; die zweite App-#acr("VM") als eigentlicher Compute-Redundanzanteil verursacht davon rund 12,23 USD pro Monat @gcp-compute-vm-pricing.
+Hinzu kommen die Persistent Disks: Zwei App-Boot-Disks zu je 20 GiB, eine Monitoring-Boot-Disk mit 20 GiB und die persistente Monitoring-Disk mit 10 GiB ergeben 70 GiB `pd-standard`.
+Da die Disk-Preise nach provisionierter Kapazität berechnet werden und in der Preistabelle für Standard Persistent Disk die ersten 30 GiB pro Monat kostenlos ausgewiesen sind, liegen die zusätzlichen Disk-Kosten überschlägig bei etwa 1,60 USD pro Monat; ohne freien Anteil wären es etwa 2,80 USD pro Monat @gcp-disk-pricing.
+
+Für die Firestore-Seite bleibt der Projektbetrieb selbst wegen der kleinen Datenmengen innerhalb des kostenlosen Kontingents von 1 GiB Speicher, 50.000 Reads, 20.000 Writes und 20.000 Deletes pro Tag plausibel kostenlos @firestore-pricing.
+Die Export-Strecke kann dennoch Kosten erzeugen, weil Firestore-Exporte laut Google einen Read pro exportiertem Dokument verursachen @gcp-firestore-export.
+Die Backup-Artefakte liegen im #acr("GCS")-Bucket in `europe-west3`; Standard Storage kostet dort 0,0253 USD pro GiB und Monat @gcp-storage-pricing.
+Bei täglichem Export und 30 Tagen Aufbewahrung entspricht das näherungsweise `30 * D * 0,0253 USD` pro Monat für eine Datenbankgröße von `D` GiB, also etwa 0,76 USD pro Monat je GiB produktiver Firestore-Daten.
+Der Cloud-Scheduler-Job liegt mit einem Job unter dem freien Kontingent von drei Jobs pro Monat; außerhalb des freien Kontingents wären 0,10 USD pro Job und Monat anzusetzen @gcp-scheduler-pricing.
+Tatsächliche Rechnungswerte können durch Rundung, Wechselkurse, bereits verbrauchte Free-Tier-Anteile, Netzwerkverkehr, Artifact-Registry-Speicher und konkrete Exportgröße abweichen; ein abschließender Abgleich gegen echte Billing-Daten war wegen der fast aufgebrauchten Credits nicht mehr sinnvoll möglich.
+
 == Ausblick und Handlungsempfehlungen
 
 === Point-in-Time Recovery und robusterer Integritätscheck
@@ -580,6 +603,11 @@ Damit ist PITR deutlich granularer als der hier umgesetzte tägliche Export.
 Im Rahmen dieses Projekts wurde PITR nicht aktiviert, weil es zusätzliche Kosten verursacht und für die nachweisbare Backup-/Restore-Strecke nicht notwendig war.
 Für einen produktionsnäheren Betrieb wäre ein hybrider Ansatz sinnvoll: Daily Exports bleiben als langlebige, bucketbasierte Sicherung und als Grundlage für projektübergreifende Restores erhalten, während PITR die Lücke zwischen zwei geplanten Exporten schließt und versehentliche Schreib- oder Löschfehler feingranularer rückgängig machen kann.
 Architektonisch ließe sich PITR ohne Änderungen am App-Code nachziehen: Es müsste in der Firestore-Konfiguration aktiviert werden, anschließend könnten zeitpunktbezogene Reads, Exporte oder Datenbank-Klone für feinere Recovery-Szenarien genutzt werden.
+
+Zusätzlich wäre ein gezielter Restore der tatsächlich betroffenen Dokumente oder Collection Groups schneller als ein vollständiger Firestore-Import.
+Der aktuelle Integritätscheck benennt bereits konkret fehlende Referenzdokumente und Pflichtfelder; ein produktionsnäheres Repair-Script könnte genau diese Dokumente aus einem Export oder aus versionierten Seed-Daten wiederherstellen, statt die gesamte Datenbank neu zu importieren.
+Das reduziert die Restore-Dauer besonders bei kleinen, klar lokalisierbaren Datenfehlern.
+Bei großflächiger Korruption bleibt dagegen ein vollständiger Import, ein PITR-basierter Export oder ein Datenbank-Klon die robustere Strategie.
 
 Zusätzlich sollte der Integritätscheck produktionsnäher gestaltet werden.
 Der aktuelle Check ist für die Demo bewusst deterministisch, aber auch fehleranfällig: Er hängt an festen Referenzdokumenten wie `users/demo-user` und kann rot werden, wenn diese Demo-Daten aus anderen Gründen verändert werden.
