@@ -13,72 +13,77 @@ auto-healing, and scripted restore — see [Disaster Recovery](#disaster-recover
 ## Architecture
 
 ```mermaid
-graph TD
-    subgraph CI ["GitHub Actions (push to main)"]
-        GHA1[test: pytest]
-        GHA2[build: backend + nginx images]
-        GHA3[provision: terraform apply]
-        GHA4[deploy: upload configs + ansible]
-        GHA1 --> GHA4
-        GHA2 --> GHA4
-        GHA3 --> GHA4
+flowchart TD
+    subgraph CI["GitHub Actions"]
+        test["pytest"]
+        build["build images"]
+        provision["terraform apply"]
+        deploy["upload configs and run ansible"]
+        test --> deploy
+        build --> deploy
+        provision --> deploy
     end
 
-    subgraph LB ["Global HTTP Load Balancer (static IP)"]
-        FR[forwarding rule :80] --> URLMap[url map] --> BES[backend service]
+    subgraph LB["HTTP Load Balancer"]
+        fr["forwarding rule"]
+        bes["backend service"]
+        fr --> bes
     end
 
-    subgraph AppMIG ["App MIG — 2 × VM, auto-healed"]
-        direction LR
-        VM1[VM instance 1]
-        VM2[VM instance 2]
+    subgraph App["Managed Instance Group"]
+        vm1["App VM 1"]
+        vm2["App VM 2"]
+        nginx["nginx"]
+        api["FastAPI"]
+        promtail["Promtail"]
+        nodeexp["node exporter"]
+        vm1 --> nginx
+        vm2 --> nginx
+        nginx --> api
     end
 
-    subgraph VMStack ["Each App VM"]
-        nginx[nginx :80]
-        backend[FastAPI + Gemini]
-        promtail[promtail — ships logs]
-        node_exp[node-exporter :9100]
-        nginx --> backend
+    subgraph Mon["Monitoring VM"]
+        prometheus["Prometheus"]
+        blackbox["Blackbox exporter"]
+        loki["Loki"]
+        grafana["Grafana"]
+        alertmanager["Alertmanager"]
+        prometheus --> alertmanager
+        grafana --> prometheus
+        grafana --> loki
     end
 
-    subgraph MonVM ["Monitoring VM (persistent disk)"]
-        prometheus[Prometheus — GCE SD]
-        loki[Loki :3100]
-        grafana[Grafana /grafana/]
-        alertmgr[Alertmanager]
-        blackbox[Blackbox exporter]
-        prometheus --> grafana
-        loki --> grafana
-        prometheus --> alertmgr
+    subgraph PaaS["Managed GCP Services"]
+        registry["Artifact Registry"]
+        firestore["Firestore"]
+        scheduler["Cloud Scheduler"]
+        configs["GCS app config bucket"]
+        backups["GCS backup bucket"]
     end
 
-    subgraph Storage ["GCP Managed Storage (PaaS)"]
-        AR[Artifact Registry — Docker images]
-        FS[Firestore — users / conversations / trips / rate limits]
-        PD[Persistent Disk — Prometheus + Loki + Grafana]
-        CB[GCS — app configs for startup bootstrap]
-        BB[GCS — Firestore daily backups]
-    end
+    disk["Persistent Disk"]
+    gemini["Gemini API"]
 
-    BES --> AppMIG
-    GHA2 -- push --> AR
-    GHA3 -- apply --> AppMIG
-    GHA3 -- apply --> MonVM
-    GHA4 -- upload --> CB
-    GHA4 -- ansible --> MonVM
-    AR -- pull --> VMStack
-    CB -- startup-script pull --> VMStack
-    backend -- read/write --> FS
-    promtail -- push --> loki
-    prometheus -- scrape --> node_exp
-    prometheus -- scrape --> backend
-    blackbox -- probe --> FR
-    prometheus -- store --> PD
-    loki -- store --> PD
-    grafana -- store --> PD
-    SCHED[Cloud Scheduler: daily] -- export --> FS
-    FS -- export --> BB
+    bes --> App
+    build --> registry
+    provision --> App
+    provision --> Mon
+    deploy --> configs
+    deploy --> Mon
+    registry --> App
+    configs --> App
+    api --> firestore
+    api --> gemini
+    promtail --> loki
+    prometheus --> nodeexp
+    prometheus --> api
+    prometheus --> blackbox
+    blackbox --> fr
+    scheduler --> firestore
+    firestore --> backups
+    prometheus --> disk
+    loki --> disk
+    grafana --> disk
 ```
 
 ### Cloud layers used
