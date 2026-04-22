@@ -60,8 +60,8 @@ jobs:
         working-directory: backend
         run: pytest tests/
 
-  lint_frontend:
-    name: Lint Frontend
+  frontend_checks:
+    name: Frontend Checks
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -238,7 +238,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    needs: [test, lint_frontend, build, provision]
+    needs: [test, frontend_checks, build, provision]
 
     steps:
       - name: Checkout repository
