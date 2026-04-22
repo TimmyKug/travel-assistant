@@ -28,7 +28,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
 
     steps:
       - name: Checkout repository
@@ -51,6 +50,24 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pytest httpx google-cloud-firestore google-cloud-storage
+
+      - name: Show integration target
+        env:
+          APP_URL: ${{ inputs.app_url }}
+        run: |
+          python - <<'PY'
+          import os
+          from urllib.parse import urlparse
+
+          raw_url = os.environ["APP_URL"].strip().rstrip("/")
+          normalized_url = raw_url
+          if not normalized_url.startswith(("http://", "https://")):
+              normalized_url = f"http://{normalized_url}"
+
+          parsed = urlparse(normalized_url)
+          print(f"Integration target URL: {normalized_url}")
+          print(f"Integration target host: {parsed.hostname}")
+          PY
 
       - name: Run integration tests
         env:
