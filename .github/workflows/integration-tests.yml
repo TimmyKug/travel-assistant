@@ -7,6 +7,15 @@ on:
         description: "Public app URL, for example http://<load-balancer-ip>"
         required: true
         type: string
+  workflow_call:
+    inputs:
+      app_url:
+        description: "Public app URL, for example http://<load-balancer-ip>"
+        required: true
+        type: string
+    secrets:
+      GCP_SA_KEY:
+        required: true
 
 env:
   GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}

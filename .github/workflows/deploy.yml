@@ -287,3 +287,11 @@ jobs:
             --extra-vars "repo_local_path=${{ github.workspace }}" \
             --extra-vars "zone=${{ vars.GCP_REGION || 'europe-west3' }}-a" \
             --extra-vars "app_static_ip=${{ needs.provision.outputs.app_static_ip }}"
+
+  verify:
+    name: Verify Deployment
+    needs: [deploy, provision]
+    uses: ./.github/workflows/integration-tests.yml
+    with:
+      app_url: http://${{ needs.provision.outputs.app_static_ip }}
+    secrets: inherit

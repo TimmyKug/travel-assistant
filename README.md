@@ -102,7 +102,7 @@ flowchart TD
 | [`monitoring/`](monitoring/) | Monitoring stack configs (dashboards, alert rules, promtail, blackbox) |
 | [`scripts/`](scripts/) | Infrastructure helper scripts, including VM startup/bootstrap |
 | [`presentation/`](presentation/) | Reveal.js deck and local demo scripts for backup/restore/corruption scenarios |
-| [`.github/workflows/`](.github/workflows/) | `deploy.yml` (main pipeline), `integration-tests.yml` (manual deployed-app integration tests), `firestore-manual-backup.yml` / `firestore-manual-restore.yml` (manual Firestore export/import), and `terraform-destroy.yml` (teardown) |
+| [`.github/workflows/`](.github/workflows/) | `deploy.yml` (main pipeline with post-deploy verification), `integration-tests.yml` (reusable/manual deployed-app integration tests), `firestore-manual-backup.yml` / `firestore-manual-restore.yml` (manual Firestore export/import), and `terraform-destroy.yml` (teardown) |
 
 ## Deployment pipeline
 
@@ -112,8 +112,9 @@ Pushing to `main` triggers [`.github/workflows/deploy.yml`](.github/workflows/de
 2. **build** (matrix) — builds + pushes `backend` and `nginx` images to Artifact Registry, tagged with `github.sha` and `latest`.
 3. **provision** — `terraform apply` creates/updates infra and imports the Firestore DB if it already exists out-of-band.
 4. **deploy** — uploads `docker-compose.yml`, promtail config, and a rendered `.env` to the GCS config bucket, re-runs `terraform apply` with the new `app_image_tag` (triggers MIG rolling replacement), and runs Ansible against the monitoring VM.
+5. **verify** — calls the integration-test workflow against the public app URL after deployment.
 
-Manual integration checks live in [`.github/workflows/integration-tests.yml`](.github/workflows/integration-tests.yml). The workflow is started with `workflow_dispatch`, takes the deployed app URL as input, skips Gemini to avoid quota/cost flakiness, creates a unique temporary user/trip through the public API, checks health endpoints and storage buckets, and cleans up Firestore test data in an `if: always()` step.
+Integration checks live in [`.github/workflows/integration-tests.yml`](.github/workflows/integration-tests.yml). The workflow runs automatically as post-deploy verification and can also be started manually with `workflow_dispatch`. It takes the deployed app URL as input, skips Gemini to avoid quota/cost flakiness, creates a unique temporary user/trip through the public API, checks health endpoints and storage buckets, and cleans up Firestore test data in an `if: always()` step.
 
 The app VMs bootstrap themselves from [`scripts/startup.sh`](scripts/startup.sh) — no
 Ansible required on the app side. That script runs on every MIG-created instance,
