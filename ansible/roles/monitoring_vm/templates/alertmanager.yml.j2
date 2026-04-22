@@ -33,6 +33,22 @@ receivers:
     email_configs:
       - to: "{{ alert_email_to }}"
         send_resolved: true
+        text: |-
+{% raw %}
+          [{{ .Status | toUpper }}] {{ .CommonLabels.alertname }} ({{ .CommonLabels.severity }})
+
+          {{ if .CommonAnnotations.summary }}Summary: {{ .CommonAnnotations.summary }}{{ end }}
+          {{ if .CommonAnnotations.description }}Description: {{ .CommonAnnotations.description }}{{ end }}
+
+          Alerts: {{ len .Alerts }}
+{% endraw %}
+        html: |-
+{% raw %}
+          <h3>[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }} ({{ .CommonLabels.severity }})</h3>
+          {{ if .CommonAnnotations.summary }}<p><strong>Summary:</strong> {{ .CommonAnnotations.summary }}</p>{{ end }}
+          {{ if .CommonAnnotations.description }}<p><strong>Description:</strong> {{ .CommonAnnotations.description }}</p>{{ end }}
+          <p><strong>Alerts:</strong> {{ len .Alerts }}</p>
+{% endraw %}
 {% endif %}
 
 inhibit_rules:
