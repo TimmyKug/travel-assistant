@@ -103,7 +103,7 @@ export default function Chat() {
     const convId = searchParams.get("conversation_id");
     if (!convId) return;
     loadConversation(convId);
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
