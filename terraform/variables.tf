@@ -38,11 +38,6 @@ variable "ssh_public_key" {
   type        = string
 }
 
-variable "firebase_app_id" {
-  description = "Firebase App ID (stored in GitHub Variables: FIREBASE_APP_ID)"
-  type        = string
-}
-
 variable "firestore_location" {
   description = "Firestore multi-region location. Cannot be changed after creation. eur3=Europe (covers europe-west*), nam5=US, asia1=Asia."
   type        = string

@@ -10,7 +10,6 @@ env:
   TF_VAR_region: ${{ vars.GCP_REGION || 'europe-west3' }}
   TF_VAR_zone: "${{ vars.GCP_REGION || 'europe-west3' }}-a"
   TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
-  TF_VAR_firebase_app_id: ${{ vars.FIREBASE_APP_ID }}
 
 jobs:
   # ── Parallel: test, build, provision ────────────────────────────────
@@ -80,8 +79,6 @@ jobs:
           tags: |
             ${{ vars.GCP_REGION || 'europe-west3' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/travel-assistant/${{ matrix.image.name }}:${{ github.sha }}
             ${{ vars.GCP_REGION || 'europe-west3' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/travel-assistant/${{ matrix.image.name }}:latest
-          # Only nginx needs Firebase build-args (Vite frontend); backend ignores them
-          build-args: ${{ matrix.image.name == 'nginx' && format('VITE_FIREBASE_API_KEY={0}\nVITE_FIREBASE_AUTH_DOMAIN={1}.firebaseapp.com\nVITE_FIREBASE_PROJECT_ID={1}\nVITE_FIREBASE_STORAGE_BUCKET={2}\nVITE_FIREBASE_MESSAGING_SENDER_ID={3}\nVITE_FIREBASE_APP_ID={4}', secrets.FIREBASE_API_KEY, vars.GCP_PROJECT_ID, vars.FIREBASE_STORAGE_BUCKET, vars.FIREBASE_MESSAGING_SENDER_ID, vars.FIREBASE_APP_ID) || '' }}
           cache-from: type=gha,scope=${{ matrix.image.name }}
           cache-to: type=gha,scope=${{ matrix.image.name }},mode=max
 

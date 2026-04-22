@@ -87,7 +87,7 @@ graph TD
 |-------|----------|
 | **IaaS** | Compute Engine VMs (app MIG + monitoring VM), VPC firewall, persistent disks, global HTTP load balancer |
 | **PaaS** | Firestore, Artifact Registry, Cloud Storage, Cloud Scheduler |
-| **SaaS** | Gemini API (Google AI Studio), Firebase Authentication |
+| **SaaS** | Gemini API (Google AI Studio) |
 
 ### Repo layout
 
@@ -107,7 +107,7 @@ graph TD
 Pushing to `main` triggers [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
 
 1. **test** — runs `pytest` against [`backend/tests/`](backend/tests/).
-2. **build** (matrix) — builds + pushes `backend` and `nginx` images to Artifact Registry, tagged with `github.sha` and `latest`. Firebase config is baked in at build time via `VITE_FIREBASE_*` build args.
+2. **build** (matrix) — builds + pushes `backend` and `nginx` images to Artifact Registry, tagged with `github.sha` and `latest`.
 3. **provision** — `terraform apply` creates/updates infra and imports the Firestore DB if it already exists out-of-band.
 4. **deploy** — uploads `docker-compose.yml`, promtail config, and a rendered `.env` to the GCS config bucket, re-runs `terraform apply` with the new `app_image_tag` (triggers MIG rolling replacement), and runs Ansible against the monitoring VM.
 
@@ -144,7 +144,6 @@ for role in \
   roles/serviceusage.serviceUsageAdmin \
   roles/datastore.owner \
   roles/storage.admin \
-  roles/firebase.admin \
   roles/artifactregistry.admin; do
   gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
     --member="serviceAccount:github-actions@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
@@ -181,7 +180,6 @@ ssh-keygen -t ed25519 -C "github-actions-deploy" -f deploy_key -N ""
 | `GRAFANA_ADMIN_PASSWORD` | Strong password |
 | `PROMETHEUS_HTPASSWD` | `htpasswd -nb admin yourpassword` |
 | `SSH_PRIVATE_KEY` | Contents of `deploy_key` |
-| `FIREBASE_API_KEY` | Firebase Console → Project Settings → General |
 
 ### 4. GitHub Variables
 
@@ -191,18 +189,7 @@ ssh-keygen -t ed25519 -C "github-actions-deploy" -f deploy_key -N ""
 | `GCP_REGION` | `europe-west3` |
 | `TF_STATE_BUCKET` | `YOUR_PROJECT_ID-tf-state` |
 | `SSH_PUBLIC_KEY` | Contents of `deploy_key.pub` |
-| `FIREBASE_APP_ID` | Firebase Console → Project Settings → General |
-| `FIREBASE_STORAGE_BUCKET` | Typically `YOUR_PROJECT_ID.firebasestorage.app` |
-| `FIREBASE_MESSAGING_SENDER_ID` | Firebase Console → Project Settings → General |
-
-### 5. Firebase setup
-
-1. [Firebase Console](https://console.firebase.google.com) → Add project (reuse your GCP project).
-2. Authentication → Sign-in method → enable **Google**.
-3. Add a Web app, copy the config to `frontend/.env` for local dev.
-4. The `VITE_FIREBASE_*` values are baked into the nginx image by the CI `build` job.
-
-### 6. Deploy
+### 5. Deploy
 
 ```bash
 git push origin main

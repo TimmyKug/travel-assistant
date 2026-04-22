@@ -26,12 +26,6 @@ resource "google_project_iam_member" "firestore_user" {
   member  = "serviceAccount:${google_service_account.travel_vm_sa.email}"
 }
 
-resource "google_project_iam_member" "firebase_auth" {
-  project = var.project_id
-  role    = "roles/firebase.sdkAdminServiceAgent"
-  member  = "serviceAccount:${google_service_account.travel_vm_sa.email}"
-}
-
 # App VM SA can read from Artifact Registry (for docker pull in startup script)
 resource "google_project_iam_member" "artifact_registry_reader" {
   project = var.project_id
