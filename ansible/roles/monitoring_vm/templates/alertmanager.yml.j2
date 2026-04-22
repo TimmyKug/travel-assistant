@@ -1,0 +1,43 @@
+global:
+  resolve_timeout: 5m
+{% if smtp_smarthost | default('') %}
+  smtp_smarthost: "{{ smtp_smarthost }}"
+  smtp_from: "{{ smtp_from }}"
+{% if smtp_auth_username | default('') %}
+  smtp_auth_username: "{{ smtp_auth_username }}"
+{% endif %}
+{% if smtp_auth_password | default('') %}
+  smtp_auth_password: "{{ smtp_auth_password }}"
+{% endif %}
+{% if smtp_require_tls is defined %}
+  smtp_require_tls: {{ smtp_require_tls | bool | lower }}
+{% endif %}
+{% endif %}
+
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: 'default'
+
+  routes:
+    - matchers:
+        - severity="critical"
+      repeat_interval: 1h
+      receiver: 'default'
+
+receivers:
+  - name: 'default'
+{% if alert_email_to | default('') and smtp_smarthost | default('') and smtp_from | default('') %}
+    email_configs:
+      - to: "{{ alert_email_to }}"
+        send_resolved: true
+{% endif %}
+
+inhibit_rules:
+  - source_matchers:
+      - alertname="AppVMDown"
+    target_matchers:
+      - alertname="AppVMNodeExporterDown"
+    equal: []

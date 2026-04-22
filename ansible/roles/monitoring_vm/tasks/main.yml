@@ -37,6 +37,14 @@
     group: deploy
     mode: "0644"
 
+- name: Template Alertmanager config
+  template:
+    src: alertmanager.yml.j2
+    dest: "{{ app_dir }}/monitoring/alertmanager/alertmanager.yml"
+    owner: deploy
+    group: deploy
+    mode: "0640"
+
 - name: Write Prometheus htpasswd file
   copy:
     content: "{{ prometheus_htpasswd }}"

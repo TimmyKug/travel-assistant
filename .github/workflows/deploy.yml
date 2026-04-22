@@ -271,6 +271,11 @@ jobs:
           grafana_admin_password: "${{ secrets.GRAFANA_ADMIN_PASSWORD }}"
           prometheus_htpasswd: "${{ secrets.PROMETHEUS_HTPASSWD }}"
           gcp_project_id: "${{ vars.GCP_PROJECT_ID }}"
+          smtp_smarthost: "${{ vars.SMTP_SMARTHOST }}"
+          smtp_from: "${{ vars.SMTP_FROM }}"
+          smtp_auth_username: "${{ vars.SMTP_AUTH_USERNAME }}"
+          smtp_auth_password: "${{ secrets.SMTP_AUTH_PASSWORD }}"
+          alert_email_to: "${{ vars.ALERT_EMAIL_TO }}"
           EOF
 
       - name: Run Ansible playbook
