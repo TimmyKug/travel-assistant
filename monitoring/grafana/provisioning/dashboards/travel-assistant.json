@@ -541,7 +541,7 @@
       },
       "targets": [
         {
-          "expr": "ALERTS{alertstate=\"firing\"}",
+          "expr": "ALERTS{alertstate=\"firing\"} or on() label_replace(absent(ALERTS{alertstate=\"firing\"}), \"alertname\", \"No Alerts\", \"alertstate\", \".*\")",
           "format": "table",
           "instant": true,
           "legendFormat": "{{alertname}}"
