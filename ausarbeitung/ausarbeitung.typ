@@ -607,6 +607,9 @@ Gerade diese Negativtests sind wichtig, weil der Endpoint nicht nur Erreichbarke
 Nicht Teil der automatisierten Tests sind vollständige End-to-End-Tests gegen eine echte GCP-Umgebung, echte Gemini-Antworten, Load-Balancer-Verhalten, MIG-Autohealing oder ein realer Firestore-Import.
 Diese Aspekte wurden im Projekt über die Demo-Skripte, die GitHub-Workflows für Backup/Restore und die Beobachtung in Grafana/Alertmanager validiert.
 Der Testansatz ist damit bewusst risikobasiert: Wiederholbare Backend-Logik wird automatisiert geprüft, während kosten- und zeitintensive Cloud-Abläufe als manuelle Integrations- und Recovery-Tests nachgewiesen werden.
+Ergänzend existiert ein manuell startbarer Integrationsworkflow, der gegen die bereitgestellte öffentliche App-URL läuft.
+Er prüft Health-Endpunkte, Authentifizierung, Trip-CRUD und die relevanten Storage-Buckets mit echten GCP-Diensten, verzichtet aber bewusst auf Gemini-Aufrufe.
+Die dabei erzeugten Testdaten verwenden eine eindeutige E-Mail pro Workflow-Lauf und werden sowohl im Test selbst als auch in einem abschließenden Cleanup-Schritt (`if: always()`) aus Firestore entfernt.
 
 == Beobachtete Probleme und Lessons Learned <sec-lessons>
 
