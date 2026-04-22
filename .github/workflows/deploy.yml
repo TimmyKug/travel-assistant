@@ -5,6 +5,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
 env:
   TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
   TF_VAR_region: ${{ vars.GCP_REGION || 'europe-west3' }}
@@ -28,12 +32,16 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-test.txt
 
       - name: Run backend tests
         run: |
           pip install -r backend/requirements.txt -r backend/requirements-test.txt
           cd backend
-          pytest tests/ -v
+          pytest tests/
 
   build:
     name: Build ${{ matrix.image.name }}
@@ -201,7 +209,7 @@ jobs:
           GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID }}
           JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-          LOKI_URL=http://$${MONITORING_IP}:3100/loki/api/v1/push
+          LOKI_URL=http://${MONITORING_IP}:3100/loki/api/v1/push
           IMAGE_TAG=${{ github.sha }}
           ENV
 
@@ -216,9 +224,19 @@ jobs:
           terraform_version: 1.7.0
           terraform_wrapper: false
 
+      - name: Cache Terraform providers
+        uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: terraform-${{ runner.os }}-${{ hashFiles('terraform/**/*.tf') }}
+          restore-keys: terraform-${{ runner.os }}-
+
       - name: Terraform Init
         working-directory: terraform
+        env:
+          TF_PLUGIN_CACHE_DIR: ~/.terraform.d/plugin-cache
         run: |
+          mkdir -p ~/.terraform.d/plugin-cache
           terraform init \
             -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
             -backend-config="prefix=travel-assistant/state"
@@ -244,11 +262,12 @@ jobs:
         run: |
           HOST="${{ needs.provision.outputs.monitoring_ip }}"
           echo "Waiting for SSH on $HOST..."
-          for i in $(seq 1 20); do
+          for i in $(seq 1 60); do
             ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+              -o ConnectTimeout=5 \
               deploy@${HOST} "echo ready" && break
-            echo "Attempt $i failed, retrying in 15 s..."
-            sleep 15
+            echo "Attempt $i failed, retrying in 5 s..."
+            sleep 5
           done
 
       - name: Write Ansible inventory
@@ -287,3 +306,11 @@ jobs:
             --extra-vars "repo_local_path=${{ github.workspace }}" \
             --extra-vars "zone=${{ vars.GCP_REGION || 'europe-west3' }}-a" \
             --extra-vars "app_static_ip=${{ needs.provision.outputs.app_static_ip }}"
+
+  verify:
+    name: Verify Deployment
+    needs: [deploy, provision]
+    uses: ./.github/workflows/integration-tests.yml
+    with:
+      app_url: http://${{ needs.provision.outputs.app_static_ip }}
+    secrets: inherit
