@@ -51,8 +51,22 @@ function TripCard({ trip, onDelete, onUpdate, onViewChat }: TripCardProps) {
       <div className="flex items-start justify-between">
         <h3 className="font-semibold text-white">{trip.title}</h3>
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-          <button onClick={() => setEditing(true)} className="p-1 text-slate-400 hover:text-white"><Pencil className="w-4 h-4" /></button>
-          <button onClick={() => onDelete(trip.id)} className="p-1 text-slate-400 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+          <button
+            type="button"
+            aria-label="Edit trip"
+            onClick={() => setEditing(true)}
+            className="p-1 text-slate-400 hover:text-white"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Delete trip"
+            onClick={() => onDelete(trip.id)}
+            className="p-1 text-slate-400 hover:text-red-400"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       </div>
       {trip.destination && <div className="flex items-center gap-1 text-blue-400 text-sm"><MapPin className="w-3 h-3" />{trip.destination}</div>}

@@ -25,7 +25,7 @@ export default function Nav({ user }: NavProps) {
     <nav className="bg-slate-800 border-b border-slate-700 px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-3">
         <Plane className="w-5 h-5 text-blue-400" />
-        <span className="font-bold text-white hidden sm:block">Travel AI</span>
+        <span className="font-bold text-white hidden sm:block">Travel Assistant</span>
       </div>
       <div className="flex items-center gap-2">
         {navLink("/",      MessageCircle, "Chat")}

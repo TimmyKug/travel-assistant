@@ -669,6 +669,12 @@ Abgedeckt sind Authentifizierung (Registrierung, Login, aktueller Nutzer), Chat-
 Für den DB-Integritätscheck existieren explizite Tests für den grünen Zustand, fehlende Referenzdaten und technische Firestore-Konnektivitätsfehler.
 Gerade diese Negativtests sind wichtig, weil der Endpoint nicht nur Erreichbarkeit, sondern auch Datenintegrität signalisieren soll.
 
+Ergänzend zur Testsuite laufen in der CI-Pipeline statische Code-Quality- und Sicherheitsprüfungen, die den Backend- und Frontend-Code vor Build und Deployment gatekeepen.
+Für das Python-Backend kommen `ruff` (Linting und Formatierung), `mypy` (statische Typprüfung) und `pip-audit` (CVE-Scan der gepinnten Dependencies) zum Einsatz.
+Im React/TypeScript-Frontend übernehmen `tsc --noEmit` die Typprüfung, ESLint mit den React-Hooks- und React-Refresh-Regeln die Lint-Ebene und `npm audit` den Dependency-Scan.
+Testabdeckung wird über `pytest-cov` als Cobertura-Report erzeugt, damit perspektivisch eine Anbindung an externe Coverage-Dienste möglich bleibt; aktuell liegt die Zeilenabdeckung des Backends bei rund 92 %.
+Damit sind die drei gängigen Qualitätsdimensionen abgedeckt: formale Korrektheit (Linting, Typen), funktionale Korrektheit (Tests) und Lieferkettensicherheit (CVE-Scans).
+
 Nicht Teil der automatisierten Tests sind vollständige End-to-End-Tests gegen eine echte GCP-Umgebung, echte Gemini-Antworten, Load-Balancer-Verhalten, MIG-Autohealing oder ein realer Firestore-Import.
 Diese Aspekte wurden im Projekt über die Demo-Skripte, die GitHub-Workflows für Backup/Restore und die Beobachtung in Grafana/Alertmanager validiert.
 Der Testansatz ist damit bewusst risikobasiert: Wiederholbare Backend-Logik wird automatisiert geprüft, während kosten- und zeitintensive Cloud-Abläufe gezielt als Integrations- und Recovery-Tests nachgewiesen werden.
