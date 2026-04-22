@@ -1,8 +1,61 @@
 #import "@preview/fletcher:0.5.8" as fletcher: diagram, edge, node
 #import "@preview/cetz:0.3.4"
+#import "@preview/acrostiche:0.7.0": *
 #import fletcher.shapes: circle, diamond, hexagon, pill, rect
 
 // ========= Document setup =========
+#init-acronyms((
+  "ACID": "Atomicity, Consistency, Isolation, Durability",
+  "API": "Application Programming Interface",
+  "ASGI": "Asynchronous Server Gateway Interface",
+  "CI/CD": "Continuous Integration/Continuous Deployment",
+  "CPU": "Central Processing Unit",
+  "CRA": "Create React App",
+  "CRUD": "Create, Read, Update, Delete",
+  "DB": "Datenbank",
+  "GCE": "Google Compute Engine",
+  "GCP": "Google Cloud Platform",
+  "GCS": "Google Cloud Storage",
+  "GKE": "Google Kubernetes Engine",
+  "HTTP": "Hypertext Transfer Protocol",
+  "HTTP(S)": (
+    short: "HTTP(S)",
+    long: "Hypertext Transfer Protocol Secure",
+  ),
+  "HTTPS": "Hypertext Transfer Protocol Secure",
+  "I/O": "Input/Output",
+  "IaaS": "Infrastructure as a Service",
+  "IAM": "Identity and Access Management",
+  "IP": "Internet Protocol",
+  "IaC": "Infrastructure as Code",
+  "JWT": ("JSON Web Token", "JSON Web Tokens"),
+  "KI": "Künstliche Intelligenz",
+  "LB": "Load Balancer",
+  "MIG": "Managed Instance Group",
+  "NoSQL": "Not only SQL",
+  "ORM": "Object-Relational Mapping",
+  "OTel": "OpenTelemetry",
+  "OTLP": "OpenTelemetry Protocol",
+  "OAuth": "Open Authorization",
+  "PITR": "Point-in-Time Recovery",
+  "PaaS": "Platform as a Service",
+  "RPO": "Recovery Point Objective",
+  "RTO": "Recovery Time Objective",
+  "SaaS": "Software as a Service",
+  "SMTP": "Simple Mail Transfer Protocol",
+  "SPA": "Single Page Application",
+  "SSH": "Secure Shell",
+  "SSR": "Server-Side Rendering",
+  "UI": "User Interface",
+  "URL": "Uniform Resource Locator",
+  "VM": (
+    short: "VM",
+    short-pl: "VMs",
+    long: "Virtual Machine",
+    long-pl: "Virtual Machines",
+  ),
+))
+
 #set document(
   title: "Timmy's Travel Assistant — Projektarbeit Cloud Computing II",
   author: "Timothy Kugler",
@@ -60,7 +113,7 @@
   #text(size: 22pt, weight: "bold")[Travel Assistant]
 
   #v(0.3cm)
-  #text(size: 14pt)[Eine cloud-native KI-Reiseplanungsanwendung mit\
+  #text(size: 14pt)[Eine cloud-native #acs("KI")-Reiseplanungsanwendung mit\
     automatisiertem Deployment, Monitoring und Disaster Recovery]
 
   #v(2cm)
@@ -92,19 +145,20 @@
 
 Die Planung einer Reise ist auch im Jahr 2026 trotz einer Vielzahl spezialisierter Online-Dienste aufwändig.
 Informationen über Ziele, Aktivitäten und Zeitpläne liegen verteilt vor und müssen von Reisenden manuell zusammengeführt werden.
-Gleichzeitig haben sich generative KI-Modelle zu einer tragfähigen Basis für konversationelle Assistenzsysteme entwickelt.
+Gleichzeitig haben sich generative #acr("KI")-Modelle zu einer tragfähigen Basis für konversationelle Assistenzsysteme entwickelt.
 Vor diesem Hintergrund entstand die Projektidee eines dialogorientierten Reiseassistenten, der Nutzerinnen und Nutzern bei der Planung ganzer Reisen hilft, Gespräche speichert und personalisierte Vorschläge liefert.
 
-Der Fokus liegt dabei nicht nur auf der Funktionalität der Anwendung, sondern vor allem auf ihrer _Cloud-nativen_ Umsetzung.
-Der Projektkontext umfasst die Nutzung aller drei Cloud-Ebenen (IaaS, PaaS, SaaS), eine automatisierte Infrastrukturbereitstellung mit Terraform, eine Konfigurationsautomatisierung mit Ansible sowie ein erkennbares Monitoring-Konzept.
-Der vorliegende Projektbericht beschreibt die Umsetzung des entsprechenden Systems eines _Travel Assistant_ auf der Google Cloud Platform (GCP).
+Die Anwendung selbst bleibt dabei funktional bewusst schlicht und unterscheidet sich inhaltlich kaum von einem _leicht unterdurchschnittlichen_ #acr("KI")-Chatbot.
+Der Fokus dieser Arbeit liegt stattdessen auf der _Cloud-nativen_ Umsetzung: dem Entwurf einer robusten, skalierbaren und wartbaren Architektur, die im Rahmen des Fokus-Features _Disaster Recovery_ sowohl Ausfälle als auch Datenverluste adressiert.
+Der Projektkontext umfasst die Nutzung aller drei Cloud-Ebenen (#acr("IaaS"), #acr("PaaS"), #acr("SaaS")), eine automatisierte Infrastrukturbereitstellung mit Terraform, eine Konfigurationsautomatisierung mit Ansible sowie ein erkennbares Monitoring-Konzept.
+Der vorliegende Projektbericht beschreibt die Umsetzung des entsprechenden Systems eines _Travel Assistant_ auf der #acr("GCP").
 
 == Zielsetzung
 
 Ziel des Projekts war die Entwicklung einer containerbasierten Web-Anwendung, die folgende Eigenschaften erfüllt:
 
-- *Funktional:* ein KI-basierter Reiseassistent mit Nutzerkonten, persistenten Konversationen und speicherbaren Reiseplänen.
-- *Architektonisch:* Einsatz aller drei Cloud-Ebenen (SaaS, PaaS, IaaS) mit klarer Verantwortungstrennung.
+- *Funktional:* ein #acr("KI")-basierter Reiseassistent mit Nutzerkonten, persistenten Konversationen und speicherbaren Reiseplänen.
+- *Architektonisch:* Einsatz aller drei Cloud-Ebenen (#acr("SaaS"), #acr("PaaS"), #acr("IaaS")) mit klarer Verantwortungstrennung.
 - *Betrieblich:* vollständig automatisierte Bereitstellung über Terraform, Ansible und GitHub Actions mit reproduzierbaren Konfigurationen.
 - *Resilient:* ein Fokus-Feature _Disaster Recovery_, das sowohl Compute-Ausfälle über eine Managed Instance Group als auch Datenverluste in Firestore über ein Backup/Restore-Konzept behandelt.
 - *Beobachtbar:* Monitoring mit Prometheus, Grafana und Loki, einschließlich eines dedizierten Integritätschecks für die Datenbank.
@@ -113,7 +167,7 @@ Ziel des Projekts war die Entwicklung einer containerbasierten Web-Anwendung, di
 
 Aus technischer Sicht stellten sich im Projekt vier Kernfragen, die die Architektur wesentlich prägten:
 
-+ *Wie wird ein stabiler öffentlicher Endpunkt erreicht, obwohl einzelne VMs selbstheilend ausgetauscht werden dürfen?*
++ *Wie wird ein stabiler öffentlicher Endpunkt erreicht, obwohl einzelne #acrpl("VM") selbstheilend ausgetauscht werden dürfen?*
 + *Wie wird erreicht, dass ein Fehlerzustand angezeigt wird, wenn die Applikation ausfällt oder die Daten korrupt sind?*
 + *Wie wird eine (automatische) Wiederherstellung der exakt gleichen Applikation erreicht?*
 + *Wie wird erreicht, dass Zwischenstände von Daten gesichert und wiederhergestellt werden können?*
@@ -134,15 +188,15 @@ Die folgende Tabelle fasst das im Projekt gewählte Mapping auf die drei Cloud-S
     align: (left, left),
     stroke: 0.5pt + luma(180),
     table.header([*Ebene*], [*Im Projekt verwendet*]),
-    [SaaS],
-    [Google Gemini API (Gemini 3.1 Flash-Lite) für die KI-Antworten,
-      GitHub Actions für die CI/CD-Automatisierung.],
+    [#acr("SaaS")],
+    [Google Gemini #acr("API") (Gemini 3.1 Flash-Lite) für die #acr("KI")-Antworten,
+      GitHub Actions für die #acr("CI/CD")-Automatisierung.],
 
-    [PaaS],
-    [Google Firestore (NoSQL), Google Artifact Registry für Docker-Images, Google Cloud Scheduler für geplante Backups, Google Cloud Storage für Terraform-State, App-Konfigurationen und Firestore-Backups.],
+    [#acr("PaaS")],
+    [Google Firestore (#acr("NoSQL")), Google Artifact Registry für Docker-Images, Google Cloud Scheduler für geplante Backups, Google Cloud Storage für Terraform-State, App-Konfigurationen und Firestore-Backups.],
 
-    [IaaS],
-    [Google Compute Engine (App-MIG + Monitoring-VM), Load Balancer, Persistent Disks.],
+    [#acr("IaaS")],
+    [Google Compute Engine (App-#acr("MIG") + Monitoring-#acr("VM")), Load Balancer, Persistent Disks.],
   ),
   caption: [Zuordnung der Projekt-Komponenten zu den Cloud-Service-Modellen.],
 ) <tab-xaas>
@@ -152,7 +206,7 @@ Die folgende Tabelle fasst das im Projekt gewählte Mapping auf die drei Cloud-S
 - *Backend:* Python 3.13 mit FastAPI (`0.115`), Pydantic v2 und Uvicorn als ASGI-Server.
   E-Mail/Passwort-Authentifizierung mit serverseitig ausgestellten JWTs über `python-jose`, Prometheus-Metriken über den `prometheus-fastapi-instrumentator`.
 - *Frontend:* React + Vite, ausgeliefert als statische Dateien über Nginx.
-  Das Frontend hält das JWT im Browser und sendet es als Bearer-Token an die API.
+  Das Frontend hält das #acr("JWT") im Browser und sendet es als Bearer-Token an die #acr("API").
 - *Datenhaltung:* Google Firestore (Native Mode) im Multi-Dokumenten-Modell (siehe @tab-firestore).
 #figure(
   table(
@@ -169,84 +223,61 @@ Die folgende Tabelle fasst das im Projekt gewählte Mapping auf die drei Cloud-S
   ),
   caption: [Firestore-Datenmodell.],
 ) <tab-firestore>
-- *KI-Modell:* Google Gemini API mit _Gemini 3.1 Flash-Lite_ für die Reiseassistenz.
-- *Container und Orchestrierung:* Docker + Docker Compose, ein eigener Nginx als Reverse Proxy pro App-VM.
-- *Infrastructure as Code:* Terraform (Provider `hashicorp/google ~> 5.0`) für Netzwerk, VMs, Load Balancer, Firestore, IAM und Cloud Scheduler.
-- *Konfigurationsmanagement:* Ansible (Playbook + Rolle) ausschließlich für die persistente Monitoring-VM.
+- *KI-Modell:* Google Gemini #acr("API") mit _Gemini 3.1 Flash-Lite_ für die Reiseassistenz.
+- *Container und Orchestrierung:* Docker + Docker Compose, ein eigener Nginx als Reverse Proxy pro App-#acr("VM").
+- *Infrastructure as Code:* Terraform (Provider `hashicorp/google ~> 5.0`) für Netzwerk, #acrpl("VM"), Load Balancer, Firestore, #acr("IAM") und Cloud Scheduler.
+- *Konfigurationsmanagement:* Ansible (Playbook + Rolle) ausschließlich für die persistente Monitoring-#acr("VM").
 - *CI/CD:* GitHub Actions (Build, Push, `terraform apply`, Ansible).
-- *Monitoring:* Prometheus mit GCE-Service-Discovery, Grafana mit provisionierten Dashboards, Loki mit Promtail als Log-Shipper, Alertmanager für Benachrichtigungen, Blackbox Exporter für den DB-Integritätscheck und Node Exporter für Host-Metriken.
+- *Monitoring:* Prometheus mit #acr("GCE")-Service-Discovery, Grafana mit provisionierten Dashboards, Loki mit Promtail als Log-Shipper, Alertmanager für Benachrichtigungen, Blackbox Exporter für den #acr("DB")-Integritätscheck und Node Exporter für Host-Metriken.
 
 == Begründung der Technologieauswahl
 
 Die Google Cloud Platform war durch die Projektvorgabe gesetzt.
-Die Auswahl der konkreten GCP-Dienste folgt jedoch der Architektur: Compute Engine bildet die IaaS-Schicht für App- und Monitoring-VMs, Firestore übernimmt als verwalteter PaaS-Dienst die persistente Datenhaltung, Artifact Registry speichert die Container-Images, Cloud Storage hält Terraform-State, App-Konfigurationen und Backup-Artefakte, und Cloud Scheduler stößt die geplanten Firestore-Exporte an.
-GitHub Actions übernimmt als SaaS-Dienst die CI/CD-Ausführung.
+Die Auswahl der konkreten #acr("GCP")-Dienste folgt jedoch der Architektur: Compute Engine bildet die #acr("IaaS")-Schicht für App- und Monitoring-#acrpl("VM"), Firestore übernimmt als verwalteter #acr("PaaS")-Dienst die persistente Datenhaltung, Artifact Registry speichert die Container-Images, Cloud Storage hält Terraform-State, App-Konfigurationen und Backup-Artefakte, und Cloud Scheduler stößt die geplanten Firestore-Exporte an.
+GitHub Actions übernimmt als #acr("SaaS")-Dienst die #acr("CI/CD")-Ausführung.
 Dadurch werden alle drei Cloud-Service-Modelle sichtbar genutzt, ohne zusätzliche Eigenbetriebs-Komplexität einzuführen.
 
 === Backend: FastAPI vs. Flask und Django
 
-FastAPI wurde gegenüber den naheliegenden Python-Alternativen Flask und Django bevorzugt.
-Flask ist zwar ähnlich leichtgewichtig, liefert aber weder Request-Validierung noch OpenAPI-Generierung out-of-the-box; beides müsste über Zusatzbibliotheken (z.B. `flask-pydantic`, `flasgger`) nachgerüstet werden.
-Django bringt ORM, Admin und Templating mit, die im Projekt nicht gebraucht werden, da Firestore als Datenhaltung fungiert und das Frontend als SPA getrennt läuft.
-FastAPI ist dagegen explizit auf typsichere JSON-APIs ausgelegt: Pydantic-Modelle dienen zugleich als Validierungsschicht und als Quelle der automatisch generierten OpenAPI-Spezifikation, und der ASGI-Unterbau (Starlette + Uvicorn) liefert asynchrone I/O, die bei Gemini-Aufrufen mit typisch mehreren Sekunden Antwortzeit relevant ist @fastapi-features.
-Unabhängige Benchmarks (TechEmpower Round~22) zeigen FastAPI/Uvicorn im JSON-Durchsatz mehrfach vor Flask @techempower.
-Für ein Projekt mit Chat-, Auth-, Health- und Metrik-Endpunkten ergibt das bei gleicher Codemenge ein strengeres Vertragsmodell zwischen Frontend und Backend.
+FastAPI wurde gegenüber Flask und Django bevorzugt, weil es typsichere JSON-#acrpl("API") direkt unterstützt: Pydantic-Modelle dienen zugleich als Validierungsschicht und als Quelle der automatisch generierten OpenAPI-Spezifikation, und der #acr("ASGI")-Unterbau liefert asynchrone #acr("I/O"), die bei Gemini-Aufrufen mit mehreren Sekunden Antwortzeit relevant ist @fastapi-features.
+Flask müsste Validierung und OpenAPI über Zusatzbibliotheken nachrüsten, Django bringt mit #acr("ORM"), Admin und Templating Funktionen mit, die im Projekt nicht gebraucht werden.
 
 === Frontend: React + Vite vs. Create-React-App und Next.js
 
-Für das Frontend wurde React mit Vite statt des historisch üblichen Create-React-App (CRA) oder eines Full-Stack-Frameworks wie Next.js gewählt.
-CRA wurde von seinen Maintainern 2023 abgekündigt und erhält keine aktiven Updates mehr; Vite gilt seitdem als de-facto Nachfolger für SPA-Builds und bietet dank ESM-basiertem Dev-Server Start- und HMR-Zeiten im Millisekundenbereich @vite-why.
-Next.js wäre mit SSR und API-Routen überdimensioniert: Das Backend existiert bereits als FastAPI-Dienst, und eine server-gerenderte Seite bringt für den eingeloggten Chat-Flow keinen Vorteil.
-Die statische Auslieferung des Vite-Builds über Nginx passt hingegen direkt in das bestehende Container-Modell.
+React als #acr("UI")-Bibliothek wurde aufgrund der persönlichen Vertrautheit gewählt, um den Fokus auf die Cloud-Architektur statt auf die Einarbeitung in neue Frontend-Technologien zu legen.
+Als Build-Werkzeug kam Vite zum Einsatz, weil #acr("CRA") 2023 abgekündigt wurde und Vite als De-facto-Nachfolger für #acr("SPA")-Builds gilt @vite-why.
+Gegen Next.js als Fullstack-Alternative sprachen zwei Gründe: Zum einen existiert das Backend bereits als eigenständiger FastAPI-Dienst, womit #acr("SSR") und #acr("API")-Routen überdimensioniert wären; zum anderen würde ein Next.js-Monolith die im Projekt bewusst gezogene Trennung zwischen statisch ausgeliefertem Frontend und containerisiertem Backend verwischen, die sowohl das Deployment-Modell als auch die Zuordnung zu den Cloud-Service-Ebenen trägt.
 
-=== Datenhaltung: Firestore vs. Cloud SQL und selbstbetriebene DB
+=== Datenhaltung: Firestore vs. Cloud SQL und selbstbetriebene #acr("DB")
 
-Firestore wurde gegenüber den Alternativen Cloud SQL (PostgreSQL) und einer selbst auf einer VM betriebenen Datenbank bevorzugt.
-Die drei Hauptargumente sind Datenmodell, Betriebsaufwand und Kosten:
-
-- *Datenmodell.* Nutzerprofile, verschachtelte Konversationen mit Nachrichten-Arrays und Reisepläne sind dokumentenförmig; sie in ein relationales Schema zu zwingen, würde Joins erzeugen, die im Zugriffsmuster gar nicht gebraucht werden.
-  Die Subcollection-Struktur `users/{uid}/conversations/{id}` entspricht direkt dem UI-Zugriffspfad.
-- *Transaktionen.* Das tägliche Gemini-Rate-Limit erfordert einen atomaren Read-Modify-Write auf `rate_limits/{uid}`.
-  Firestore liefert dafür ACID-Transaktionen auf Dokumentebene @firestore-transactions; ein häufiges Gegenargument gegen NoSQL-Datenbanken greift an dieser Stelle also nicht.
-- *Betrieb und Kosten.* Eine selbstbetriebene PostgreSQL-Instanz auf einer VM würde Backup, Patching und Monitoring zusätzlich zur eigentlichen Anwendung erfordern.
-  Cloud SQL nimmt diese Aufgaben ab, verursacht aber bereits in der kleinsten Zone unabhängig von der tatsächlichen Nutzung laufende Kosten @gcp-sql-pricing, während Firestore einen Free-Tier-Sockel (1~GiB Speicher, 50k Reads, 20k Writes pro Tag) bietet, der den Projektbetrieb abdeckt @firestore-pricing.
+Firestore wurde gegenüber Cloud SQL und einer selbstbetriebenen Datenbank bevorzugt.
+Nutzerprofile, Konversationen und Reisepläne sind dokumentenförmig; die Subcollection-Struktur `users/{uid}/conversations/{id}` entspricht direkt dem #acr("UI")-Zugriffspfad.
+Das tägliche Rate-Limit erfordert einen atomaren Read-Modify-Write, den Firestore über #acr("ACID")-Transaktionen auf Dokumentebene abdeckt @firestore-transactions.
+Cloud SQL verursacht unabhängig von der Nutzung laufende Kosten @gcp-sql-pricing, während Firestore mit seinem Free-Tier-Sockel den Projektbetrieb abdeckt @firestore-pricing.
 
 === KI-Modell: Gemini 3.1 Flash-Lite vs. 2.5 Flash
 
-Aufgrund der Nutzungslimits des kostenlosen Kontingents der Gemini API @gemini-rate-limits kamen zwei Modelle in Frage: Gemini 2.5 Flash und Gemini 3.1 Flash-Lite, das zur Zeit dieses Projekts noch als Preview verfügbar war.
-Gemini 3.1 Flash-Lite ist laut Google auf niedrige Latenz, hohen Durchsatz und ein günstiges Preismodell für volumenstarke Workloads ausgelegt; Google verweist dabei unter anderem auf bessere Geschwindigkeitswerte und Intelligenzwerte gegenüber Gemini 2.5 Flash @gemini.
+Innerhalb des kostenlosen Kontingents der Gemini #acr("API") @gemini-rate-limits kamen Gemini 2.5 Flash und das zur Projektzeit als Preview verfügbare Gemini 3.1 Flash-Lite in Frage.
+Letzteres wurde gewählt, da Google für das Modell bessere Geschwindigkeits- und Intelligenzwerte ausweist @gemini.
 
-=== Container-Orchestrierung: Docker Compose vs. Kubernetes (GKE)
+=== Container-Orchestrierung: Docker Compose vs. Kubernetes (#acr("GKE"))
 
-Docker Compose wurde gegenüber Kubernetes bewusst gewählt.
-GKE (Autopilot wie Standard) erhebt eine Cluster-Management-Gebühr von derzeit \$0,10 pro Stunde und Cluster @gke-pricing, was rund \$73 pro Monat _vor_ den eigentlichen Worker-Kosten bedeutet.
-Das Projekt wird über die monatlichen \$50 Education Credits finanziert, womit die reine GKE-Grundgebühr das Budget bereits überschreiten würde, bevor überhaupt eine Worker-VM läuft.
-Zusätzlich wäre die operative Komplexität (Manifeste, Ingress-Controller, RBAC, Cluster-Upgrades) für drei Container pro VM und zwei Instanzen insgesamt deutlich überdimensioniert.
-Die eigentlichen Kubernetes-Funktionen, die im Projekt gebraucht werden --- horizontales Replizieren und Selbstheilung --- übernimmt die Managed Instance Group mit HTTP-Health-Check und Rolling-Replace @gcp-mig.
-Compose bleibt damit auf die VM-lokale Orchestrierung von Frontend-, Backend- und Promtail-Containern beschränkt, wo es eindeutig das einfachste Werkzeug ist.
+Docker Compose wurde gegenüber Kubernetes gewählt, weil #acr("GKE") eine Cluster-Management-Gebühr von rund \$73 pro Monat erhebt @gke-pricing und damit bereits das Budget der \$50 Education Credits überschreiten würde.
+Die im Projekt benötigten Kubernetes-Funktionen --- horizontales Replizieren und Selbstheilung --- übernimmt die Managed Instance Group mit #acr("HTTP")-Health-Check und Rolling-Replace @gcp-mig.
 
-=== IaC und Konfigurationsmanagement: Terraform und Ansible
+=== #acr("IaC") und Konfigurationsmanagement: Terraform und Ansible
 
-Terraform und Ansible waren durch die Modulvorgabe gesetzt; die inhaltliche Entscheidung betraf daher weniger _ob_, sondern _wo_ jedes der beiden Werkzeuge eingesetzt wird.
-Die Trennung folgt den jeweiligen Stärken: Terraform beschreibt mit dem `hashicorp/google`-Provider deklarativ den Zielzustand der Infrastruktur (Netzwerk, Load Balancer, Managed Instance Group, Firestore, IAM, Buckets, Scheduler) und verwaltet über seinen State Abhängigkeiten zwischen diesen Ressourcen @terraform-google-provider.
-Ansible ist dagegen prozedural-imperativ, arbeitet agentenlos über SSH @ansible-agentless und eignet sich damit gut für die Konfiguration einer bestehenden, lange laufenden VM, ohne dort dauerhafte Agenten-Software zu installieren.
-
-Im Projekt wird Ansible deshalb ausschließlich für die persistente Monitoring-VM eingesetzt, auf der Prometheus-, Grafana- und Loki-Konfiguration über eine Rolle verwaltet werden.
-Die App-VMs werden bewusst _nicht_ mit Ansible provisioniert, sondern über Instance Template und Startup-Script bootstrapped, damit neu erzeugte MIG-Instanzen ohne nachträglichen SSH-Eingriff einsatzfähig werden.
-GitHub Actions verbindet diese Schritte zu einer Pipeline aus Build, Image-Push, `terraform apply` und Ansible-Lauf für die Monitoring-VM.
+Terraform und Ansible waren durch die Modulvorgabe gesetzt; die Entscheidung betraf ihre Aufteilung.
+Terraform beschreibt deklarativ den Zielzustand der Infrastruktur und verwaltet Abhängigkeiten zwischen Ressourcen @terraform-google-provider.
+Ansible arbeitet agentenlos über #acr("SSH") @ansible-agentless und wird ausschließlich für die persistente Monitoring-#acr("VM") eingesetzt.
+App-#acrpl("VM") werden bewusst über Instance Template und Startup-Script bootstrapped, damit neu erzeugte #acr("MIG")-Instanzen ohne nachträglichen #acr("SSH")-Eingriff einsatzfähig sind.
 
 === Monitoring, Logging und Alerting
 
-Prometheus und Grafana waren als Werkzeuge vorgegeben.
-Loki wurde ergänzend aufgenommen, weil es aus demselben Grafana-Labs-Ökosystem stammt und sich nahtlos als Datenquelle in Grafana einbinden lässt.
-Dadurch liegen Metriken, Logs und Dashboards in derselben Oberfläche.
-Alertmanager ergänzt diese Sicht um den Benachrichtigungspfad für kritische Zustände.
-
-In der MIG-Topologie ist Prometheus besonders passend, weil die offizielle `gce_sd_config`-Service-Discovery neu erzeugte Instanzen automatisch als Scrape-Targets erkennt und bei Replacement-Ereignissen entfernt @prom-gce-sd; statische Target-Listen wären bei Rolling-Replace fragil.
-Node Exporter und Blackbox Exporter erweitern diese Sicht um Host-Metriken und aktive End-to-End-Prüfungen @blackbox-exporter.
-
-Promtail reicht als Log-Shipper, weil auf den App-VMs lediglich Container- und System-Logs abgeholt und an Loki weitergeleitet werden.
-Eine OpenTelemetry-basierte Pipeline wird deshalb nicht als aktueller Stand, sondern als Ausblick behandelt.
+Prometheus und Grafana waren vorgegeben; Loki wurde ergänzt, weil es sich nahtlos als Datenquelle in Grafana einbinden lässt.
+In der #acr("MIG")-Topologie ist Prometheus besonders passend, weil die `gce_sd_config`-Service-Discovery neu erzeugte Instanzen automatisch als Scrape-Targets erkennt @prom-gce-sd.
+Node Exporter und Blackbox Exporter ergänzen Host-Metriken und aktive End-to-End-Prüfungen @blackbox-exporter.
+Eine OpenTelemetry-basierte Pipeline wird als Ausblick behandelt.
 
 // ========= 3. Architektur und Umsetzung =========
 = Architektur und Umsetzung
@@ -373,7 +404,6 @@ Das ist bewusst gewählt, damit die Observability nicht mit der überwachten Inf
 - *Blackbox Exporter* prüft den öffentlichen Load-Balancer-Pfad und darüber `GET /api/health/db` regelmäßig und exportiert `probe_success`.
   Der Endpoint wird also _aktiv_ und _unabhängig_ von App-Traffic beobachtet.
 - *Grafana* lädt Dashboards automatisch aus einer provisionierten Verzeichnisstruktur.
-  Ein initialer Fehler bei der Volume-Mount-Konfiguration (siehe Kapitel @sec-lessons) wurde behoben, indem das Dashboard-Verzeichnis explizit in den Container gemountet wurde.
 - *Alertmanager* verarbeitet Prometheus-Alerts und kann bei gesetzten SMTP-Variablen E-Mail-Benachrichtigungen versenden.
 - *Loki* nimmt Logs von Promtail entgegen, welches auf jeder App-VM Container- und System-Logs einsammelt.
 - *Persistente Metriken und Logs* liegen auf einer separaten Persistent Disk, damit sie VM-Neustarts und Redeploys überleben.
@@ -556,6 +586,13 @@ Der aktuelle Check ist für die Demo bewusst deterministisch, aber auch fehleran
 Robuster wäre ein mehrstufiger Check, der zunächst Firestore-Konnektivität und Berechtigungen prüft, anschließend eine kleine, dedizierte Sentinel-Collection mit versionierten Prüfdokumenten validiert und fachliche Daten nur aggregiert oder stichprobenartig kontrolliert.
 Damit bliebe der Check aussagekräftig für echte Datenverluste, wäre aber weniger abhängig von einzelnen Demo-Objekten.
 
+=== Secret Manager für sensible Konfiguration
+
+Aktuell liegen Laufzeit-Secrets wie der Gemini-API-Key und das JWT-Signing-Secret als Werte in einer `.env`-Datei im GCS-App-Config-Bucket, die das Startup-Script beim VM-Start lädt.
+Für einen produktionsnäheren Betrieb wäre Google Secret Manager die passendere Ablage: Er bietet versionierte Secrets, feingranulare IAM-Bindings pro Secret sowie Audit-Logs über Zugriffe.
+App-VMs könnten Secrets zur Laufzeit über den Service Account der Instanz abrufen, sodass sie nicht mehr im Klartext im Bucket liegen müssen.
+Eine Rotation ließe sich dann durch das Anlegen einer neuen Secret-Version und eine anschließende MIG-Instance-Rotation umsetzen, ohne Terraform-State oder Bucket-Inhalte anzufassen.
+
 // ========= 5. Ergebnisse und Diskussion =========
 = Ergebnisse und Diskussion
 
@@ -610,18 +647,6 @@ Der Testansatz ist damit bewusst risikobasiert: Wiederholbare Backend-Logik wird
 Ergänzend existiert ein Integrationsworkflow, der nach dem Deployment als Verification-Schritt und bei Bedarf manuell gegen die bereitgestellte öffentliche App-URL läuft.
 Er prüft Health-Endpunkte, Authentifizierung, Trip-CRUD und die relevanten Storage-Buckets mit echten GCP-Diensten, verzichtet aber bewusst auf Gemini-Aufrufe.
 Die dabei erzeugten Testdaten verwenden eine eindeutige E-Mail pro Workflow-Lauf und werden sowohl im Test selbst als auch in einem abschließenden Cleanup-Schritt (`if: always()`) aus Firestore entfernt.
-
-== Beobachtete Probleme und Lessons Learned <sec-lessons>
-
-- *Startup-Script zu früh gestartet.* Beim ersten LB-Rollout lief die Startup-Sequenz einer Ersatz-VM an, bevor die aktualisierten Deployment-Dateien im GCS-Bucket lagen.
-  Der Rollout erholte sich bei der nächsten Runde, dokumentiert aber einen Bedarf für Retry-Logik bei GCS-Downloads.
-- *Backend-Healthcheck ohne `curl`.* Der Docker-Compose-Healthcheck nutzte `curl`, das im Backend-Image nicht enthalten war.
-  Fix: `curl` im Dockerfile ergänzen.
-  Lesson: Healthchecks verlangen dieselbe Toolkette wie die Anwendung.
-- *Grafana-Dashboards nicht provisioniert.* Die Provisioning-Konfiguration zeigte auf `/etc/grafana/dashboards`, aber der Volume-Mount legte nur Teilpfade ab.
-  Fix: das Dashboard-Verzeichnis explizit mounten.
-- *`cloudscheduler.googleapis.com` nicht aktiviert.* Ein neu eingeführter Scheduler-Job schlug fehl, bis die API projektweit aktiviert und dem CI/CD-Service-Account die Rolle `serviceusage.serviceUsageAdmin` zugewiesen wurde.
-  Lesson: Disaster Recovery ist nicht nur Architektur, sondern auch _Service-Account-Hygiene_.
 
 == Grenzen der aktuellen Lösung
 
