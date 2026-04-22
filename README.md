@@ -180,6 +180,7 @@ ssh-keygen -t ed25519 -C "github-actions-deploy" -f deploy_key -N ""
 | `GRAFANA_ADMIN_PASSWORD` | Strong password |
 | `PROMETHEUS_HTPASSWD` | `htpasswd -nb admin yourpassword` |
 | `SSH_PRIVATE_KEY` | Contents of `deploy_key` |
+| `SMTP_AUTH_PASSWORD` | Optional SMTP password/app password for Alertmanager email notifications |
 
 ### 4. GitHub Variables
 
@@ -189,6 +190,17 @@ ssh-keygen -t ed25519 -C "github-actions-deploy" -f deploy_key -N ""
 | `GCP_REGION` | `europe-west3` |
 | `TF_STATE_BUCKET` | `YOUR_PROJECT_ID-tf-state` |
 | `SSH_PUBLIC_KEY` | Contents of `deploy_key.pub` |
+| `SMTP_SMARTHOST` | Optional SMTP host and port, e.g. `smtp.gmail.com:587` |
+| `SMTP_FROM` | Optional sender address for alert emails, e.g. `alerts@example.com` |
+| `SMTP_AUTH_USERNAME` | Optional SMTP login user, often the same as `SMTP_FROM` |
+| `ALERT_EMAIL_TO` | Optional recipient address for alert emails |
+
+If the SMTP values are omitted, Alertmanager still groups and tracks alerts, but
+does not send email notifications. When configured, alert emails originate from
+the Alertmanager container on the monitoring VM via `SMTP_SMARTHOST`, authenticate
+as `SMTP_AUTH_USERNAME`, use `SMTP_FROM` as sender, and deliver to
+`ALERT_EMAIL_TO`.
+
 ### 5. Deploy
 
 ```bash
@@ -228,6 +240,11 @@ npm run dev
 | `JWT_SECRET_KEY` | yes | Signs JWTs issued by `/api/auth` |
 | `GRAFANA_ADMIN_PASSWORD` | no | Only if running the full monitoring stack locally |
 | `MONITORING_MOUNT` | no | Local mount for Prometheus/Grafana data (e.g. `/tmp/monitoring`) |
+| `SMTP_SMARTHOST` | no | Optional SMTP server for Alertmanager email notifications |
+| `SMTP_FROM` | no | Optional sender address for alert emails |
+| `SMTP_AUTH_USERNAME` | no | Optional SMTP username |
+| `SMTP_AUTH_PASSWORD` | no | Optional SMTP password/app password |
+| `ALERT_EMAIL_TO` | no | Optional alert email recipient |
 
 ## Access
 
@@ -238,6 +255,8 @@ npm run dev
 | Grafana | `http://<monitoring_vm_ip>/grafana/` (admin / `GRAFANA_ADMIN_PASSWORD`) |
 
 Prometheus is protected by basic auth and is not meant to be used directly — Grafana is the entry point.
+Alertmanager is available at `http://<monitoring_vm_ip>/alertmanager/` and can
+send email notifications when the optional SMTP settings are configured.
 
 ## Firestore collections
 
