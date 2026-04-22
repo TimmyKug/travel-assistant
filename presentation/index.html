@@ -199,12 +199,6 @@
             <div class="glass-card" style="padding: 60px;">
                 <h1 style="font-size: 4em; margin-bottom: 0;" class="glow-text">AI Travel <span class="text-gradient">Assistant</span></h1>
                 <h3 style="color: #a0aec0; font-weight: 400; font-family: var(--r-main-font); margin-top: 20px; font-size: 1.2em;">Cloud Computing II Projekt</h3>
-                <div style="margin-top: 50px; display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
-                    <span style="background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; font-size: 0.8em;">GCP</span>
-                    <span style="background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; font-size: 0.8em;">Terraform</span>
-                    <span style="background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; font-size: 0.8em;">Ansible</span>
-                    <span style="background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; font-size: 0.8em;">Docker</span>
-                </div>
             </div>
         </section>
 
@@ -230,7 +224,7 @@
                     <p style="font-size: 0.8em; color: #888; margin-top: 10px; line-height: 1.4;">Die logische Verknüpfung aller Elemente fehlt komplett.</p>
                 </div>
             </div>
-            
+
             <div class="fragment" style="margin-top: 50px;">
                 <h3 class="text-gradient" style="display: inline-block; border-bottom: 2px solid #00f0ff; padding-bottom: 10px;">Die Lösung: AI generierte Pläne.</h3>
             </div>
@@ -241,7 +235,7 @@
             <h2>Live <span class="text-gradient">Demo</span></h2>
             <p style="font-size: 0.6em; color: #888; margin-bottom: 20px;">Ausgangszustand: App healthy, Daten vollständig, Load-Balancer aktiv</p>
             <div class="browser-mockup">
-                <iframe class="demo-iframe" src="http://34.149.106.36/" data-src="http://34.149.106.36/" style="border:none; border-radius: 0 0 12px 12px;"></iframe>
+                <iframe class="demo-iframe" src="http://34.120.210.85/" data-src="http://34.120.210.85/" style="border:none; border-radius: 0 0 12px 12px;"></iframe>
             </div>
         </section>
 
@@ -250,13 +244,18 @@
             <h2 style="margin-bottom: 10px;">Monitoring <span style="color: #55f2a5;">im Normalzustand</span></h2>
             <p style="color: #a0aec0; margin-bottom: 30px;">Grafana zeigt vor der Demo grüne App- und Database-Integrity-Signale als Ausgangszustand.</p>
             <div class="browser-mockup">
-                <iframe class="demo-iframe" src="http://35.198.129.60/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" data-src="http://35.198.129.60/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" style="height: 500px; border:none; border-radius: 0 0 12px 12px;"></iframe>
+                <iframe class="demo-iframe" src="http://34.159.131.38/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" data-src="http://34.159.131.38/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" style="height: 500px; border:none; border-radius: 0 0 12px 12px;"></iframe>
             </div>
         </section>
 
         <!-- Slide 5: Data Corruption -->
         <section data-background-gradient="radial-gradient(circle at 50% 50%, #2a1200 0%, #050000 100%)">
             <h1 style="color: #ffb347; font-size: 4.2em; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 20px rgba(255,166,0,0.35);">⚠️ Datenverlust</h1>
+
+            <div class="glass-card fragment" style="margin-top: 30px; display: inline-block; padding: 18px 24px;">
+                <div style="font-size: 0.75em; letter-spacing: 0.08em; color: #888; text-transform: uppercase; margin-bottom: 8px;">Backup Status</div>
+                <p id="backupStatus" style="margin: 0; color: #a0aec0; font-size: 0.95em; font-weight: 600;">Backup-Status wird geladen...</p>
+            </div>
 
             <div class="fragment" style="margin-top: 50px;">
                 <button id="corruptBtn" class="neon-btn" style="background: rgba(255, 140, 0, 0.1); color: #ffb347; border-color: #ffb347; box-shadow: 0 0 20px rgba(255,179,71,0.35), inset 0 0 10px rgba(255,179,71,0.18);">
@@ -267,11 +266,43 @@
                 </div>
             </div>
 
-            <div class="glass-card fragment" style="margin-top: 30px; display: inline-block; padding: 18px 24px;">
-                <div style="font-size: 0.75em; letter-spacing: 0.08em; color: #888; text-transform: uppercase; margin-bottom: 8px;">Backup Status</div>
-                <p id="backupStatus" style="margin: 0; color: #a0aec0; font-size: 0.95em; font-weight: 600;">Backup-Status wird geladen...</p>
-            </div>
+            <script>
+            document.addEventListener("DOMContentLoaded", () => {
+                document.getElementById('corruptBtn').addEventListener('click', async () => {
+                    const btn = document.getElementById('corruptBtn');
+                    const status = document.getElementById('corruptStatus');
 
+                    btn.disabled = true;
+                    btn.innerHTML = '🔥 DATEN WERDEN GELÖSCHT... 🔥';
+                    status.innerHTML = 'Führe Demo-Skript für Firestore-Korruption aus...';
+
+                    try {
+                        const res = await fetch('/corrupt-db', { method: 'POST' });
+                        if (res.ok) {
+                            const data = await res.json();
+                            btn.innerHTML = '☠️ DATEN KORRUPT ☠️';
+                            status.innerHTML = data.message + ' Nächster Slide -> App-Zustand.';
+                            status.style.color = '#00f0ff';
+                        } else {
+                            let errorText = 'Fehler bei der Datenkorruption.';
+                            try {
+                                const data = await res.json();
+                                if (data.output) {
+                                    errorText = data.output.trim().split('\n').slice(-2).join(' | ');
+                                } else if (data.message) {
+                                    errorText = data.message;
+                                }
+                            } catch (_) {}
+                            status.innerHTML = errorText;
+                            btn.innerHTML = '❌ FEHLER ❌';
+                        }
+                    } catch (e) {
+                        status.innerHTML = 'Netzwerkfehler zum Python-Server. Hast du ihn gestartet?';
+                        btn.innerHTML = '❌ FEHLER ❌';
+                    }
+                });
+            });
+            </script>
         </section>
 
         <!-- Slide 5: Corrupted App -->
@@ -283,7 +314,7 @@
                 <span style="background: rgba(255, 51, 51, 0.15); color: #ff6b6b; padding: 8px 16px; border-radius: 999px; font-size: 0.7em; font-weight: 700; letter-spacing: 0.04em;">DATA UNHEALTHY</span>
             </div>
             <div class="browser-mockup">
-                <iframe class="demo-iframe" src="http://34.149.106.36/" data-src="http://34.149.106.36/" style="height: 450px; border:none; border-radius: 0 0 12px 12px;"></iframe>
+                <iframe class="demo-iframe" src="http://34.120.210.85/" data-src="http://34.120.210.85/" style="height: 450px; border:none; border-radius: 0 0 12px 12px;"></iframe>
             </div>
         </section>
 
@@ -292,7 +323,7 @@
             <h2 style="margin-bottom: 10px;">Monitoring <span style="color: #ffb347;">sieht den Datenfehler</span></h2>
             <p style="color: #a0aec0; margin-bottom: 30px;">Grafana zeigt noch erreichbare Infrastruktur, aber eine rote Database-Integrity-Prüfung.</p>
             <div class="browser-mockup">
-                <iframe class="demo-iframe" src="http://35.198.129.60/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" data-src="http://35.198.129.60/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" style="height: 500px; border:none; border-radius: 0 0 12px 12px;"></iframe>
+                <iframe class="demo-iframe" src="http://34.159.131.38/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" data-src="http://34.159.131.38/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" style="height: 500px; border:none; border-radius: 0 0 12px 12px;"></iframe>
             </div>
         </section>
 
@@ -309,6 +340,80 @@
                 </div>
             </div>
 
+            <script>
+            document.addEventListener("DOMContentLoaded", () => {
+                let restorePoll = null;
+
+                document.getElementById('restoreBtn').addEventListener('click', async () => {
+                    const btn = document.getElementById('restoreBtn');
+                    const status = document.getElementById('restoreStatus');
+
+                    btn.disabled = true;
+                    btn.innerHTML = '🔄 RESTORE STARTET... 🔄';
+                    status.innerHTML = 'Starte Firestore-Restore aus dem neuesten Backup...';
+
+                    try {
+                        const res = await fetch('/restore-db', { method: 'POST' });
+                        if (res.ok) {
+                            const data = await res.json();
+                            btn.innerHTML = '✅ RESTORE GESTARTET ✅';
+                            status.innerHTML = 'Restore gestartet. Warte auf Abschluss...';
+                            status.style.color = '#00f0ff';
+
+                            if (restorePoll) {
+                                clearInterval(restorePoll);
+                            }
+
+                            restorePoll = setInterval(async () => {
+                                try {
+                                    const statusRes = await fetch('/restore-status');
+                                    if (!statusRes.ok) {
+                                        let errorText = 'Restore-Status konnte nicht abgefragt werden.';
+                                        try {
+                                            const errorData = await statusRes.json();
+                                            if (errorData.message) {
+                                                errorText = errorData.message;
+                                            }
+                                        } catch (_) {}
+                                        status.innerHTML = errorText;
+                                        status.style.color = '#ffb347';
+                                        return;
+                                    }
+                                    const statusData = await statusRes.json();
+                                    if (statusData.done) {
+                                        btn.innerHTML = '✅ RESTORE FERTIG ✅';
+                                        status.innerHTML = 'Restore abgeschlossen. Nächster Slide -> App wieder gesund.';
+                                        status.style.color = '#55f2a5';
+                                        clearInterval(restorePoll);
+                                        restorePoll = null;
+                                    } else {
+                                        status.innerHTML = 'Restore gestartet. Firestore importiert gerade das Backup...';
+                                    }
+                                } catch (_) {
+                                    status.innerHTML = 'Restore-Status konnte nicht abgefragt werden.';
+                                    status.style.color = '#ffb347';
+                                }
+                            }, 1500);
+                        } else {
+                            let errorText = 'Fehler beim Starten des Restores.';
+                            try {
+                                const data = await res.json();
+                                if (data.output) {
+                                    errorText = data.output.trim().split('\n').slice(-2).join(' | ');
+                                } else if (data.message) {
+                                    errorText = data.message;
+                                }
+                            } catch (_) {}
+                            status.innerHTML = errorText;
+                            btn.innerHTML = '❌ FEHLER ❌';
+                        }
+                    } catch (e) {
+                        status.innerHTML = 'Netzwerkfehler zum Python-Server. Hast du ihn gestartet?';
+                        btn.innerHTML = '❌ FEHLER ❌';
+                    }
+                });
+            });
+            </script>
         </section>
 
         <!-- Slide 8: Recovered App -->
@@ -320,7 +425,7 @@
                 <span style="background: rgba(85, 242, 165, 0.15); color: #55f2a5; padding: 8px 16px; border-radius: 999px; font-size: 0.7em; font-weight: 700; letter-spacing: 0.04em;">DATA HEALTHY</span>
             </div>
             <div class="browser-mockup">
-                <iframe class="demo-iframe" src="http://34.149.106.36/" data-src="http://34.149.106.36/" style="height: 450px; border:none; border-radius: 0 0 12px 12px;"></iframe>
+                <iframe class="demo-iframe" src="http://34.120.210.85/" data-src="http://34.120.210.85/" style="height: 450px; border:none; border-radius: 0 0 12px 12px;"></iframe>
             </div>
         </section>
 
@@ -329,7 +434,7 @@
             <h2 style="margin-bottom: 10px;">Monitoring <span style="color: #55f2a5;">bestätigt die Reparatur</span></h2>
             <p style="color: #a0aec0; margin-bottom: 30px;">Grafana zeigt wieder eine grüne Database-Integrity-Prüfung und damit den erfolgreichen Restore.</p>
             <div class="browser-mockup">
-                <iframe class="demo-iframe" src="http://35.198.129.60/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" data-src="http://35.198.129.60/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" style="height: 500px; border:none; border-radius: 0 0 12px 12px;"></iframe>
+                <iframe class="demo-iframe" src="http://34.159.131.38/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" data-src="http://34.159.131.38/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" style="height: 500px; border:none; border-radius: 0 0 12px 12px;"></iframe>
             </div>
         </section>
 
@@ -346,6 +451,34 @@
                 </div>
             </div>
 
+            <script>
+            document.addEventListener("DOMContentLoaded", () => {
+                document.getElementById('killBtn').addEventListener('click', async () => {
+                    const btn = document.getElementById('killBtn');
+                    const status = document.getElementById('killStatus');
+
+                    btn.disabled = true;
+                    btn.innerHTML = '🔥 ZERSTÖRUNG EINGELEITET... 🔥';
+                    status.innerHTML = 'Führe Kommando aus (gcloud compute instances delete)...';
+
+                    try {
+                        const res = await fetch('/kill-vm', { method: 'POST' });
+                        if (res.ok) {
+                            const data = await res.json();
+                            btn.innerHTML = '☠️ VMs GEKILLT: ' + data.instance;
+                            status.innerHTML = 'Instanzen erfolgreich gelöscht! Nächster Slide -> Monitoring.';
+                            status.style.color = '#00f0ff';
+                        } else {
+                            status.innerHTML = 'Fehler beim Löschen. Läuft der lokale Python-Server?';
+                            btn.innerHTML = '❌ FEHLER ❌';
+                        }
+                    } catch (e) {
+                        status.innerHTML = 'Netzwerkfehler zum Python-Server. Hast du ihn gestartet?';
+                        btn.innerHTML = '❌ FEHLER ❌';
+                    }
+                });
+            });
+            </script>
         </section>
 
         <!-- Slide 10: App nicht erreichbar -->
@@ -353,7 +486,7 @@
             <h2 style="color: #ff3333; margin-bottom: 10px;">App nicht erreichbar</h2>
             <p style="color: #a0aec0; margin-bottom: 30px;">Der Load Balancer findet kein gesundes Backend mehr.</p>
             <div class="browser-mockup">
-                <iframe class="demo-iframe" src="http://34.149.106.36/" data-src="http://34.149.106.36/" style="height: 450px; border:none; border-radius: 0 0 12px 12px;"></iframe>
+                <iframe class="demo-iframe" src="http://34.120.210.85/" data-src="http://34.120.210.85/" style="height: 450px; border:none; border-radius: 0 0 12px 12px;"></iframe>
             </div>
         </section>
 
@@ -362,7 +495,7 @@
             <h2 style="margin-bottom: 10px;">Monitoring <span style="color: #ff3333;">bestätigt</span></h2>
             <p style="color: #a0aec0; margin-bottom: 30px;">Grafana zeigt jetzt beides: Instanzproblem in der MIG und davor schon den kaputten Datenzustand.</p>
             <div class="browser-mockup">
-                <iframe class="demo-iframe" src="http://35.198.129.60/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" data-src="http://35.198.129.60/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" style="height: 500px; border:none; border-radius: 0 0 12px 12px;"></iframe>
+                <iframe class="demo-iframe" src="http://34.159.131.38/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" data-src="http://34.159.131.38/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" style="height: 500px; border:none; border-radius: 0 0 12px 12px;"></iframe>
             </div>
         </section>
 
@@ -370,7 +503,7 @@
         <section>
             <h2><span class="text-gradient">XaaS Architektur</span></h2>
             
-            <svg viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg" style="width: 100%; max-width: 900px; height: auto; margin-top: 20px;">
+            <svg viewBox="0 0 1050 560" xmlns="http://www.w3.org/2000/svg" style="width: 100%; max-width: 950px; height: auto; margin-top: 20px;">
                     <defs>
                         <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                             <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(255,255,255,0.4)" />
@@ -381,36 +514,47 @@
                         </linearGradient>
                     </defs>
 
-                    <!-- IaaS: App VM -->
-                    <rect x="20" y="50" width="300" height="260" fill="url(#iaas-grad)" stroke="#00f0ff" stroke-width="2" rx="16" style="filter: drop-shadow(0 0 15px rgba(0,240,255,0.2));"/>
-                    <text class="arch-text arch-title" x="170" y="90" fill="#00f0ff">IaaS (MIG)</text>
-                    <text class="arch-text" x="170" y="140">Nginx / Load Balancer</text>
-                    <text class="arch-text" x="170" y="180">FastAPI Backend</text>
-                    <text class="arch-text" x="170" y="220">React Frontend</text>
-                    <text class="arch-text" x="170" y="260" fill="#888" font-size="14px">Promtail & Node Exporter</text>
-                    
+                    <!-- GCP HTTP(S) Load Balancer -->
+                    <rect x="20" y="115" width="140" height="90" fill="url(#iaas-grad)" stroke="#2ea44f" stroke-width="2" rx="16" style="filter: drop-shadow(0 0 15px rgba(46,164,79,0.2));"/>
+                    <text class="arch-text" x="90" y="150" fill="#2ea44f" font-size="15px" font-weight="800">GCP HTTP(S)</text>
+                    <text class="arch-text" x="90" y="175" font-size="14px">Load Balancer</text>
+
+                    <!-- IaaS: App VM (MIG) -->
+                    <rect x="200" y="50" width="280" height="280" fill="url(#iaas-grad)" stroke="#00f0ff" stroke-width="2" rx="16" style="filter: drop-shadow(0 0 15px rgba(0,240,255,0.2));"/>
+                    <text class="arch-text arch-title" x="340" y="90" fill="#00f0ff">IaaS — MIG (x2)</text>
+                    <text class="arch-text" x="340" y="140">Nginx (Reverse Proxy)</text>
+                    <text class="arch-text" x="340" y="180">FastAPI Backend</text>
+                    <text class="arch-text" x="340" y="220">React Frontend</text>
+                    <text class="arch-text" x="340" y="270" fill="#888" font-size="14px">Promtail & Node Exporter</text>
+
                     <!-- PaaS -->
-                    <rect x="680" y="200" width="300" height="150" fill="url(#iaas-grad)" stroke="rgba(255,255,255,0.1)" stroke-width="2" rx="16"/>
-                    <text class="arch-text arch-title" x="830" y="240" fill="#ffffff">PaaS</text>
-                    <text class="arch-text" x="830" y="280">Firestore (NoSQL)</text>
-                    <text class="arch-text" x="830" y="320">GCS (TF-State) / Art. Registry</text>
+                    <rect x="700" y="190" width="300" height="190" fill="url(#iaas-grad)" stroke="rgba(255,255,255,0.1)" stroke-width="2" rx="16"/>
+                    <text class="arch-text arch-title" x="850" y="230" fill="#ffffff">PaaS</text>
+                    <text class="arch-text" x="850" y="270">Firestore (NoSQL)</text>
+                    <text class="arch-text" x="850" y="310">GCS / Artifact Registry</text>
+                    <text class="arch-text" x="850" y="350" fill="#888" font-size="14px">Cloud Scheduler (Backup)</text>
 
                     <!-- SaaS -->
-                    <rect x="680" y="50" width="300" height="100" fill="url(#iaas-grad)" stroke="#ff0055" stroke-width="2" rx="16" style="filter: drop-shadow(0 0 15px rgba(255,0,85,0.2));"/>
-                    <text class="arch-text arch-title" x="830" y="85" fill="#ff0055">SaaS</text>
-                    <text class="arch-text" x="830" y="120">Gemini API</text>
+                    <rect x="700" y="50" width="300" height="100" fill="url(#iaas-grad)" stroke="#ff0055" stroke-width="2" rx="16" style="filter: drop-shadow(0 0 15px rgba(255,0,85,0.2));"/>
+                    <text class="arch-text arch-title" x="850" y="85" fill="#ff0055">SaaS</text>
+                    <text class="arch-text" x="850" y="120">Gemini API</text>
 
                     <!-- IaaS: Monitoring VM -->
-                    <rect x="350" y="320" width="300" height="160" fill="url(#iaas-grad)" stroke="rgba(255,255,255,0.1)" stroke-width="2" rx="16"/>
-                    <text class="arch-text arch-title" x="500" y="360" fill="#ffffff">Monitoring VM</text>
-                    <text class="arch-text" x="500" y="400">Prometheus & Grafana</text>
-                    <text class="arch-text" x="500" y="440" fill="#888" font-size="14px">Loki Logs</text>
+                    <rect x="380" y="370" width="310" height="180" fill="url(#iaas-grad)" stroke="rgba(255,255,255,0.1)" stroke-width="2" rx="16"/>
+                    <text class="arch-text arch-title" x="535" y="410" fill="#ffffff">Monitoring VM</text>
+                    <text class="arch-text" x="535" y="445">Prometheus & Grafana</text>
+                    <text class="arch-text" x="535" y="475" fill="#888" font-size="14px">Alertmanager & Blackbox</text>
+                    <text class="arch-text" x="535" y="505" fill="#888" font-size="14px">Loki & Node Exporter</text>
 
                     <!-- Connections -->
-                    <path class="arch-line" d="M 320 100 C 500 100, 500 100, 680 100" />
-                    <path class="arch-line" d="M 320 180 C 500 180, 500 240, 680 240" />
-                    <path class="arch-line" d="M 170 310 L 170 400 L 350 400" />
-                    <path class="arch-line" d="M 830 350 L 830 400 L 650 400" />
+                    <!-- LB → MIG -->
+                    <path class="arch-line" d="M 160 160 L 200 160" />
+                    <!-- MIG → SaaS (Gemini API) -->
+                    <path class="arch-line" d="M 480 100 C 590 100, 590 100, 700 100" />
+                    <!-- MIG → PaaS (Firestore) -->
+                    <path class="arch-line" d="M 480 200 C 590 200, 590 260, 700 260" />
+                    <!-- MIG → Monitoring VM (Promtail logs) -->
+                    <path class="arch-line" d="M 340 330 L 340 440 L 380 440" />
             </svg>
         </section>
 
@@ -425,7 +569,7 @@
                         <li><span style="color:#ff6a00; margin-right:10px;">✓</span>Compute: VM Blueprint (Instance Template), MIG, Persistent Disk</li>
                         <li><span style="color:#ff6a00; margin-right:10px;">✓</span>Networking: Load Balancer, Firewall, Static IP</li>
                         <li><span style="color:#ff6a00; margin-right:10px;">✓</span>Platform: Artifact Registry, Storage, Firestore</li>
-                        <li><span style="color:#ff6a00; margin-right:10px;">✓</span>IAM & Automation: Service Accounts, Scheduler</li>
+                        <li><span style="color:#ff6a00; margin-right:10px;">✓</span>IAM & Automation: Service Accounts, Cloud Scheduler</li>
                     </ul>
                 </div>
                 <div class="glass-card fragment">
@@ -540,7 +684,7 @@
             <h2 style="font-size: 1.8em; margin-bottom: 30px;">Live Monitoring <span style="color:#888; font-size: 0.6em;">(Ist die VM weg?)</span></h2>
             
             <div class="browser-mockup">
-                <iframe class="demo-iframe" src="http://35.198.129.60/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" data-src="http://35.198.129.60/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" style="height: 500px; border:none; border-radius: 0 0 12px 12px;"></iframe>
+                <iframe class="demo-iframe" src="http://34.159.131.38/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" data-src="http://34.159.131.38/grafana/d/travel-assistant/travel-assistant?orgId=1&refresh=5s&theme=dark" style="height: 500px; border:none; border-radius: 0 0 12px 12px;"></iframe>
             </div>
             <p style="font-size: 0.5em; color: #666; margin-top: 15px;">* Erfordert <code style="color:#ff6b35;">YOUR_GRAFANA_URL</code> in index.html (oder klickt auf den externen Link)</p>
         </section>
@@ -551,7 +695,7 @@
             <p style="color: #a0aec0; margin-bottom: 40px;">Die MIG hat neue Instanzen gestartet und der Firestore-Restore stellt die gelöschten Referenzdaten wieder her.</p>
             
             <div class="browser-mockup fragment">
-                <iframe class="demo-iframe" src="http://34.149.106.36/" data-src="http://34.149.106.36/" style="height: 450px; border:none; border-radius: 0 0 12px 12px;"></iframe>
+                <iframe class="demo-iframe" src="http://34.120.210.85/" data-src="http://34.120.210.85/" style="height: 450px; border:none; border-radius: 0 0 12px 12px;"></iframe>
             </div>
         </section>
 
@@ -646,6 +790,8 @@
 
     refreshBackupStatus();
     setInterval(refreshBackupStatus, 5000);
+
+
 </script>
 
 </body>

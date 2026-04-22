@@ -38,6 +38,7 @@ jobs:
 
   build:
     name: Build ${{ matrix.image.name }}
+    needs: [provision]
     runs-on: ubuntu-latest
     permissions:
       contents: read

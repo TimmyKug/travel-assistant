@@ -11,6 +11,10 @@ auth_events_total = Counter(
     "Authentication events by type",
     ["event"],  # register | login_success | login_failure
 )
+# Pre-initialise so all label values appear in /metrics from startup
+auth_events_total.labels(event="register")
+auth_events_total.labels(event="login_success")
+auth_events_total.labels(event="login_failure")
 
 ai_requests_total = Counter(
     "ai_requests_total",

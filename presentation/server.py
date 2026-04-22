@@ -158,7 +158,7 @@ class PresentationHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 response = json.dumps({
                     "status": "corrupted",
-                    "message": "Firestore demo data was corrupted successfully.",
+                    "message": "Firestore-Demodaten wurden erfolgreich korrumpiert.",
                     "output": output,
                 })
                 self.wfile.write(response.encode())
@@ -170,7 +170,7 @@ class PresentationHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 response = json.dumps({
                     "status": "error",
-                    "message": "Failed to corrupt Firestore demo data.",
+                    "message": "Firestore-Datenkorruption fehlgeschlagen.",
                     "output": e.output,
                 })
                 self.wfile.write(response.encode())
