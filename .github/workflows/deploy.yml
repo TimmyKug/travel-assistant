@@ -89,6 +89,10 @@ jobs:
         working-directory: frontend
         run: npm run lint
 
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm run test:run
+
       - name: npm audit
         working-directory: frontend
         run: npm audit --audit-level=high
