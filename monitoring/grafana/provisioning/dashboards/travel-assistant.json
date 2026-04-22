@@ -101,7 +101,7 @@
     },
     {
       "id": 6,
-      "title": "Disk Usage /",
+      "title": "App Status",
       "type": "stat",
       "gridPos": {
         "x": 12,
@@ -111,8 +111,9 @@
       },
       "targets": [
         {
-          "expr": "100 * (1 - node_filesystem_avail_bytes{mountpoint=\"/\",fstype!=\"rootfs\"} / node_filesystem_size_bytes{mountpoint=\"/\",fstype!=\"rootfs\"})",
-          "legendFormat": "disk %"
+          "expr": "max(probe_success{job=\"app-public-health\"}) or on() vector(2)",
+          "instant": true,
+          "legendFormat": "app health"
         }
       ],
       "options": {
@@ -123,10 +124,49 @@
           "fields": "",
           "values": false
         },
-        "colorMode": "value",
+        "colorMode": "background",
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 2,
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Unhealthy"
+                },
+                "1": {
+                  "text": "Healthy"
+                },
+                "2": {
+                  "text": "Unknown"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              }
+            ]
+          }
+        }
       }
     },
     {
