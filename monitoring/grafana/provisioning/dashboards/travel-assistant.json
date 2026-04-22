@@ -398,15 +398,12 @@
               "type": "value",
               "options": {
                 "0": {
-                  "color": "red",
                   "text": "Unhealthy"
                 },
                 "1": {
-                  "color": "green",
                   "text": "Healthy"
                 },
                 "2": {
-                  "color": "yellow",
                   "text": "Unknown"
                 }
               }
@@ -445,6 +442,7 @@
       "targets": [
         {
           "expr": "count(ALERTS{alertstate=\"firing\"}) or vector(0)",
+          "instant": true,
           "legendFormat": "firing"
         }
       ],
@@ -577,8 +575,9 @@
             "indexByName": {
               "alertname": 0,
               "severity": 1,
-              "instance": 2,
-              "job": 3
+              "scope": 2,
+              "instance": 3,
+              "job": 4
             }
           }
         }

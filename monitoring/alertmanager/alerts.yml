@@ -13,6 +13,7 @@ groups:
         for: 2m
         labels:
           severity: critical
+          scope: backend-vm
         annotations:
           summary: "App VM is unreachable"
           description: >
@@ -28,6 +29,7 @@ groups:
         for: 1m
         labels:
           severity: critical
+          scope: backend-vm
         annotations:
           summary: "No healthy app VMs are reachable"
           description: >
@@ -40,6 +42,7 @@ groups:
         for: 1m
         labels:
           severity: critical
+          scope: public-lb
         annotations:
           summary: "Public app health check failed"
           description: >
