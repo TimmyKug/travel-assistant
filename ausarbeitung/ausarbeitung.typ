@@ -97,13 +97,11 @@ zu einer tragfähigen Basis für konversationelle Assistenzsysteme entwickelt. V
 entstand die Projektidee eines dialogorientierten Reiseassistenten, der Nutzerinnen und Nutzern bei
 der Planung ganzer Reisen hilft, Gespräche speichert und personalisierte Vorschläge liefert.
 
-Das Modul Cloud Computing II fokussiert nicht nur die Funktionalität einer Anwendung, sondern vor
-allem ihre _Cloud-native_ Umsetzung. Der Projektkontext umfasst die Nutzung aller drei
-Cloud-Ebenen (IaaS, PaaS, SaaS), eine automatisierte Infrastrukturbereitstellung
-mit Terraform, eine Konfigurationsautomatisierung mit Ansible sowie ein erkennbares
+Der Fokus liegt dabei nicht nur auf der Funktionalität der Anwendung, sondern vor allem auf ihrer _Cloud-nativen_ Umsetzung. Der Projektkontext umfasst die Nutzung aller drei
+Cloud-Ebenen (IaaS, PaaS, SaaS), eine automatisierte Infrastrukturbereitstellung mit Terraform, eine Konfigurationsautomatisierung mit Ansible sowie ein erkennbares
 Monitoring-Konzept.
-Der vorliegende Projektbericht beschreibt die Umsetzung eines entsprechenden
-Systems unter dem Namen _Timmy's Travel Assistant_ auf der Google Cloud Platform (GCP).
+Der vorliegende Projektbericht beschreibt die Umsetzung des entsprechenden
+Systems eines _Travel Assistant_ auf der Google Cloud Platform (GCP).
 
 == Zielsetzung
 
@@ -122,8 +120,8 @@ Eigenschaften erfüllt:
 Aus technischer Sicht stellten sich im Projekt vier Kernfragen, die die Architektur wesentlich prägten:
 
 + *Wie wird ein stabiler öffentlicher Endpunkt erreicht, obwohl einzelne VMs selbstheilend ausgetauscht werden dürfen?*
-+ *Wie wird erreicht, dass selbst bei Absturz der Applikation die Überwachung weiterläuft und den Fehlerzustand anzeigt*
-+ *Wie wird eine automatische Wiederherstellung der exakt gleichen Applikation erreicht?*
++ *Wie wird erreicht, dass ein Fehlerzustand angezeigt wird, wenn die Applikation ausfällt oder die Daten korrupt sind?*
++ *Wie wird eine (automatische) Wiederherstellung der exakt gleichen Applikation erreicht?*
 + *Wie wird erreicht, dass Zwischenstände von Daten gesichert und wiederhergestellt werden können?*
 
 Die Beantwortung dieser Fragen leitete sowohl die Infrastrukturgestaltung als auch die Gliederung dieser Ausarbeitung. Die folgenden Kapitel entwickeln die Lösung von den technologischen Grundlagen (Kapitel 2) über die Architektur und Umsetzung (Kapitel 3)
@@ -134,23 +132,25 @@ bis hin zum Fokus-Feature _Disaster Recovery_ (Kapitel 4), einer Diskussion der 
 
 == Cloud-Service-Modelle
 
-Die folgende Tabelle fasst die wesentlichen Eigenschaften der drei Cloud-Service-Modelle und das im Projekt gewählte Mapping zusammen.
+Die folgende Tabelle fasst das im Projekt gewählte Mapping auf die drei
+Cloud-Service-Modelle zusammen.
 
 #figure(
   table(
-    columns: (auto, 1fr, 1fr),
-    align: (left, left, left),
+    columns: (auto, 1fr),
+    align: (left, left),
     stroke: 0.5pt + luma(180),
     table.header(
-      [*Ebene*], [*Definition*], [*Im Projekt verwendet*],
+      [*Ebene*], [*Im Projekt verwendet*],
     ),
-    [SaaS], [Fertige Software als Dienst, meist über APIs konsumiert.],
-      [Google Gemini API (Gemini 3.1 Flash-Lite) für die KI-Antworten.],
-    [PaaS], [Verwaltete Plattformdienste ohne eigene Infrastrukturverantwortung.],
+    [SaaS],
+      [Google Gemini API (Gemini 3.1 Flash-Lite) für die KI-Antworten,
+       GitHub Actions für die CI/CD-Automatisierung.],
+    [PaaS],
       [Google Firestore (NoSQL), Google Artifact Registry für Docker-Images,
        Google Cloud Scheduler für geplante Backups, Google Cloud Storage für
-       Backup- und Konfigurationsartefakte.],
-    [IaaS], [Bereitstellung virtueller Maschinen, Netzwerk- und Speicherressourcen.],
+       Terraform-State, App-Konfigurationen und Firestore-Backups.],
+    [IaaS],
       [Google Compute Engine (App-MIG + Monitoring-VM), Load Balancer,
        Persistent Disks.],
   ),
@@ -190,8 +190,9 @@ Die folgende Tabelle fasst die wesentlichen Eigenschaften der drei Cloud-Service
   persistente Monitoring-VM.
 - *CI/CD:* GitHub Actions (Build, Push, `terraform apply`, Ansible).
 - *Monitoring:* Prometheus mit GCE-Service-Discovery, Grafana mit provisionierten
-  Dashboards, Loki mit Promtail als Log-Shipper, Blackbox Exporter für den
-  DB-Integritätscheck.
+  Dashboards, Loki mit Promtail als Log-Shipper, Alertmanager für
+  Benachrichtigungen, Blackbox Exporter für den DB-Integritätscheck und Node
+  Exporter für Host-Metriken.
 
 == Begründung der Technologieauswahl
 
@@ -199,10 +200,11 @@ Die Google Cloud Platform war durch die Projektvorgabe gesetzt. Die Auswahl der
 konkreten GCP-Dienste folgt jedoch der Architektur: Compute Engine bildet die
 IaaS-Schicht für App- und Monitoring-VMs, Firestore übernimmt als verwalteter
 PaaS-Dienst die persistente Datenhaltung, Artifact Registry speichert die
-Container-Images, Cloud Storage hält Konfigurations- und Backup-Artefakte, und
-Cloud Scheduler stößt die geplanten Firestore-Exporte an. Dadurch werden alle
-drei Cloud-Service-Modelle sichtbar genutzt, ohne zusätzliche Eigenbetriebs-
-Komplexität einzuführen.
+Container-Images, Cloud Storage hält Terraform-State, App-Konfigurationen und
+Backup-Artefakte, und Cloud Scheduler stößt die geplanten Firestore-Exporte an.
+GitHub Actions übernimmt als SaaS-Dienst die CI/CD-Ausführung. Dadurch werden
+alle drei Cloud-Service-Modelle sichtbar genutzt, ohne zusätzliche
+Eigenbetriebs-Komplexität einzuführen.
 
 === Backend: FastAPI vs. Flask und Django
 
@@ -260,10 +262,13 @@ sind Datenmodell, Betriebsaufwand und Kosten:
 
 === KI-Modell: Gemini 3.1 Flash-Lite vs. 2.5 Flash
 
-Aufgrund der Nutzungslimits des Gratis Tiers der Gemini API @gemini-rate-limits kamen nur zwei Modelle in Frage:
-Gemini 2.5 Flash und Gemini 3.1 Flash-Lite (zur Zeit dieses Projekts noch Preview). 
-Gemini 3.1 Flash-Lite (momentan noch Preview) ist laut Google auf niedrige Latenz und hohen Durchsatz bei gleichzeitig günstigerem Preismodell ausgelegt und übertrifft in internen Benchmarks den Vorgänger Gemini 2.5 Flash bei Geschwindigkeit und
-Antwortqualität @gemini.
+Aufgrund der Nutzungslimits des kostenlosen Kontingents der Gemini API
+@gemini-rate-limits kamen zwei Modelle in Frage: Gemini 2.5 Flash und Gemini
+3.1 Flash-Lite, das zur Zeit dieses Projekts noch als Preview verfügbar war.
+Gemini 3.1 Flash-Lite ist laut Google auf niedrige Latenz, hohen Durchsatz und
+ein günstiges Preismodell für volumenstarke Workloads ausgelegt; Google verweist
+dabei unter anderem auf bessere Geschwindigkeitswerte und Intelligenzwerte gegenüber Gemini 2.5 Flash
+@gemini.
 
 === Container-Orchestrierung: Docker Compose vs. Kubernetes (GKE)
 
@@ -306,23 +311,25 @@ SSH-Eingriff einsatzfähig werden. GitHub Actions verbindet diese Schritte zu
 einer Pipeline aus Build, Image-Push, `terraform apply` und
 Ansible-Lauf für die Monitoring-VM.
 
-=== Monitoring: Prometheus, Grafana und ergänzend Loki
+=== Monitoring, Logging und Alerting
 
 Prometheus und Grafana waren als Werkzeuge vorgegeben. Loki wurde ergänzend
 aufgenommen, weil es aus demselben Grafana-Labs-Ökosystem stammt und sich
-nahtlos als Datenquelle in Grafana einbinden lässt --- dadurch liegen
-Metriken und Logs in derselben Oberfläche, ohne zusätzlichen Tool-Wechsel.
+nahtlos als Datenquelle in Grafana einbinden lässt. Dadurch liegen Metriken,
+Logs und Dashboards in derselben Oberfläche. Alertmanager ergänzt diese Sicht um
+den Benachrichtigungspfad für kritische Zustände.
 
 In der MIG-Topologie ist Prometheus besonders passend, weil die offizielle
 `gce_sd_config`-Service-Discovery neu erzeugte Instanzen automatisch als
 Scrape-Targets erkennt und bei Replacement-Ereignissen entfernt
-@prom-gce-sd; statische Target-Listen wären bei Rolling-Replace fragil.
-Der Blackbox Exporter ergänzt das Setup um _aktive_ Prüfungen des
-`GET /api/health/db`-Endpunkts, die unabhängig vom Nutzertraffic laufen und
-so auch bei geringer Last Fehlzustände sichtbar machen @blackbox-exporter.
-Promtail reicht als Log-Shipper, weil auf den App-VMs lediglich Container-
-und System-Logs abgeholt werden; eine OpenTelemetry-basierte Pipeline wird
-deshalb nicht als aktueller Stand, sondern als Ausblick behandelt.
+@prom-gce-sd; statische Target-Listen wären bei Rolling-Replace fragil. Node
+Exporter und Blackbox Exporter erweitern diese Sicht um Host-Metriken und aktive
+End-to-End-Prüfungen @blackbox-exporter.
+
+Promtail reicht als Log-Shipper, weil auf den App-VMs lediglich Container- und
+System-Logs abgeholt und an Loki weitergeleitet werden. Eine
+OpenTelemetry-basierte Pipeline wird deshalb nicht als aktueller Stand, sondern
+als Ausblick behandelt.
 
 // ========= 3. Architektur und Umsetzung =========
 = Architektur und Umsetzung
@@ -336,120 +343,41 @@ HTTP(S)-Load-Balancer gehalten wird. Dieser verteilt Traffic auf eine Managed
 Instance Group mit zwei App-VMs. Der Monitoring-Stack läuft getrennt auf einer
 persistenten VM mit eigener Persistent-Disk.
 
+Die Darstellung ist nach Cloud-Service-Modellen gegliedert: SaaS umfasst die
+extern konsumierten Dienste GitHub Actions und Gemini, PaaS die verwalteten
+GCP-Dienste Firestore, Artifact Registry, Cloud Storage und Cloud Scheduler,
+während IaaS die Compute- und Netzwerkkomponenten enthält. Dadurch werden drei
+Flussarten sichtbar: Nutzertraffic, Deployment/Bootstrap und Observability/
+Disaster Recovery. Gerade diese Trennung ist wichtig, weil ein Fehler im App-
+Pfad nicht gleichzeitig Monitoring, Backups oder die Wiederherstellung blockieren
+soll.
+
 #figure(
-  block(width: 100%)[#set text(size: 8pt)
-  #let col-client  = luma(246)
-  #let col-edge    = rgb("#dceaff")
-  #let col-iaas    = rgb("#e2f4df")
-  #let col-ops     = rgb("#fff1d8")
-  #let col-paas    = rgb("#f0e8ff")
-  #let col-saas    = rgb("#ffe0ea")
-  #let mig-green   = rgb("#21843a")
-  #let google-blue = rgb("#4285f4")
-  #let google-red  = rgb("#ea4335")
-  #let google-yel  = rgb("#fbbc05")
-  #let google-grn  = rgb("#34a853")
-  #let col-head    = luma(85)
-  #let col-label(txt) = text(weight: "bold", size: 0.9em, fill: col-head, txt)
-  #let mark(txt, fill, fg: white) = box(
-    width: 17pt,
-    height: 17pt,
-    fill: fill,
-    stroke: 0.35pt + luma(150),
-    radius: 3pt,
-    inset: 0pt,
-  )[#align(center + horizon)[#text(size: 6.5pt, weight: "bold", fill: fg, txt)]]
-  #let svc(m, color, body) = grid(
-    columns: (auto, auto),
-    column-gutter: 4pt,
-    align: (horizon, left),
-    mark(m, color),
-    body,
-  )
-  #diagram(
-    node-stroke: 0.6pt,
-    node-inset: 5pt,
-    spacing: (15mm, 8.5mm),
-    node-corner-radius: 3pt,
-    edge-stroke: 0.6pt,
-
-    // ---- Column headers ----
-    node((0, -2.7), col-label[Client], stroke: none),
-    node((1, -2.7), col-label[Edge], stroke: none),
-    node((2, -2.7), col-label[Compute (IaaS)], stroke: none),
-    node((3, -2.7), col-label[Managed Services], stroke: none),
-
-    // ==== Client column ====
-    node((0, 0), svc("WWW", google-blue, [*Nutzer*\ Browser]), fill: col-client),
-
-    // ==== Edge column ====
-    node((1, 0), svc("LB", google-blue, [*Global IP*\ HTTP(S) LB]),
-         shape: pill, fill: col-edge),
-
-    // ==== Compute column ====
-    node((2, -0.45), svc("VM", google-grn, [*App-VM 1*\ nginx · React/FastAPI]),
-         fill: col-iaas),
-    node((2, 0.65), svc("VM", google-grn, [*App-VM 2*\ nginx · React/FastAPI]),
-         fill: col-iaas),
-    node(enclose: ((2, -0.45), (2, 0.65)),
-         inset: 8pt,
-         stroke: (dash: "dashed", paint: mig-green, thickness: 0.8pt),
-         corner-radius: 6pt),
-    node((2, 1.25),
-         text(fill: mig-green, weight: "bold", size: 0.8em)[MIG · auto-healing],
-         stroke: none),
-
-    // ==== Managed services ====
-    node((3, -1.25), svc("AI", google-red, [*Gemini API*\ Reiseantworten]),
-         fill: col-saas),
-    node((3, -0.1), svc("FS", google-yel, [*Firestore*\ Profile · Chats · Trips]),
-         fill: col-paas),
-    node((3, 1.55), svc("CS", google-blue, [*Cloud Scheduler*\ täglicher Export]),
-         fill: col-paas),
-    node((3, 3.35), svc("GCS", google-grn, [*Cloud Storage*\ Firestore-Backups]),
-         fill: col-paas),
-
-    // ==== Observability ====
-    node((2, 3.35), svc("OBS", google-blue, [*Monitoring-VM*\ Prometheus · Grafana\ Loki · Blackbox]),
-         fill: col-ops),
-
-    // ---- Request path ----
-    edge((0, 0), (1, 0), "->", [HTTPS]),
-    edge((1, 0), (2, -0.45), "->"),
-    edge((1, 0), (2, 0.65), "->"),
-
-    // ---- Application dependencies ----
-    edge((2, -0.45), (3, -1.25), "->", [AI]),
-    edge((2, 0.65), (3, -0.1), "->", [R/W]),
-
-    // ---- Monitoring and backups ----
-    edge((2, 3.35), (2, 0.65), "->", [scrape/logs]),
-    edge((2, 3.35), (3, -0.1), "->", bend: -24deg, [DB probe]),
-    edge((3, 1.55), (3, -0.1), "->", [trigger]),
-    edge((3, -0.1), (3, 3.35), "->", bend: 45deg, [export]),
-    edge((3, 3.35), (3, -0.1), "->", bend: 45deg, [restore]),
-
-    // ---- Legend row ----
-    node((0, 4.35), col-label[Legende:], stroke: none),
-    node((0.75, 4.35), box(fill: col-iaas, inset: 3pt, radius: 2pt, stroke: 0.4pt)[IaaS], stroke: none),
-    node((1.35, 4.35), box(fill: col-paas, inset: 3pt, radius: 2pt, stroke: 0.4pt)[PaaS], stroke: none),
-    node((1.95, 4.35), box(fill: col-saas, inset: 3pt, radius: 2pt, stroke: 0.4pt)[SaaS], stroke: none),
-    node((2.6, 4.35), box(fill: col-ops, inset: 3pt, radius: 2pt, stroke: 0.4pt)[Betrieb], stroke: none),
-    node((3, 4.35), box(fill: col-edge, inset: 3pt, radius: 2pt, stroke: 0.4pt)[Edge/LB], stroke: none),
-  )],
-  caption: [Gesamtarchitektur mit getrennten Pfaden: Der Nutzerverkehr läuft
-            horizontal über Browser, globale IP und Load Balancer in die
-            Managed Instance Group. Firestore und Gemini sind als direkte
-            Laufzeitabhängigkeiten sichtbar, während Monitoring und
-            Backup/Restore als eigene Betriebsflüsse räumlich getrennt sind.],
+  image("diagrams/System-Architecture.drawio.png", width: 100%),
+  caption: [Gesamtarchitektur des Travel Assistant. Die Abbildung zeigt den
+            produktiven Request-Pfad über Browser, Load Balancer und Managed
+            Instance Group, den Deployment-Pfad über GitHub Actions,
+            Artifact Registry und GCS-Konfiguration sowie die getrennten
+            Monitoring- und Backup-Flüsse mit Prometheus, Loki, Grafana,
+            Alertmanager, Cloud Scheduler und Firestore-Export.],
 ) <fig-architecture>
 
 == Request-Pfad und Deployment-Flüsse
 
 Die Architektur trennt bewusst den _Request-Pfad_ vom _Deployment-Pfad_.
-@fig-flows macht diese Trennung explizit. Produktions-Traffic wird ausschließlich
-über den Load Balancer in die MIG geleitet, während das CI/CD-System über
-Terraform und die Instance-Template-Rotation neue Versionen ausrollt.
+@fig-flows macht diese Trennung zusätzlich abstrahiert. Produktions-Traffic wird
+ausschließlich über den Load Balancer in die MIG geleitet; App-VMs werden daher
+nicht direkt als öffentliche Einstiegspunkte betrachtet. Das CI/CD-System baut
+dagegen Container-Images, legt sie in der Artifact Registry ab, aktualisiert die
+GCP-Infrastruktur über Terraform und lädt die zur Laufzeit benötigten
+Konfigurationsdateien in einen GCS-App-Config-Bucket.
+
+Die App-VMs ziehen beim Start genau diese Artefakte: Das Startup-Script liest
+die Compose-Dateien und Umgebungswerte aus GCS, authentifiziert Docker gegenüber
+Artifact Registry und startet Nginx, FastAPI, Promtail und Node Exporter lokal
+per Docker Compose. So kann eine neue MIG-Instanz vollständig selbstständig
+starten, ohne dass GitHub Actions oder Ansible per SSH in die einzelne App-VM
+eingreifen müssen. Ansible bleibt auf die langlebige Monitoring-VM beschränkt.
 
 #figure(
   block(width: 100%)[#set text(size: 8.5pt)
@@ -473,15 +401,15 @@ Terraform und die Instance-Template-Rotation neue Versionen ausrollt.
     node((0, 2), [git push], fill: luma(245)),
     node((1.4, 2), [GitHub\ Actions], fill: rgb("#fff9cc")),
     node((2.8, 2), [Terraform\ apply], fill: rgb("#fff9cc")),
-    node((4.2, 2), [Instance-\ Template], fill: rgb("#fff9cc")),
+    node((4.2, 2), [Artifact\ Registry + GCS], fill: rgb("#fff9cc")),
     node((5.6, 2), [MIG Rolling\ Replace], fill: rgb("#eafbe8")),
 
     edge((0, 2), (1.4, 2), "->"),
     edge((1.4, 2), (2.8, 2), "->"),
-    edge((2.8, 2), (4.2, 2), "->"),
+    edge((2.8, 2), (4.2, 2), "->", [template]),
     edge((4.2, 2), (5.6, 2), "->"),
     edge((5.6, 2), (2.8, 0), "->", bend: -25deg,
-         label-pos: 0.3, [new tag]),
+         label-pos: 0.3, [pull/bootstrap]),
 
     // Monitoring VM via Ansible (separate lane)
     node((1.4, 3.3), [Ansible\ (Monitoring)], fill: rgb("#ffe7cc")),
@@ -490,7 +418,8 @@ Terraform und die Instance-Template-Rotation neue Versionen ausrollt.
     edge((1.4, 3.3), (2.8, 3.3), "->"),
   )],
   caption: [Getrennte Pfade für Laufzeit-Requests (oben) und Deployment
-            (unten). Ansible wird nur für die persistente Monitoring-VM
+            (unten). Images und App-Konfiguration werden als Artefakte
+            bereitgestellt; Ansible wird nur für die persistente Monitoring-VM
             verwendet.],
 ) <fig-flows>
 
@@ -504,7 +433,8 @@ aus drei Gründen abgelöst:
 + Mit $N > 1$ App-Instanzen würde ein SSH-basiertes Deployment in eine konkrete
   VM zwangsläufig Konfigurationsdrift erzeugen.
 + Eine im MIG neu gestartete Ersatz-VM muss ohne externes Eingreifen einsatzbereit
-  werden – ein Nachzug über Ansible wäre ein Single Point of Operator Intervention.
+  werden; eine Nachprovisionierung über Ansible wäre ein Single Point of Operator
+  Intervention.
 + Das Image-Tagging auf `latest` triggerte kein zuverlässiges Instance-Template-Update.
   Durch die Umstellung auf den Git-SHA als Image-Tag entsteht pro Commit eine
   eindeutige Template-Version, die den MIG-Rollout sicher auslöst.
@@ -515,7 +445,8 @@ Konkret wurden folgende Änderungen umgesetzt:
 - App-MIG auf zwei Instanzen mit proaktivem Rolling-Replace erweitert.
 - Startup-Script als autoritativer App-Bootstrap: holt Docker-Compose, `.env`
   und Promtail-Konfiguration aus einem GCS-Bucket, authentifiziert sich gegen
-  Artifact Registry und startet den Compose-Stack.
+  Artifact Registry und startet den Compose-Stack mit Nginx, FastAPI, Promtail
+  und Node Exporter.
 - Legacy-Ansible-Rollen für die App entfernt, um nur noch _eine_
   Deployment-Geschichte im Repository zu halten.
 
@@ -525,18 +456,66 @@ Der Monitoring-Stack läuft auf einer eigenen VM. Das ist bewusst gewählt, dami
 die Observability nicht mit der überwachten Infrastruktur verschwindet:
 
 - *Prometheus* entdeckt Scrape-Targets über GCE-Service-Discovery. Ein statischer
-  Target-Eintrag wäre bei einer rollierenden MIG fragil.
-- *Blackbox Exporter* prüft `GET /api/health/db` regelmäßig und exportiert
-  `probe_success`. Der Endpoint wird also _aktiv_ und _unabhängig_ von App-Traffic
-  beobachtet.
+  Target-Eintrag wäre bei einer rollierenden MIG fragil. Neben den FastAPI-
+  Metriken werden auch Host-Metriken der App- und Monitoring-VMs über Node
+  Exporter erfasst.
+- *Blackbox Exporter* prüft den öffentlichen Load-Balancer-Pfad und darüber
+  `GET /api/health/db` regelmäßig und exportiert `probe_success`. Der Endpoint
+  wird also _aktiv_ und _unabhängig_ von App-Traffic beobachtet.
 - *Grafana* lädt Dashboards automatisch aus einer provisionierten
   Verzeichnisstruktur. Ein initialer Fehler bei der Volume-Mount-Konfiguration
   (siehe Kapitel @sec-lessons) wurde behoben, indem das Dashboard-Verzeichnis
   explizit in den Container gemountet wurde.
+- *Alertmanager* verarbeitet Prometheus-Alerts und kann bei gesetzten SMTP-
+  Variablen E-Mail-Benachrichtigungen versenden.
 - *Loki* nimmt Logs von Promtail entgegen, welches auf jeder App-VM Container-
   und System-Logs einsammelt.
 - *Persistente Metriken und Logs* liegen auf einer separaten Persistent Disk mit
   `prevent_destroy = true`, damit sie VM-Neustarts und Redeploys überleben.
+
+Auf den App-VMs laufen damit neben den fachlichen Containern auch unterstützende
+Betriebskomponenten. Promtail folgt dem Sidecar-Prinzip: Der Container läuft auf
+jeder App-VM neben Nginx und FastAPI, nimmt selbst keinen Nutzertraffic entgegen
+und leitet Container- sowie Systemlogs an Loki weiter. Der Node Exporter ist als
+begleitender Exporter ähnlich eingebunden, beobachtet aber die VM als Host und
+stellt CPU-, Speicher- und Dateisystemmetriken für Prometheus bereit. Beide
+Komponenten erhöhen die Beobachtbarkeit, ohne die fachliche Anwendung direkt zu
+verändern. Die Persistent Disk der Monitoring-VM ist dagegen kein Sidecar,
+sondern angebundener persistenter Speicher für Prometheus, Loki, Grafana und
+Alertmanager.
+
+=== Alertierung und Betriebszugriff
+
+Die Monitoring-VM stellt die Bedienoberflächen über einen lokalen Nginx bereit.
+Grafana ist unter `/grafana/` erreichbar; Prometheus und Alertmanager liegen
+unter `/prometheus/` beziehungsweise `/alertmanager/` und werden per Basic Auth
+geschützt, da beide Dienste selbst keine vollständige Zugriffsschicht für diesen
+Einsatzfall mitbringen. Dadurch bleibt Grafana als Dashboard leicht erreichbar,
+während die administrativeren Werkzeuge zusätzlich abgesichert sind.
+
+Prometheus lädt seine Alert-Regeln aus einer provisionierten Datei und leitet
+ausgelöste Alarme an Alertmanager weiter. Die Regeln decken fünf Gruppen ab:
+
+- *App-Verfügbarkeit:* `AppVMDown`, `NoHealthyAppVMs` und
+  `AppPublicHealthCheckFailed` unterscheiden zwischen einzelner VM, fehlenden
+  Scrape-Targets und einem tatsächlich fehlerhaften öffentlichen Load-Balancer-
+  Pfad.
+- *App-Performance:* Fehlerquote über 5\% und p95-Latenz über zwei Sekunden
+  werden als Warnungen erfasst.
+- *Firestore-Integrität:* `FirestoreIntegrityCheckFailed` feuert nur, wenn der
+  DB-Healthcheck fehlschlägt _und_ die App-Instanz selbst erreichbar ist. Damit
+  wird ein Datenproblem nicht mit einem reinen App-Ausfall verwechselt.
+- *App-Ressourcen:* CPU-Auslastung und Root-Disk-Füllstand der App-VMs werden
+  über Node Exporter überwacht.
+- *Monitoring-Ressourcen:* Der Füllstand der persistenten Monitoring-Disk wird
+  separat geprüft, weil ein voller Metrics-/Log-Speicher die Beobachtbarkeit
+  selbst gefährden würde.
+
+Alertmanager gruppiert Benachrichtigungen nach `alertname` und `severity`,
+wiederholt kritische Alarme häufiger und kann bei gesetzten SMTP-Variablen
+E-Mails versenden. Zusätzlich unterdrückt eine Inhibition den weniger
+aussagekräftigen `AppVMNodeExporterDown`, wenn gleichzeitig `AppVMDown`
+aktiv ist; bei einem kompletten VM-Ausfall reicht also der primäre App-Alarm.
 
 // ========= 4. Fokus-Feature: Disaster Recovery =========
 = Fokus-Feature: Disaster Recovery
@@ -604,34 +583,68 @@ Pflichtfelder fester Referenzdokumente überprüft:
 
 Fehlt eines dieser Dokumente oder ein Pflichtfeld, liefert der Endpoint
 `HTTP 500` mit einer strukturierten Fehlerliste und loggt ein Ereignis
-`db_integrity_error`. Ein Blackbox Exporter fragt den Endpoint regelmäßig ab
-und exportiert `probe_success` als Prometheus-Metrik. Ein Grafana-Stat-Panel
+`db_integrity_error`. Ist Firestore selbst nicht erreichbar oder schlägt der
+Lesezugriff technisch fehl, wird derselbe HTTP-Status mit dem Grund
+`connectivity_error` zurückgegeben und als `db_connectivity_error` geloggt.
+Der Endpoint unterscheidet damit bewusst zwischen _Daten sind erreichbar, aber
+inhaltlich beschädigt_ und _Datenbankzugriff ist technisch nicht möglich_.
+
+Im Erfolgsfall antwortet der Endpoint mit `status: "healthy"` und
+`checked_documents: 3`. Im Fehlerfall enthält die Antwort `status: "unhealthy"`,
+einen maschinenlesbaren `reason` sowie die konkrete Liste der fehlenden Dokumente
+oder Felder. Dadurch kann der Recovery-Test nicht nur einen roten Zustand
+anzeigen, sondern auch begründen, welche Referenzdaten wiederhergestellt werden
+müssen.
+
+Ein Blackbox Exporter fragt den Endpoint regelmäßig über den Prometheus-Job
+`db-health` ab und exportiert `probe_success` als Prometheus-Metrik. Der Alert
+`FirestoreIntegrityCheckFailed` wird nur ausgelöst, wenn `probe_success` fehlschlägt
+und die betroffene App-Instanz gleichzeitig über den normalen API-Scrape
+erreichbar ist. Dadurch wird ein echter Datenintegritätsfehler von einem
+allgemeinen App- oder VM-Ausfall getrennt. Ein Grafana-Stat-Panel
 _Database Integrity_ zeigt den Zustand kontinuierlich, unabhängig von App-Traffic.
+
+Für die Alarmierung lädt Prometheus die Regel aus `alerts.yml` und übergibt den
+kritischen Alert an Alertmanager. Alertmanager gruppiert gleichartige Meldungen,
+sendet bei konfigurierten SMTP-Variablen eine E-Mail und markiert den Alarm nach
+erfolgreichem Restore automatisch als resolved, sobald der Blackbox-Probe wieder
+`probe_success = 1` liefert. Damit entsteht eine geschlossene Kette aus
+_Erkennen_ (`/api/health/db`), _Messen_ (Blackbox Exporter), _Alarmieren_
+(Prometheus/Alertmanager) und _Nachweisen der Wiederherstellung_ (grünes
+Grafana-Panel und resolved Alert).
 
 === Backups und Restore
 
-Die aktuelle Backup-Strecke ist bewusst als _Daily Export_ umgesetzt: Der
+Die aktuelle Backup-Strecke ist bewusst als täglicher Export umgesetzt: Der
 automatisierte Schutzpunkt entsteht einmal pro Tag, ergänzt durch manuelle
-Vorab-Backups für geplante Recovery-Tests. Diese Lösung ist einfach,
-prüfbar und passt zum Projektumfang, hat aber einen groben RPO: Änderungen
-zwischen zwei Scheduler-Läufen sind nicht durch den letzten geplanten Export
-abgedeckt. Firestore-Exporte eignen sich laut Google für das Wiederherstellen
-nach versehentlicher Löschung und werden über Cloud Storage abgelegt; ein
-Export ist jedoch kein exakt zum Startzeitpunkt eingefrorener Snapshot @gcp-firestore-export.
+Vorab-Backups für geplante Recovery-Tests. Diese Lösung ist einfach, prüfbar und
+passt zum Projektumfang, hat aber einen groben RPO: Änderungen zwischen zwei
+Scheduler-Läufen sind nicht durch den letzten geplanten Export abgedeckt.
+Firestore-Exporte eignen sich laut Google für das Wiederherstellen nach
+versehentlicher Löschung und werden über Cloud Storage abgelegt; ein Export ist
+jedoch kein exakt zum Startzeitpunkt eingefrorener Snapshot
+@gcp-firestore-export.
 
 Die Terraform-Konfiguration legt drei zusammenhängende Ressourcen an:
 
 + Ein GCS-Bucket `${project-id}-firestore-backups` mit einer 30-Tage-
   Lifecycle-Regel.
-+ Ein dedizierter Service Account mit den Rollen
-  `datastore.importExportAdmin` und `storage.admin` für genau diesen Bucket.
++ Ein dedizierter Service Account mit `datastore.importExportAdmin` auf
+  Projektebene und `storage.admin` auf dem Backup-Bucket.
 + Ein Cloud-Scheduler-Job, der täglich um 03:00 Uhr Europe/Berlin die
   Firestore-Export-API mit OAuth-Token dieses Service Accounts aufruft und
   nach `gs://.../scheduled/` schreibt.
 
 Zusätzlich existiert ein manuelles Backup-Script
 `presentation/demo-scripts/firestore-backup.sh`
-für Vorab-Backups vor gezielten Recovery-Tests. Der Restore erfolgt über
+für Vorab-Backups vor gezielten Recovery-Tests. Für den regulären manuellen
+Betrieb wurde derselbe Vorgang zusätzlich als GitHub-Actions-Workflow
+`Manual Firestore Backup` umgesetzt. Er ist über `workflow_dispatch` startbar,
+authentifiziert sich mit demselben GCP-Service-Account wie die Deployment-
+Pipeline und exportiert Firestore nach
+`gs://${project-id}-firestore-backups/manual/<timestamp>-run-<nr>-<label>`.
+Der erzeugte Backup-Pfad wird in der Job Summary ausgegeben, sodass der spätere
+Restore eindeutig auf einen konkreten Export zeigen kann. Der Restore erfolgt über
 `presentation/demo-scripts/firestore-restore.sh`, das entweder das jüngste manuelle Backup oder
 einen explizit angegebenen Backup-Pfad importiert. Der Import ist asynchron
 und kann mehrere Minuten dauern.
@@ -688,9 +701,10 @@ Eine vollständig zeitgenaue Wiederherstellung (Point-in-Time Recovery, PITR)
 wird von Firestore nativ unterstützt. Im Unterschied zum täglichen Export hält
 PITR ältere Dokumentversionen in einem Recovery-Fenster vor: ohne PITR ist nur
 ungefähr die letzte Stunde verfügbar, mit aktiviertem PITR bis zu sieben Tage;
-Lesezugriffe sind innerhalb der letzten Stunde mit Mikrosekundenpräzision und
-darüber hinaus innerhalb des PITR-Fensters minutengenau möglich @gcp-firestore-pitr.
-Damit ist PITR deutlich granularer als der hier umgesetzte Daily Export.
+Lesezugriffe sind innerhalb der letzten Stunde auf beliebige unterstützte
+Zeitpunkte und darüber hinaus innerhalb des PITR-Fensters minutengenau möglich
+@gcp-firestore-pitr.
+Damit ist PITR deutlich granularer als der hier umgesetzte tägliche Export.
 
 Im Rahmen dieses Projekts wurde PITR nicht aktiviert, weil es zusätzliche Kosten
 verursacht und für die nachweisbare Backup-/Restore-Strecke nicht notwendig war.
@@ -723,7 +737,8 @@ Datenbank-Klone für feinere Recovery-Szenarien genutzt werden.
        Load Balancer, Persistent Disks.],
     [Infrastruktur],
       [Komplette Infrastruktur inklusive MIG, LB, Firestore, IAM, Cloud-Storage-Buckets
-       und Cloud-Scheduler-Job.],
+       für Terraform-State, App-Konfiguration und Firestore-Backups sowie
+       Cloud-Scheduler-Job.],
     [Konfiguration],
       [Auf die persistente Monitoring-VM fokussiert; App-VMs werden über
        Startup-Script bereitgestellt.],
@@ -731,8 +746,8 @@ Datenbank-Klone für feinere Recovery-Szenarien genutzt werden.
       [Sichtbare Datenkorruption, MIG-Autohealing,
        Grafana-Alert und Restore-Script.],
     [Monitoring],
-      [Prometheus (GCE-SD), Grafana, Loki, Blackbox Exporter auf separater VM
-       mit persistenter Disk.],
+      [Prometheus (GCE-SD), Grafana, Loki, Alertmanager, Blackbox Exporter und
+       Node Exporter auf separater VM mit persistenter Disk.],
     [Entwicklung und Betrieb],
       [Typed FastAPI-Endpunkte, pytest-Testsuite, CI über GitHub Actions.],
     [Rollout-Modell],
@@ -788,7 +803,7 @@ mit dem Übergang zu $N > 1$ architektonisch zur falschen Abstraktion.
   definierter RTO/RPO-Zielwert mit automatisierter Restore-Entscheidung wünschenswert.
 - Die geplanten Firestore-Backups laufen nur täglich; PITR ist konzeptionell
   vorgesehen, aber aus Kostengründen nicht aktiviert. Dadurch bleibt der
-  Recovery-Punkt zwischen zwei Daily Exports gröber als in einem hybriden
+  Recovery-Punkt zwischen zwei täglichen Exporten gröber als in einem hybriden
   Export-plus-PITR-Setup.
 - Das Logging ist aktuell klassisch über Promtail nach Loki umgesetzt, nicht
   über OpenTelemetry. Ein OTel-Collector mit OTLP-Empfang wäre eine sinnvolle
@@ -815,7 +830,7 @@ manuell) machen den Recovery-Pfad nachvollziehbar. Der Load Balancer und die
 CI/CD-Pipeline ergänzen diese Architektur um einen stabilen öffentlichen
 Einstiegspunkt und reproduzierbare Rollouts.
 
-Für zukünftige Iterationen bieten sich vor allem drei Richtungen an:
+Für zukünftige Iterationen bieten sich vor allem vier Richtungen an:
 _automatisiertes Restore_ (RTO/RPO-getrieben), ein hybrider
 _Daily-Export-plus-PITR_-Ansatz für Firestore, eine _OpenTelemetry_-basierte
 Observability-Pipeline und ein _Multi-Region-Failover_ für den Load Balancer. Die aktuelle
