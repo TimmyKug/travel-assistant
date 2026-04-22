@@ -70,41 +70,11 @@
       }
     },
     {
-      "id": 3,
-      "title": "5xx Error Ratio",
-      "type": "stat",
-      "gridPos": {
-        "x": 8,
-        "y": 0,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "expr": "100 * sum(rate(http_requests_total{status_code=~\"5..\",handler!=\"/metrics\",handler!=\"/api/health\"}[5m])) / clamp_min(sum(rate(http_requests_total{handler!=\"/metrics\",handler!=\"/api/health\"}[5m])), 0.0001)",
-          "legendFormat": "5xx %"
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      }
-    },
-    {
       "id": 4,
       "title": "Request Latency p95",
       "type": "stat",
       "gridPos": {
-        "x": 12,
+        "x": 8,
         "y": 0,
         "w": 4,
         "h": 4
@@ -130,41 +100,11 @@
       }
     },
     {
-      "id": 5,
-      "title": "Rate Limit Hits (1h)",
-      "type": "stat",
-      "gridPos": {
-        "x": 16,
-        "y": 0,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "expr": "sum(increase(ai_requests_total{status=\"rate_limited\"}[1h])) or vector(0)",
-          "legendFormat": "rate_limited"
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto"
-      }
-    },
-    {
       "id": 6,
       "title": "Disk Usage /",
       "type": "stat",
       "gridPos": {
-        "x": 20,
+        "x": 12,
         "y": 0,
         "w": 4,
         "h": 4
@@ -195,7 +135,7 @@
       "type": "timeseries",
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 10,
         "w": 12,
         "h": 8
       },
@@ -212,7 +152,7 @@
       "type": "timeseries",
       "gridPos": {
         "x": 12,
-        "y": 4,
+        "y": 10,
         "w": 12,
         "h": 8
       },
@@ -229,7 +169,7 @@
       "type": "timeseries",
       "gridPos": {
         "x": 0,
-        "y": 12,
+        "y": 18,
         "w": 12,
         "h": 8
       },
@@ -246,7 +186,7 @@
       "type": "timeseries",
       "gridPos": {
         "x": 12,
-        "y": 12,
+        "y": 18,
         "w": 12,
         "h": 8
       },
@@ -263,7 +203,7 @@
       "type": "timeseries",
       "gridPos": {
         "x": 0,
-        "y": 20,
+        "y": 26,
         "w": 8,
         "h": 7
       },
@@ -289,7 +229,7 @@
       "type": "timeseries",
       "gridPos": {
         "x": 8,
-        "y": 20,
+        "y": 26,
         "w": 8,
         "h": 7
       },
@@ -315,7 +255,7 @@
       "type": "timeseries",
       "gridPos": {
         "x": 16,
-        "y": 20,
+        "y": 26,
         "w": 8,
         "h": 7
       },
@@ -336,7 +276,7 @@
       "type": "timeseries",
       "gridPos": {
         "x": 0,
-        "y": 27,
+        "y": 33,
         "w": 12,
         "h": 7
       },
@@ -362,7 +302,7 @@
       "type": "logs",
       "gridPos": {
         "x": 12,
-        "y": 27,
+        "y": 33,
         "w": 12,
         "h": 7
       },
@@ -394,7 +334,7 @@
       "type": "logs",
       "gridPos": {
         "x": 0,
-        "y": 34,
+        "y": 40,
         "w": 24,
         "h": 8
       },
@@ -425,9 +365,9 @@
       "title": "Database Integrity",
       "type": "stat",
       "gridPos": {
-        "x": 0,
-        "y": 42,
-        "w": 6,
+        "x": 16,
+        "y": 0,
+        "w": 4,
         "h": 4
       },
       "targets": [
@@ -487,9 +427,9 @@
       "title": "Active Alerts",
       "type": "stat",
       "gridPos": {
-        "x": 6,
-        "y": 42,
-        "w": 6,
+        "x": 20,
+        "y": 0,
+        "w": 4,
         "h": 4
       },
       "targets": [
@@ -540,6 +480,99 @@
           }
         }
       }
+    },
+    {
+      "id": 19,
+      "title": "Firing Alerts",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "ALERTS{alertstate=\"firing\"}",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{alertname}}"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "alertname"
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "severity"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "critical": {
+                        "color": "red",
+                        "text": "critical"
+                      },
+                      "warning": {
+                        "color": "orange",
+                        "text": "warning"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true,
+              "__name__": true,
+              "alertstate": true,
+              "monitor": true
+            },
+            "indexByName": {
+              "alertname": 0,
+              "severity": 1,
+              "instance": 2,
+              "job": 3
+            }
+          }
+        }
+      ]
     }
   ]
 }

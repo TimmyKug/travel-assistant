@@ -92,6 +92,7 @@ jobs:
       monitoring_ip: ${{ steps.infra.outputs.monitoring_ip }}
       monitoring_internal_ip: ${{ steps.infra.outputs.monitoring_internal_ip }}
       config_bucket: ${{ steps.infra.outputs.config_bucket }}
+      app_static_ip: ${{ steps.infra.outputs.app_static_ip }}
 
     steps:
       - name: Checkout repository
@@ -165,6 +166,7 @@ jobs:
           echo "monitoring_ip=$(terraform output -raw monitoring_vm_external_ip)" >> $GITHUB_OUTPUT
           echo "monitoring_internal_ip=$(terraform output -raw monitoring_vm_internal_ip)" >> $GITHUB_OUTPUT
           echo "config_bucket=$(terraform output -raw config_bucket_name)" >> $GITHUB_OUTPUT
+          echo "app_static_ip=$(terraform output -raw app_static_ip)" >> $GITHUB_OUTPUT
 
   # ── Sequential: deploy (after all parallel jobs) ────────────────────
 
@@ -278,4 +280,5 @@ jobs:
             --extra-vars "@secrets.yml" \
             --extra-vars "app_dir=/opt/travel-assistant" \
             --extra-vars "repo_local_path=${{ github.workspace }}" \
-            --extra-vars "zone=${{ vars.GCP_REGION || 'europe-west3' }}-a"
+            --extra-vars "zone=${{ vars.GCP_REGION || 'europe-west3' }}-a" \
+            --extra-vars "app_static_ip=${{ needs.provision.outputs.app_static_ip }}"

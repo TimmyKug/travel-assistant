@@ -20,6 +20,33 @@ groups:
             2 minutes. The MIG autohealer will have already triggered VM
             replacement. Expected recovery time: ~5 minutes.
 
+      # Fires when Prometheus cannot scrape any healthy app target at all.
+      # This also covers the edge case where service discovery has zero app
+      # targets, so per-instance "up == 0" alerts have no series to evaluate.
+      - alert: NoHealthyAppVMs
+        expr: (sum(up{job="travel-assistant-api"}) or vector(0)) == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No healthy app VMs are reachable"
+          description: >
+            Prometheus cannot scrape any healthy travel-assistant API target.
+            Either all app VMs are down, the MIG has no discoverable instances,
+            or nginx/backend is unavailable on every app VM.
+
+      - alert: AppPublicHealthCheckFailed
+        expr: probe_success{job="app-public-health"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Public app health check failed"
+          description: >
+            The load-balanced /api/health endpoint did not return HTTP 200 for
+            at least 1 minute. Users may be unable to reach the app, or the
+            load balancer may have no healthy backend VM.
+
       # Fires when the app VM's node-exporter is unreachable.
       # A separate signal because the app could crash while the host stays up.
       - alert: AppVMNodeExporterDown

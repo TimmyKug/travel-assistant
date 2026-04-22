@@ -55,6 +55,22 @@ scrape_configs:
       - source_labels: [__meta_gce_instance_name]
         target_label: instance
 
+  # ── Public app availability via Load Balancer ──────────────────────────────
+  # Probes the user-facing entrypoint, so it fails when the load balancer has no
+  # healthy backend VM even if direct GCE service discovery has no app targets.
+  - job_name: app-public-health
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://{{ app_static_ip }}/api/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
   # ── App VM — host metrics (node-exporter) ──────────────────────────────────
   - job_name: node-exporter-app
     gce_sd_configs:
