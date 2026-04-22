@@ -651,7 +651,7 @@ Eine Rotation ließe sich dann durch das Anlegen einer neuen Secret-Version und 
     [Prometheus (GCE-SD), Grafana, Loki, Alertmanager, Blackbox Exporter und Node Exporter auf separater VM mit persistenter Disk.],
 
     [Entwicklung und Betrieb],
-    [Typed FastAPI-Endpunkte, pytest-Testsuite, CI über GitHub Actions.],
+    [Typed FastAPI-Endpunkte, pytest-Testsuite, Vitest-Frontendtests, CI über GitHub Actions.],
 
     [Rollout-Modell],
     [GitHub Actions: Build/Push → `terraform apply` → Ansible (Monitoring) → Instance-Template-Rotation; globale statische IP vor HTTP(S)-LB, $N > 1$ App-Instanzen mit Rolling-Replace.],
@@ -661,18 +661,23 @@ Eine Rotation ließe sich dann durch das Anlegen einer neuen Secret-Version und 
 
 == Testumfang und Methodik
 
-Die automatisierte Testsuite konzentriert sich auf die FastAPI-Anwendung und wird in GitHub Actions vor Build und Deployment ausgeführt.
-Die Tests nutzen `pytest` und den FastAPI-`TestClient`; externe Abhängigkeiten wie Firestore und Gemini werden über Mocks ersetzt, damit die Suite ohne echte Cloud-Zugriffe deterministisch und schnell läuft.
+Die automatisierte Testsuite deckt Backend- und Frontend-Verhalten ab und wird in GitHub Actions vor Build und Deployment ausgeführt.
+Die Backend-Tests nutzen `pytest` und den FastAPI-`TestClient`; externe Abhängigkeiten wie Firestore und Gemini werden über Mocks ersetzt, damit die Suite ohne echte Cloud-Zugriffe deterministisch und schnell läuft.
 Damit prüft die CI vor allem fachliche API-Verträge, Fehlerbehandlung und die für das Disaster-Recovery-Feature relevanten Health-Endpunkte.
 
 Abgedeckt sind Authentifizierung (Registrierung, Login, aktueller Nutzer), Chat- und Konversationsendpunkte, CRUD-Operationen für Reisepläne sowie `/api/health` und `/api/health/db`.
 Für den DB-Integritätscheck existieren explizite Tests für den grünen Zustand, fehlende Referenzdaten und technische Firestore-Konnektivitätsfehler.
 Gerade diese Negativtests sind wichtig, weil der Endpoint nicht nur Erreichbarkeit, sondern auch Datenintegrität signalisieren soll.
 
+Im Frontend ergänzen Vitest und React Testing Library diese Backend-Sicht um komponentennahe Verhaltenstests.
+Geprüft werden unter anderem Auth-Routing, Chat-Verhalten inklusive Fehlerfall und Speichern einer Antwort als Reiseplan sowie das Erstellen und Löschen von Reisen im Trip-Planner.
+Die Tests mocken die API-Schicht und prüfen damit bewusst UI-Verhalten und Zustandsübergänge, nicht visuelle Pixel-Regressionen.
+
 Ergänzend zur Testsuite laufen in der CI-Pipeline statische Code-Quality- und Sicherheitsprüfungen, die den Backend- und Frontend-Code vor Build und Deployment gatekeepen.
 Für das Python-Backend kommen `ruff` (Linting und Formatierung), `mypy` (statische Typprüfung) und `pip-audit` (CVE-Scan der gepinnten Dependencies) zum Einsatz.
-Im React/TypeScript-Frontend übernehmen `tsc --noEmit` die Typprüfung, ESLint mit den React-Hooks- und React-Refresh-Regeln die Lint-Ebene und `npm audit` den Dependency-Scan.
-Testabdeckung wird über `pytest-cov` als Cobertura-Report erzeugt, damit perspektivisch eine Anbindung an externe Coverage-Dienste möglich bleibt; aktuell liegt die Zeilenabdeckung des Backends bei rund 92 %.
+Im React/TypeScript-Frontend übernehmen `tsc --noEmit` die Typprüfung, ESLint mit den React-Hooks- und React-Refresh-Regeln die Lint-Ebene, `vitest run --coverage` die Tests mit Coverage-Ausgabe und `npm audit` den Dependency-Scan.
+Testabdeckung wird im Backend über `pytest-cov` als Cobertura-Report erzeugt; im Frontend erzeugt Vitest über den V8-Coverage-Provider eine Text-, HTML- und LCOV-Ausgabe.
+Aktuell liegt die Zeilenabdeckung des Backends bei rund 92 %, die des Frontends bei rund 55 %.
 Damit sind die drei gängigen Qualitätsdimensionen abgedeckt: formale Korrektheit (Linting, Typen), funktionale Korrektheit (Tests) und Lieferkettensicherheit (CVE-Scans).
 
 Nicht Teil der automatisierten Tests sind vollständige End-to-End-Tests gegen eine echte GCP-Umgebung, echte Gemini-Antworten, Load-Balancer-Verhalten, MIG-Autohealing oder ein realer Firestore-Import.
