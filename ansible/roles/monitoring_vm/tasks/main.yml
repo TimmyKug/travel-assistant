@@ -43,7 +43,7 @@
     dest: "{{ app_dir }}/monitoring/alertmanager/alertmanager.yml"
     owner: deploy
     group: deploy
-    mode: "0640"
+    mode: "0644"
 
 - name: Write Prometheus htpasswd file
   copy:
