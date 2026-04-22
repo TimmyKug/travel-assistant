@@ -9,7 +9,7 @@ ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 "routers/*.py" = ["B008"]
-"services/firebase_auth.py" = ["B008"]
+"services/jwt_auth.py" = ["B008"]
 
 [tool.mypy]
 python_version = "3.13"

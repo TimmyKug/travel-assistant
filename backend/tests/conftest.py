@@ -38,7 +38,7 @@ def client(mock_db):
 
     import services.firestore_client as _fc
     from main import app
-    from services.firebase_auth import get_current_user
+    from services.jwt_auth import get_current_user
 
     app.dependency_overrides[get_current_user] = lambda: TEST_USER
     # get_db() is called directly (not via Depends), so inject into the

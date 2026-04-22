@@ -10,13 +10,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from metrics import auth_events_total
-from services.firebase_auth import (
+from services.firestore_client import get_db
+from services.jwt_auth import (
     create_access_token,
     get_current_user,
     hash_password,
     verify_password,
 )
-from services.firestore_client import get_db
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

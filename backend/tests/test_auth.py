@@ -33,7 +33,7 @@ def test_register_duplicate_email(client, mock_db):
 
 
 def test_login_success(client, mock_db):
-    from services.firebase_auth import hash_password
+    from services.jwt_auth import hash_password
 
     user_doc = MagicMock()
     user_doc.to_dict.return_value = {
@@ -56,7 +56,7 @@ def test_login_success(client, mock_db):
 
 
 def test_login_wrong_password(client, mock_db):
-    from services.firebase_auth import hash_password
+    from services.jwt_auth import hash_password
 
     user_doc = MagicMock()
     user_doc.to_dict.return_value = {

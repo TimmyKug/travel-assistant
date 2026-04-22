@@ -22,6 +22,12 @@ frontend/node_modules/
 __pycache__/
 *.pyc
 .venv/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
 
 # OS
 .DS_Store

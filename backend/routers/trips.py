@@ -9,8 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from metrics import trips_operations_total
-from services.firebase_auth import get_current_user
 from services.firestore_client import get_db
+from services.jwt_auth import get_current_user
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

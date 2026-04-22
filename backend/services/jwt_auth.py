@@ -1,6 +1,6 @@
 """
 JWT-based authentication middleware.
-Replaces Firebase Auth — tokens are issued by the backend's /auth/login endpoint.
+Tokens are issued by the backend's /auth/login endpoint.
 Requires JWT_SECRET_KEY environment variable.
 """
 
@@ -8,9 +8,10 @@ import os
 from datetime import UTC, datetime, timedelta
 
 import bcrypt
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+from jwt import PyJWTError
 
 SECRET_KEY = os.environ["JWT_SECRET_KEY"]
 ALGORITHM = "HS256"
@@ -47,7 +48,7 @@ async def get_current_user(
             "email": payload.get("email"),
             "name": payload.get("name"),
         }
-    except JWTError as exc:
+    except PyJWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid or expired token: {exc}",

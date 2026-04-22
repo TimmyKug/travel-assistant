@@ -8,9 +8,9 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from services.firebase_auth import get_current_user
 from services.firestore_client import get_db
 from services.gemini import chat as gemini_chat
+from services.jwt_auth import get_current_user
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
