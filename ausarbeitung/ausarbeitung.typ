@@ -358,7 +358,6 @@ Die App-VMs werden nicht nachträglich per SSH konfiguriert, sondern starten üb
 Das Startup-Script holt Docker-Compose, `.env` und Promtail-Konfiguration aus einem GCS-Bucket, authentifiziert Docker gegenüber Artifact Registry und startet den Compose-Stack mit Nginx, FastAPI, Promtail und Node Exporter.
 Dadurch kann jede neu erzeugte MIG-Instanz ohne manuellen Eingriff denselben Anwendungszustand herstellen.
 Container-Images werden mit dem Git-SHA getaggt; pro Commit entsteht damit eine eindeutige Template-Version, die den MIG-Rollout nachvollziehbar auslöst.
-Für den Fehlerfall existiert zusätzlich ein manueller Rollback-Workflow, der einen angegebenen früheren Image-Tag wieder in GCS-Konfiguration und Terraform-Variable übernimmt und anschließend dieselbe Integrationsprüfung wie das reguläre Deployment ausführt.
 
 Ansible bleibt auf die langlebige Monitoring-VM beschränkt.
 Dort verwaltet es die Konfiguration von Prometheus, Grafana, Loki, Alertmanager und Nginx, also Komponenten, die nicht mit jedem App-Rollout neu erzeugt werden.

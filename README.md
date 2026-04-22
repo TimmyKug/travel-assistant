@@ -102,7 +102,7 @@ flowchart TD
 | [`monitoring/`](monitoring/) | Monitoring stack configs (dashboards, alert rules, promtail, blackbox) |
 | [`scripts/`](scripts/) | Infrastructure helper scripts, including VM startup/bootstrap |
 | [`presentation/`](presentation/) | Reveal.js deck and local demo scripts for backup/restore/corruption scenarios |
-| [`.github/workflows/`](.github/workflows/) | `deploy.yml` (main pipeline with post-deploy verification), `integration-tests.yml` (reusable/manual deployed-app integration tests), `manual-rollback.yml` (manual app image rollback), `firestore-manual-backup.yml` / `firestore-manual-restore.yml` (manual Firestore export/import), and `terraform-destroy.yml` (teardown) |
+| [`.github/workflows/`](.github/workflows/) | `deploy.yml` (main pipeline with post-deploy verification), `integration-tests.yml` (reusable/manual deployed-app integration tests), `firestore-manual-backup.yml` / `firestore-manual-restore.yml` (manual Firestore export/import), and `terraform-destroy.yml` (teardown) |
 
 ## Deployment pipeline
 
@@ -115,8 +115,6 @@ Pushing to `main` triggers [`.github/workflows/deploy.yml`](.github/workflows/de
 5. **verify** — calls the integration-test workflow against the public app URL after deployment.
 
 Integration checks live in [`.github/workflows/integration-tests.yml`](.github/workflows/integration-tests.yml). The workflow runs automatically as post-deploy verification and can also be started manually with `workflow_dispatch`. It takes the deployed app URL as input, skips Gemini to avoid quota/cost flakiness, creates a unique temporary user/trip through the public API, checks health endpoints and storage buckets, and cleans up Firestore test data in an `if: always()` step.
-
-Manual app rollback lives in [`.github/workflows/manual-rollback.yml`](.github/workflows/manual-rollback.yml). Start it with a previous image tag, usually an older Git SHA, and confirm with `ROLLBACK`. It updates the app config bucket, applies Terraform with that image tag to rotate the MIG back to the selected template, and then runs the same integration verification workflow.
 
 The app VMs bootstrap themselves from [`scripts/startup.sh`](scripts/startup.sh) — no
 Ansible required on the app side. That script runs on every MIG-created instance,
