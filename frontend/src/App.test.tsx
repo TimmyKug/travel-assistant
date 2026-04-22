@@ -11,7 +11,10 @@ vi.mock("./services/api", () => ({
 
 function renderApp(path = "/") {
   return render(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter
+      initialEntries={[path]}
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+    >
       <AuthProvider>
         <App />
       </AuthProvider>

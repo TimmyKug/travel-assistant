@@ -14,7 +14,7 @@ vi.mock("../services/api", () => ({
 
 function renderChat() {
   return render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
       <Chat />
     </MemoryRouter>
   );
