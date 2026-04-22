@@ -629,9 +629,10 @@ Die Terraform-Konfiguration legt drei zusammenhängende Ressourcen an:
   Firestore-Export-API mit OAuth-Token dieses Service Accounts aufruft und
   nach `gs://.../scheduled/` schreibt.
 
-Zusätzlich existiert ein manuelles Backup-Script `scripts/firestore-backup.sh`
+Zusätzlich existiert ein manuelles Backup-Script
+`presentation/demo-scripts/firestore-backup.sh`
 für Vorab-Backups vor gezielten Recovery-Tests. Der Restore erfolgt über
-`scripts/firestore-restore.sh`, das entweder das jüngste manuelle Backup oder
+`presentation/demo-scripts/firestore-restore.sh`, das entweder das jüngste manuelle Backup oder
 einen explizit angegebenen Backup-Pfad importiert. Der Import ist asynchron
 und kann mehrere Minuten dauern.
 

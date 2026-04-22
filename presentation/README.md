@@ -6,6 +6,7 @@ Reveal.js slide deck for the AI Travel Assistant project presentation.
 
 - `index.html` - the slide deck
 - `server.py` - local helper server for live demo actions
+- `demo-scripts/` - Firestore backup, restore, seed, and corruption demo scripts
 - `backup-status.json` - sample backup status response used by the demo
 - `start_presentation.command` - macOS launcher for the local presentation server
 

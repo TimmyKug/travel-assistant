@@ -8,8 +8,9 @@ from pathlib import Path
 
 PORT = 8080
 REPO_ROOT = Path(__file__).resolve().parent.parent
-CORRUPT_SCRIPT = REPO_ROOT / "scripts" / "demo-corrupt-db.sh"
-RESTORE_SCRIPT = REPO_ROOT / "scripts" / "firestore-restore.sh"
+DEMO_SCRIPTS_DIR = Path(__file__).resolve().parent / "demo-scripts"
+CORRUPT_SCRIPT = DEMO_SCRIPTS_DIR / "demo-corrupt-db.sh"
+RESTORE_SCRIPT = DEMO_SCRIPTS_DIR / "firestore-restore.sh"
 PROJECT_ID = "timmys-travel-assistant"
 LAST_RESTORE_OPERATION = None
 

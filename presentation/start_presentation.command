@@ -13,13 +13,13 @@ fi
 
 echo "Aktives gcloud-Projekt: $PROJECT_ID"
 echo "Spiele Demo-Daten in Firestore ein..."
-"../scripts/firestore-seed-demo-data.sh" "$PROJECT_ID"
+"demo-scripts/firestore-seed-demo-data.sh" "$PROJECT_ID"
 
 BACKUP_STATUS_FILE="backup-status.json"
 printf '{"status":"starting","message":"Backup wird gestartet..."}\n' > "$BACKUP_STATUS_FILE"
 
 echo "Erstelle manuelles Firestore-Backup..."
-BACKUP_OUTPUT="$("../scripts/firestore-backup.sh" "$PROJECT_ID")"
+BACKUP_OUTPUT="$(demo-scripts/firestore-backup.sh "$PROJECT_ID")"
 echo "$BACKUP_OUTPUT"
 
 BACKUP_OPERATION="$(printf '%s\n' "$BACKUP_OUTPUT" | sed -n 's/^name: //p' | tail -1)"

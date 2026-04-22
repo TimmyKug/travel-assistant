@@ -104,7 +104,8 @@ flowchart TD
 | [`terraform/`](terraform/) | All GCP infrastructure (VMs, MIG, LB, Firestore, Artifact Registry, GCS, scheduled backup job) |
 | [`ansible/`](ansible/) | Monitoring-VM provisioning (Prometheus, Loki, Grafana, Alertmanager) |
 | [`monitoring/`](monitoring/) | Monitoring stack configs (dashboards, alert rules, promtail, blackbox) |
-| [`scripts/`](scripts/) | VM startup script + disaster-recovery scripts (backup / restore / seed / corrupt-db demo) |
+| [`scripts/`](scripts/) | Infrastructure helper scripts, including VM startup/bootstrap |
+| [`presentation/`](presentation/) | Reveal.js deck and local demo scripts for backup/restore/corruption scenarios |
 | [`.github/workflows/`](.github/workflows/) | `deploy.yml` (main pipeline) and `terraform-destroy.yml` (teardown) |
 
 ## Deployment pipeline
@@ -289,11 +290,11 @@ The focus feature. Three layers:
 2. **Daily Firestore export** — Cloud Scheduler triggers `projects/.../databases/(default):exportDocuments`
    at 03:00 Europe/Berlin, writing to the `…-firestore-backups` GCS bucket. Exports
    older than 30 days are auto-deleted by a lifecycle rule.
-3. **Scripted restore** — operator scripts in [`scripts/`](scripts/):
-   - [`firestore-backup.sh`](scripts/firestore-backup.sh) — ad-hoc export
-   - [`firestore-restore.sh`](scripts/firestore-restore.sh) — restore from a prior export
-   - [`firestore-seed-demo-data.sh`](scripts/firestore-seed-demo-data.sh) — re-seed demo users/trips
-   - [`demo-corrupt-db.sh`](scripts/demo-corrupt-db.sh) — destructive demo for the presentation
+3. **Scripted restore** — presentation demo scripts in [`presentation/demo-scripts/`](presentation/demo-scripts/):
+   - [`firestore-backup.sh`](presentation/demo-scripts/firestore-backup.sh) — ad-hoc export
+   - [`firestore-restore.sh`](presentation/demo-scripts/firestore-restore.sh) — restore from a prior export
+   - [`firestore-seed-demo-data.sh`](presentation/demo-scripts/firestore-seed-demo-data.sh) — re-seed demo users/trips
+   - [`demo-corrupt-db.sh`](presentation/demo-scripts/demo-corrupt-db.sh) — destructive demo for the presentation
 
 ## Monitoring data persistence
 
