@@ -1,0 +1,77 @@
+name: Manual Firestore Backup
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_label:
+        description: "Optional label for the backup path"
+        required: false
+        type: string
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  REGION: ${{ vars.GCP_REGION || 'europe-west3' }}
+
+jobs:
+  firestore_backup:
+    name: Trigger Firestore Export
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Trigger manual Firestore export
+        id: backup
+        env:
+          BACKUP_LABEL: ${{ inputs.backup_label }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${PROJECT_ID}" ]; then
+            echo "GCP_PROJECT_ID repository variable is not set."
+            exit 1
+          fi
+
+          BUCKET="${PROJECT_ID}-firestore-backups"
+          TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+          LABEL="$(printf '%s' "${BACKUP_LABEL:-manual}" | tr -cs '[:alnum:]_.-' '-' | sed 's/^-//;s/-$//')"
+          LABEL="${LABEL:-manual}"
+          OUTPUT_URI="gs://${BUCKET}/manual/${TIMESTAMP}-run-${GITHUB_RUN_NUMBER}-${LABEL}"
+
+          echo "Checking backup bucket gs://${BUCKET}..."
+          gsutil ls -b "gs://${BUCKET}" >/dev/null
+
+          echo "Starting Firestore export to ${OUTPUT_URI}..."
+          gcloud firestore export "${OUTPUT_URI}" \
+            --project="${PROJECT_ID}" \
+            --async
+
+          echo "output_uri=${OUTPUT_URI}" >> "${GITHUB_OUTPUT}"
+
+      - name: Write summary
+        run: |
+          cat >> "${GITHUB_STEP_SUMMARY}" << SUMMARY
+          ## Manual Firestore backup started
+
+          Backup path:
+
+          \`${{ steps.backup.outputs.output_uri }}\`
+
+          Check export progress with:
+
+          \`\`\`bash
+          gcloud firestore operations list --project=${PROJECT_ID}
+          \`\`\`
+          SUMMARY
