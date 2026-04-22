@@ -1,6 +1,6 @@
-#import "@preview/fletcher:0.5.8" as fletcher: diagram, node, edge
+#import "@preview/fletcher:0.5.8" as fletcher: diagram, edge, node
 #import "@preview/cetz:0.3.4"
-#import fletcher.shapes: rect, hexagon, circle, pill, diamond
+#import fletcher.shapes: circle, diamond, hexagon, pill, rect
 
 // ========= Document setup =========
 #set document(
@@ -61,7 +61,7 @@
 
   #v(0.3cm)
   #text(size: 14pt)[Eine cloud-native KI-Reiseplanungsanwendung mit\
-  automatisiertem Deployment, Monitoring und Disaster Recovery]
+    automatisiertem Deployment, Monitoring und Disaster Recovery]
 
   #v(2cm)
   #text(size: 12pt)[Schriftliche Ausarbeitung zur Projektarbeit]
@@ -133,16 +133,16 @@ Die folgende Tabelle fasst das im Projekt gewählte Mapping auf die drei Cloud-S
     columns: (auto, 1fr),
     align: (left, left),
     stroke: 0.5pt + luma(180),
-    table.header(
-      [*Ebene*], [*Im Projekt verwendet*],
-    ),
+    table.header([*Ebene*], [*Im Projekt verwendet*]),
     [SaaS],
-      [Google Gemini API (Gemini 3.1 Flash-Lite) für die KI-Antworten,
-       GitHub Actions für die CI/CD-Automatisierung.],
+    [Google Gemini API (Gemini 3.1 Flash-Lite) für die KI-Antworten,
+      GitHub Actions für die CI/CD-Automatisierung.],
+
     [PaaS],
-      [Google Firestore (NoSQL), Google Artifact Registry für Docker-Images, Google Cloud Scheduler für geplante Backups, Google Cloud Storage für Terraform-State, App-Konfigurationen und Firestore-Backups.],
+    [Google Firestore (NoSQL), Google Artifact Registry für Docker-Images, Google Cloud Scheduler für geplante Backups, Google Cloud Storage für Terraform-State, App-Konfigurationen und Firestore-Backups.],
+
     [IaaS],
-      [Google Compute Engine (App-MIG + Monitoring-VM), Load Balancer, Persistent Disks.],
+    [Google Compute Engine (App-MIG + Monitoring-VM), Load Balancer, Persistent Disks.],
   ),
   caption: [Zuordnung der Projekt-Komponenten zu den Cloud-Service-Modellen.],
 ) <tab-xaas>
@@ -164,9 +164,10 @@ Die folgende Tabelle fasst das im Projekt gewählte Mapping auf die drei Cloud-S
     [`users/{uid}/conversations/{id}`], [Chatverläufe mit dem Assistenten],
     [`users/{uid}/trips/{id}`], [Gespeicherte Reisepläne],
     [`rate_limits/{uid}`], [Tägliches Gemini-Request-Kontingent je Nutzer],
-    [`analytics/daily_usage`, `analytics/system`], [Aggregierte Metriken und Seed-Markierung],
+    [`analytics/daily_usage`, `analytics/system`],
+    [Aggregierte Metriken und Seed-Markierung],
   ),
-  caption: [Firestore-Datenmodell.]
+  caption: [Firestore-Datenmodell.],
 ) <tab-firestore>
 - *KI-Modell:* Google Gemini API mit _Gemini 3.1 Flash-Lite_ für die Reiseassistenz.
 - *Container und Orchestrierung:* Docker + Docker Compose, ein eigener Nginx als Reverse Proxy pro App-VM.
@@ -264,7 +265,7 @@ Gerade diese Trennung ist wichtig, weil ein Fehler im App-Pfad nicht gleichzeiti
 #figure(
   image("diagrams/System-Architecture.drawio.png", width: 100%),
   caption: [Gesamtarchitektur des Travel Assistant.
-            Die Abbildung zeigt den produktiven Request-Pfad über Browser, Load Balancer und Managed Instance Group, den Deployment-Pfad über GitHub Actions, Artifact Registry und GCS-Konfiguration sowie die getrennten Monitoring- und Backup-Flüsse mit Prometheus, Loki, Grafana, Alertmanager, Cloud Scheduler und Firestore-Export.],
+    Die Abbildung zeigt den produktiven Request-Pfad über Browser, Load Balancer und Managed Instance Group, den Deployment-Pfad über GitHub Actions, Artifact Registry und GCS-Konfiguration sowie die getrennten Monitoring- und Backup-Flüsse mit Prometheus, Loki, Grafana, Alertmanager, Cloud Scheduler und Firestore-Export.],
 ) <fig-architecture>
 
 == Request-Pfad und Deployment-Flüsse
@@ -280,44 +281,50 @@ Ansible bleibt auf die langlebige Monitoring-VM beschränkt.
 
 #figure(
   block(width: 100%)[#set text(size: 8.5pt)
-  #diagram(
-    node-stroke: 0.5pt,
-    node-inset: 5pt,
-    spacing: (7mm, 7mm),
-    node-corner-radius: 3pt,
+    #diagram(
+      node-stroke: 0.5pt,
+      node-inset: 5pt,
+      spacing: (7mm, 7mm),
+      node-corner-radius: 3pt,
 
-    // Request path (top row)
-    node((0, 0), [Nutzer], fill: luma(245)),
-    node((1.4, 0), [LB], shape: pill, fill: rgb("#e8f1ff")),
-    node((2.8, 0), [App-VM\ (MIG)], fill: rgb("#eafbe8")),
-    node((4.4, 0), [Firestore /\ Gemini]),
+      // Request path (top row)
+      node((0, 0), [Nutzer], fill: luma(245)),
+      node((1.4, 0), [LB], shape: pill, fill: rgb("#e8f1ff")),
+      node((2.8, 0), [App-VM\ (MIG)], fill: rgb("#eafbe8")),
+      node((4.4, 0), [Firestore /\ Gemini]),
 
-    edge((0, 0), (1.4, 0), "->", [HTTPS]),
-    edge((1.4, 0), (2.8, 0), "->", [healthy]),
-    edge((2.8, 0), (4.4, 0), "->"),
+      edge((0, 0), (1.4, 0), "->", [HTTPS]),
+      edge((1.4, 0), (2.8, 0), "->", [healthy]),
+      edge((2.8, 0), (4.4, 0), "->"),
 
-    // Deployment path (bottom row)
-    node((0, 2), [git push], fill: luma(245)),
-    node((1.4, 2), [GitHub\ Actions], fill: rgb("#fff9cc")),
-    node((2.8, 2), [Terraform\ apply], fill: rgb("#fff9cc")),
-    node((4.2, 2), [Artifact\ Registry + GCS], fill: rgb("#fff9cc")),
-    node((5.6, 2), [MIG Rolling\ Replace], fill: rgb("#eafbe8")),
+      // Deployment path (bottom row)
+      node((0, 2), [git push], fill: luma(245)),
+      node((1.4, 2), [GitHub\ Actions], fill: rgb("#fff9cc")),
+      node((2.8, 2), [Terraform\ apply], fill: rgb("#fff9cc")),
+      node((4.2, 2), [Artifact\ Registry + GCS], fill: rgb("#fff9cc")),
+      node((5.6, 2), [MIG Rolling\ Replace], fill: rgb("#eafbe8")),
 
-    edge((0, 2), (1.4, 2), "->"),
-    edge((1.4, 2), (2.8, 2), "->"),
-    edge((2.8, 2), (4.2, 2), "->", [template]),
-    edge((4.2, 2), (5.6, 2), "->"),
-    edge((5.6, 2), (2.8, 0), "->", bend: -25deg,
-         label-pos: 0.3, [pull/bootstrap]),
+      edge((0, 2), (1.4, 2), "->"),
+      edge((1.4, 2), (2.8, 2), "->"),
+      edge((2.8, 2), (4.2, 2), "->", [template]),
+      edge((4.2, 2), (5.6, 2), "->"),
+      edge(
+        (5.6, 2),
+        (2.8, 0),
+        "->",
+        bend: -25deg,
+        label-pos: 0.3,
+        [pull/bootstrap],
+      ),
 
-    // Monitoring VM via Ansible (separate lane)
-    node((1.4, 3.3), [Ansible\ (Monitoring)], fill: rgb("#ffe7cc")),
-    node((2.8, 3.3), [Monitoring-VM], fill: rgb("#fff3e6")),
-    edge((1.4, 2), (1.4, 3.3), "->"),
-    edge((1.4, 3.3), (2.8, 3.3), "->"),
-  )],
+      // Monitoring VM via Ansible (separate lane)
+      node((1.4, 3.3), [Ansible\ (Monitoring)], fill: rgb("#ffe7cc")),
+      node((2.8, 3.3), [Monitoring-VM], fill: rgb("#fff3e6")),
+      edge((1.4, 2), (1.4, 3.3), "->"),
+      edge((1.4, 3.3), (2.8, 3.3), "->"),
+    )],
   caption: [Getrennte Pfade für Laufzeit-Requests (oben) und Deployment (unten).
-            Images und App-Konfiguration werden als Artefakte bereitgestellt; Ansible wird nur für die persistente Monitoring-VM verwendet.],
+    Images und App-Konfiguration werden als Artefakte bereitgestellt; Ansible wird nur für die persistente Monitoring-VM verwendet.],
 ) <fig-flows>
 
 == Entwicklung des Deployment-Modells
@@ -389,30 +396,30 @@ Die zentrale Entscheidung: _Compute-Recovery_ und _Datenrecovery_ werden als zwe
 
 #figure(
   block(width: 100%)[#set text(size: 8.5pt)
-  #diagram(
-    node-stroke: 0.5pt,
-    node-inset: 5pt,
-    spacing: (8mm, 7mm),
-    node-corner-radius: 3pt,
+    #diagram(
+      node-stroke: 0.5pt,
+      node-inset: 5pt,
+      spacing: (8mm, 7mm),
+      node-corner-radius: 3pt,
 
-    node((0, 0), [Fehler-\ klassen], shape: hexagon, fill: rgb("#fff6d5")),
-    node((1.6, -1), [Compute-\ Ausfall], fill: rgb("#ffe2e2")),
-    node((1.6, 1), [Datenverlust\ (Firestore)], fill: rgb("#ffe2e2")),
-    edge((0, 0), (1.6, -1), "->"),
-    edge((0, 0), (1.6, 1), "->"),
+      node((0, 0), [Fehler-\ klassen], shape: hexagon, fill: rgb("#fff6d5")),
+      node((1.6, -1), [Compute-\ Ausfall], fill: rgb("#ffe2e2")),
+      node((1.6, 1), [Datenverlust\ (Firestore)], fill: rgb("#ffe2e2")),
+      edge((0, 0), (1.6, -1), "->"),
+      edge((0, 0), (1.6, 1), "->"),
 
-    node((3.4, -1), [MIG Health\ + Auto-Replace], fill: rgb("#eafbe8")),
-    node((3.4, 1), [Integrity Check\ + Backup/Restore], fill: rgb("#eafbe8")),
-    edge((1.6, -1), (3.4, -1), "->"),
-    edge((1.6, 1), (3.4, 1), "->"),
+      node((3.4, -1), [MIG Health\ + Auto-Replace], fill: rgb("#eafbe8")),
+      node((3.4, 1), [Integrity Check\ + Backup/Restore], fill: rgb("#eafbe8")),
+      edge((1.6, -1), (3.4, -1), "->"),
+      edge((1.6, 1), (3.4, 1), "->"),
 
-    node((5.2, -1), [App wieder\ erreichbar], fill: rgb("#e0f0ff")),
-    node((5.2, 1), [Daten wieder\ vollständig], fill: rgb("#e0f0ff")),
-    edge((3.4, -1), (5.2, -1), "->"),
-    edge((3.4, 1), (5.2, 1), "->"),
-  )],
+      node((5.2, -1), [App wieder\ erreichbar], fill: rgb("#e0f0ff")),
+      node((5.2, 1), [Daten wieder\ vollständig], fill: rgb("#e0f0ff")),
+      edge((3.4, -1), (5.2, -1), "->"),
+      edge((3.4, 1), (5.2, 1), "->"),
+    )],
   caption: [Zwei-Pfad-Recovery: Compute-Fehler werden durch die MIG behandelt,
-            Datenfehler durch Integritätscheck, Backup und Restore.],
+    Datenfehler durch Integritätscheck, Backup und Restore.],
 ) <fig-dr-paths>
 
 Diese Trennung ergibt sich aus einer einfachen Beobachtung: Eine MIG heilt nur _Infrastruktur_, nicht _Daten_.
@@ -478,25 +485,25 @@ Der Recovery-Ablauf eskaliert bewusst schrittweise, um die Zwei-Pfad-Logik sicht
 
 #figure(
   block(width: 100%)[#set text(size: 8pt)
-  #diagram(
-    node-stroke: 0.5pt,
-    node-inset: 5pt,
-    spacing: (4mm, 5mm),
-    node-corner-radius: 3pt,
+    #diagram(
+      node-stroke: 0.5pt,
+      node-inset: 5pt,
+      spacing: (4mm, 5mm),
+      node-corner-radius: 3pt,
 
-    node((0, 0), [1. Baseline\ grün], fill: rgb("#eafbe8")),
-    node((1, 0), [2. Daten\ löschen], fill: rgb("#ffe2e2")),
-    node((2, 0), [3. Monitoring\ rot], fill: rgb("#ffe2e2")),
-    node((3, 0), [4. VMs killen\ (optional)], fill: rgb("#ffe2e2")),
-    node((4, 0), [5. Restore +\ MIG heilt], fill: rgb("#fff9cc")),
-    node((5, 0), [6. Baseline\ wieder OK], fill: rgb("#eafbe8")),
+      node((0, 0), [1. Baseline\ grün], fill: rgb("#eafbe8")),
+      node((1, 0), [2. Daten\ löschen], fill: rgb("#ffe2e2")),
+      node((2, 0), [3. Monitoring\ rot], fill: rgb("#ffe2e2")),
+      node((3, 0), [4. VMs killen\ (optional)], fill: rgb("#ffe2e2")),
+      node((4, 0), [5. Restore +\ MIG heilt], fill: rgb("#fff9cc")),
+      node((5, 0), [6. Baseline\ wieder OK], fill: rgb("#eafbe8")),
 
-    edge((0, 0), (1, 0), "->"),
-    edge((1, 0), (2, 0), "->"),
-    edge((2, 0), (3, 0), "->"),
-    edge((3, 0), (4, 0), "->"),
-    edge((4, 0), (5, 0), "->"),
-  )],
+      edge((0, 0), (1, 0), "->"),
+      edge((1, 0), (2, 0), "->"),
+      edge((2, 0), (3, 0), "->"),
+      edge((3, 0), (4, 0), "->"),
+      edge((4, 0), (5, 0), "->"),
+    )],
   caption: [Staged Escalation des Recovery-Ablaufs: Daten werden vor Compute gekippt, damit der Unterschied zwischen App-Recovery und Daten-Recovery erkennbar wird.],
 ) <fig-dr-flow>
 
@@ -533,21 +540,28 @@ Architektonisch ließe sich PITR ohne Änderungen am App-Code nachziehen: Es mü
     align: (left, left),
     table.header([*Bereich*], [*Umsetzung*]),
     [Web-Anwendung],
-      [E-Mail/Passwort-Login mit JWT, KI-Dialog mit persistenten Konversationen und speicherbaren Reiseplänen, Rate-Limit pro Nutzer.],
+    [E-Mail/Passwort-Login mit JWT, KI-Dialog mit persistenten Konversationen und speicherbaren Reiseplänen, Rate-Limit pro Nutzer.],
+
     [Cloud-Service-Modelle],
-      [SaaS: Gemini API · PaaS: Firestore, Artifact Registry, Cloud Scheduler, Cloud Storage · IaaS: Compute Engine (MIG + Monitoring-VM), Load Balancer, Persistent Disks.],
+    [SaaS: Gemini API · PaaS: Firestore, Artifact Registry, Cloud Scheduler, Cloud Storage · IaaS: Compute Engine (MIG + Monitoring-VM), Load Balancer, Persistent Disks.],
+
     [Infrastruktur],
-      [Komplette Infrastruktur inklusive MIG, LB, Firestore, IAM, Cloud-Storage-Buckets für Terraform-State, App-Konfiguration und Firestore-Backups sowie Cloud-Scheduler-Job.],
+    [Komplette Infrastruktur inklusive MIG, LB, Firestore, IAM, Cloud-Storage-Buckets für Terraform-State, App-Konfiguration und Firestore-Backups sowie Cloud-Scheduler-Job.],
+
     [Konfiguration],
-      [Auf die persistente Monitoring-VM fokussiert; App-VMs werden über Startup-Script bereitgestellt.],
+    [Auf die persistente Monitoring-VM fokussiert; App-VMs werden über Startup-Script bereitgestellt.],
+
     [Disaster Recovery],
-      [Sichtbare Datenkorruption, MIG-Autohealing, Grafana-Alert und Restore-Script.],
+    [Sichtbare Datenkorruption, MIG-Autohealing, Grafana-Alert und Restore-Script.],
+
     [Monitoring],
-      [Prometheus (GCE-SD), Grafana, Loki, Alertmanager, Blackbox Exporter und Node Exporter auf separater VM mit persistenter Disk.],
+    [Prometheus (GCE-SD), Grafana, Loki, Alertmanager, Blackbox Exporter und Node Exporter auf separater VM mit persistenter Disk.],
+
     [Entwicklung und Betrieb],
-      [Typed FastAPI-Endpunkte, pytest-Testsuite, CI über GitHub Actions.],
+    [Typed FastAPI-Endpunkte, pytest-Testsuite, CI über GitHub Actions.],
+
     [Rollout-Modell],
-      [GitHub Actions: Build/Push → `terraform apply` → Ansible (Monitoring) → Instance-Template-Rotation; globale statische IP vor HTTP(S)-LB, $N > 1$ App-Instanzen mit Rolling-Replace.],
+    [GitHub Actions: Build/Push → `terraform apply` → Ansible (Monitoring) → Instance-Template-Rotation; globale statische IP vor HTTP(S)-LB, $N > 1$ App-Instanzen mit Rolling-Replace.],
   ),
   caption: [Zusammenfassung der umgesetzten Systembereiche.],
 ) <tab-systemumfang>
