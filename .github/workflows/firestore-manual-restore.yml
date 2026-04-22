@@ -1,0 +1,106 @@
+name: Manual Firestore Restore
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_uri:
+        description: "Optional gs:// backup URI. If empty, the latest manual backup is used."
+        required: false
+        type: string
+      confirm_restore:
+        description: "Type RESTORE to confirm the Firestore import."
+        required: true
+        type: string
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+
+jobs:
+  firestore_restore:
+    name: Trigger Firestore Import
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Trigger Firestore restore
+        id: restore
+        env:
+          BACKUP_URI_INPUT: ${{ inputs.backup_uri }}
+          CONFIRM_RESTORE: ${{ inputs.confirm_restore }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${PROJECT_ID}" ]; then
+            echo "GCP_PROJECT_ID repository variable is not set."
+            exit 1
+          fi
+
+          if [ "${CONFIRM_RESTORE}" != "RESTORE" ]; then
+            echo "Restore confirmation failed. Type RESTORE in confirm_restore."
+            exit 1
+          fi
+
+          BUCKET="${PROJECT_ID}-firestore-backups"
+          BACKUP_URI="${BACKUP_URI_INPUT}"
+
+          if [ -z "${BACKUP_URI}" ]; then
+            echo "Finding latest manual backup in gs://${BUCKET}/manual/..."
+            BACKUP_URI="$(gsutil ls "gs://${BUCKET}/manual/" | sort | tail -1)"
+          fi
+
+          if [ -z "${BACKUP_URI}" ]; then
+            echo "No backup URI found."
+            exit 1
+          fi
+
+          echo "Restoring Firestore from ${BACKUP_URI}..."
+
+          gcloud logging write travel-assistant-demo \
+            "{\"event\":\"db_restore_started\",\"message\":\"Firestore restore workflow started\",\"project_id\":\"${PROJECT_ID}\",\"backup_uri\":\"${BACKUP_URI}\",\"time\":\"$(date -u +%FT%TZ)\"}" \
+            --project="${PROJECT_ID}" \
+            --payload-type=json \
+            >/dev/null 2>&1 || true
+
+          OPERATION="$(gcloud firestore import "${BACKUP_URI}" \
+            --project="${PROJECT_ID}" \
+            --async \
+            --format="value(name)")"
+
+          gcloud logging write travel-assistant-demo \
+            "{\"event\":\"db_restore_triggered\",\"message\":\"Firestore import operation submitted\",\"project_id\":\"${PROJECT_ID}\",\"backup_uri\":\"${BACKUP_URI}\",\"operation\":\"${OPERATION}\",\"time\":\"$(date -u +%FT%TZ)\"}" \
+            --project="${PROJECT_ID}" \
+            --payload-type=json \
+            >/dev/null 2>&1 || true
+
+          echo "backup_uri=${BACKUP_URI}" >> "${GITHUB_OUTPUT}"
+          echo "operation=${OPERATION}" >> "${GITHUB_OUTPUT}"
+
+      - name: Write summary
+        run: |
+          cat >> "${GITHUB_STEP_SUMMARY}" << SUMMARY
+          ## Manual Firestore restore started
+
+          Backup path:
+
+          \`${{ steps.restore.outputs.backup_uri }}\`
+
+          Operation:
+
+          \`${{ steps.restore.outputs.operation }}\`
+
+          Check import progress with:
+
+          \`\`\`bash
+          gcloud firestore operations list --project=${PROJECT_ID}
+          \`\`\`
+          SUMMARY

@@ -1,14 +1,10 @@
 # AI Travel Assistant
 
-A full-stack AI travel assistant powered by Google Gemini Flash, running on GCP.
-Infrastructure is provisioned with Terraform, monitoring is provisioned with Ansible,
-and a GCP Managed Instance Group keeps the app self-healing behind a global HTTP
-load balancer.
+A full-stack AI travel assistant powered by Google Gemini Flash, running on GCP. Focus is not on the app itself, but on the infrastructure.
+Infrastructure is provisioned with Terraform, monitoring is provisioned with Ansible, and a GCP Managed Instance Group keeps the app self-healing behind a global HTTP load balancer.
 
-Written for the Cloud Computing course — see [`ausarbeitung/`](ausarbeitung/) for the
-report (Typst + PDF) and [`presentation/`](presentation/) for the slides.
-The chosen focus feature is **disaster recovery**: daily Firestore backups, MIG
-auto-healing, and scripted restore — see [Disaster Recovery](#disaster-recovery) below.
+Written for the Cloud Computing course — see [`ausarbeitung/`](ausarbeitung/) for the report (Typst + PDF) and [`presentation/`](presentation/) for the slides.
+The chosen focus feature is **disaster recovery**: daily Firestore backups, MIG auto-healing, and workflow-supported restore — see [Disaster Recovery](#disaster-recovery) below.
 
 ## Architecture
 
@@ -106,7 +102,7 @@ flowchart TD
 | [`monitoring/`](monitoring/) | Monitoring stack configs (dashboards, alert rules, promtail, blackbox) |
 | [`scripts/`](scripts/) | Infrastructure helper scripts, including VM startup/bootstrap |
 | [`presentation/`](presentation/) | Reveal.js deck and local demo scripts for backup/restore/corruption scenarios |
-| [`.github/workflows/`](.github/workflows/) | `deploy.yml` (main pipeline) and `terraform-destroy.yml` (teardown) |
+| [`.github/workflows/`](.github/workflows/) | `deploy.yml` (main pipeline), `firestore-manual-backup.yml` / `firestore-manual-restore.yml` (manual Firestore export/import), and `terraform-destroy.yml` (teardown) |
 
 ## Deployment pipeline
 
@@ -290,7 +286,9 @@ The focus feature. Three layers:
 2. **Daily Firestore export** — Cloud Scheduler triggers `projects/.../databases/(default):exportDocuments`
    at 03:00 Europe/Berlin, writing to the `…-firestore-backups` GCS bucket. Exports
    older than 30 days are auto-deleted by a lifecycle rule.
-3. **Scripted restore** — presentation demo scripts in [`presentation/demo-scripts/`](presentation/demo-scripts/):
+3. **Manual backup** — the `Manual Firestore Backup` GitHub Action can be started with `workflow_dispatch` and writes exports to `gs://<project-id>-firestore-backups/manual/...`.
+4. **Manual restore** — the `Manual Firestore Restore` GitHub Action can be started with `workflow_dispatch`; it restores either a provided `gs://` backup URI or the latest manual backup after an explicit `RESTORE` confirmation.
+5. **Demo scripts** — presentation demo scripts in [`presentation/demo-scripts/`](presentation/demo-scripts/):
    - [`firestore-backup.sh`](presentation/demo-scripts/firestore-backup.sh) — ad-hoc export
    - [`firestore-restore.sh`](presentation/demo-scripts/firestore-restore.sh) — restore from a prior export
    - [`firestore-seed-demo-data.sh`](presentation/demo-scripts/firestore-seed-demo-data.sh) — re-seed demo users/trips
@@ -298,6 +296,4 @@ The focus feature. Three layers:
 
 ## Monitoring data persistence
 
-Prometheus, Loki, and Grafana data lives on a dedicated GCP persistent disk
-(`travel-assistant-monitoring`) mounted at `/mnt/monitoring-data`. The disk has
-`prevent_destroy = true`, so it survives VM restarts, VM recreation, and redeploys.
+Prometheus, Loki, and Grafana data lives on a dedicated GCP persistent disk (`travel-assistant-monitoring`) mounted at `/mnt/monitoring-data`. In production, Terraform `prevent_destroy` would be useful to protect this disk from accidental deletion. In this project it is not permanently enabled, so the disk can be removed after the course project without an extra Terraform state intervention.

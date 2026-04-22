@@ -270,8 +270,7 @@ Gerade diese Trennung ist wichtig, weil ein Fehler im App-Pfad nicht gleichzeiti
 
 == Request-Pfad und Deployment-Flüsse
 
-Die Architektur trennt bewusst den _Request-Pfad_ vom _Deployment-Pfad_.
-@fig-flows macht diese Trennung zusätzlich abstrahiert.
+@fig-flows reduziert die Architektur auf drei operative Flüsse: Nutzertraffic, Rollout-Artefakte und Monitoring-Konfiguration.
 Produktions-Traffic wird ausschließlich über den Load Balancer in die MIG geleitet; App-VMs werden daher nicht direkt als öffentliche Einstiegspunkte betrachtet.
 Das CI/CD-System baut dagegen Container-Images, legt sie in der Artifact Registry ab, aktualisiert die GCP-Infrastruktur über Terraform und lädt die zur Laufzeit benötigten Konfigurationsdateien in einen GCS-App-Config-Bucket.
 
@@ -281,69 +280,87 @@ Ansible bleibt auf die langlebige Monitoring-VM beschränkt.
 
 #figure(
   block(width: 100%)[#set text(size: 8.5pt)
+    #let ink = rgb("#5f7286")
+    #let muted = rgb("#6d7f92")
+    #let fill-default = rgb("#f8fbff")
+    #let fill-soft = rgb("#eef6ff")
+    #let fill-emphasis = rgb("#dcecff")
+    #let fill-service = rgb("#f2f7fc")
+
     #diagram(
-      node-stroke: 0.5pt,
-      node-inset: 5pt,
-      spacing: (7mm, 7mm),
-      node-corner-radius: 3pt,
+      node-stroke: 0.55pt + ink,
+      edge-stroke: 0.55pt + ink,
+      node-inset: 6pt,
+      spacing: (8mm, 8mm),
+      node-corner-radius: 4pt,
 
-      // Request path (top row)
-      node((0, 0), [Nutzer], fill: luma(245)),
-      node((1.4, 0), [LB], shape: pill, fill: rgb("#e8f1ff")),
-      node((2.8, 0), [App-VM\ (MIG)], fill: rgb("#eafbe8")),
-      node((4.4, 0), [Firestore /\ Gemini]),
-
-      edge((0, 0), (1.4, 0), "->", [HTTPS]),
-      edge((1.4, 0), (2.8, 0), "->", [healthy]),
-      edge((2.8, 0), (4.4, 0), "->"),
-
-      // Deployment path (bottom row)
-      node((0, 2), [git push], fill: luma(245)),
-      node((1.4, 2), [GitHub\ Actions], fill: rgb("#fff9cc")),
-      node((2.8, 2), [Terraform\ apply], fill: rgb("#fff9cc")),
-      node((4.2, 2), [Artifact\ Registry + GCS], fill: rgb("#fff9cc")),
-      node((5.6, 2), [MIG Rolling\ Replace], fill: rgb("#eafbe8")),
-
-      edge((0, 2), (1.4, 2), "->"),
-      edge((1.4, 2), (2.8, 2), "->"),
-      edge((2.8, 2), (4.2, 2), "->", [template]),
-      edge((4.2, 2), (5.6, 2), "->"),
-      edge(
-        (5.6, 2),
-        (2.8, 0),
-        "->",
-        bend: -25deg,
-        label-pos: 0.3,
-        [pull/bootstrap],
+      // Lane labels
+      node(
+        (0, 0),
+        text(size: 7.5pt, weight: "bold", fill: muted)[Request],
+        stroke: none,
+      ),
+      node(
+        (0, 2.25),
+        text(size: 7.5pt, weight: "bold", fill: muted)[Deployment],
+        stroke: none,
+      ),
+      node(
+        (0, 3.55),
+        text(size: 7.5pt, weight: "bold", fill: muted)[Monitoring],
+        stroke: none,
       ),
 
+      // Request path (top row)
+      node((1.0, 0), [Nutzer], fill: fill-default),
+      node((2.25, 0), [Load\ Balancer], shape: pill, fill: fill-soft),
+      node((3.65, 0), [App-VM\ (MIG)], fill: fill-emphasis),
+      node((5.25, 0), [Firestore\ + Gemini], fill: fill-service),
+
+      edge((1.0, 0), (2.25, 0), "->", [HTTPS]),
+      edge((2.25, 0), (3.65, 0), "->", [healthy]),
+      edge((3.65, 0), (5.25, 0), "->", [API]),
+
+      // MIG rollout bridge
+      node((3.65, 1.18), [MIG Rolling\ Replace], fill: fill-emphasis),
+      edge((3.65, 1.18), (3.65, 0), "->", [bootstrap]),
+
+      // Deployment path (bottom row)
+      node((1.0, 2.25), [git push], fill: fill-default),
+      node((2.25, 2.25), [GitHub\ Actions], fill: fill-soft),
+      node((3.65, 2.25), [Terraform\ apply], fill: fill-soft),
+      node((5.25, 2.25), [Artifact Registry\ + GCS], fill: fill-soft),
+
+      edge((1.0, 2.25), (2.25, 2.25), "->"),
+      edge((2.25, 2.25), (3.65, 2.25), "->"),
+      edge((3.65, 2.25), (5.25, 2.25), "->", [publish]),
+      edge((3.65, 2.25), (3.65, 1.18), "->", [template]),
+
       // Monitoring VM via Ansible (separate lane)
-      node((1.4, 3.3), [Ansible\ (Monitoring)], fill: rgb("#ffe7cc")),
-      node((2.8, 3.3), [Monitoring-VM], fill: rgb("#fff3e6")),
-      edge((1.4, 2), (1.4, 3.3), "->"),
-      edge((1.4, 3.3), (2.8, 3.3), "->"),
+      node((2.25, 3.55), [Ansible\ role], fill: fill-soft),
+      node((3.65, 3.55), [Monitoring-VM], fill: fill-emphasis),
+      node((5.25, 3.55), [Prometheus\ Grafana\ Loki], fill: fill-service),
+
+      edge((2.25, 2.25), (2.25, 3.55), "->"),
+      edge((2.25, 3.55), (3.65, 3.55), "->"),
+      edge((3.65, 3.55), (5.25, 3.55), "->"),
     )],
   caption: [Getrennte Pfade für Laufzeit-Requests (oben) und Deployment (unten).
     Images und App-Konfiguration werden als Artefakte bereitgestellt; Ansible wird nur für die persistente Monitoring-VM verwendet.],
 ) <fig-flows>
 
-== Entwicklung des Deployment-Modells
+== Deployment-Modell
 
-Die heutige Trennung _Terraform + Startup-Script für App, Ansible für Monitoring_ ist das Ergebnis einer iterativen Designentwicklung.
-Zunächst war sowohl App- als auch Monitoring-Deployment über Ansible organisiert.
-Dieses Modell wurde aus drei Gründen abgelöst:
+Das finale Deployment-Modell trennt App-Rollout und Monitoring-Konfiguration nach Verantwortlichkeit.
+Terraform beschreibt die GCP-Infrastruktur einschließlich Load Balancer, Managed Instance Group, Instance Template, Firestore, IAM, Buckets und Cloud Scheduler.
+Die App-VMs werden nicht nachträglich per SSH konfiguriert, sondern starten über das Instance Template und ein Startup-Script selbstständig.
 
-+ Mit $N > 1$ App-Instanzen würde ein SSH-basiertes Deployment in eine konkrete VM zwangsläufig Konfigurationsdrift erzeugen.
-+ Eine im MIG neu gestartete Ersatz-VM muss ohne externes Eingreifen einsatzbereit werden; eine Nachprovisionierung über Ansible wäre ein Single Point of Operator Intervention.
-+ Das Image-Tagging auf `latest` triggerte kein zuverlässiges Instance-Template-Update.
-  Durch die Umstellung auf den Git-SHA als Image-Tag entsteht pro Commit eine eindeutige Template-Version, die den MIG-Rollout sicher auslöst.
+Das Startup-Script holt Docker-Compose, `.env` und Promtail-Konfiguration aus einem GCS-Bucket, authentifiziert Docker gegenüber Artifact Registry und startet den Compose-Stack mit Nginx, FastAPI, Promtail und Node Exporter.
+Dadurch kann jede neu erzeugte MIG-Instanz ohne manuellen Eingriff denselben Anwendungszustand herstellen.
+Container-Images werden mit dem Git-SHA getaggt; pro Commit entsteht damit eine eindeutige Template-Version, die den MIG-Rollout nachvollziehbar auslöst.
 
-Konkret wurden folgende Änderungen umgesetzt:
-
-- Öffentlicher Einstieg auf reservierte globale Load-Balancer-IP umgestellt.
-- App-MIG auf zwei Instanzen mit proaktivem Rolling-Replace erweitert.
-- Startup-Script als autoritativer App-Bootstrap: holt Docker-Compose, `.env` und Promtail-Konfiguration aus einem GCS-Bucket, authentifiziert sich gegen Artifact Registry und startet den Compose-Stack mit Nginx, FastAPI, Promtail und Node Exporter.
-- Legacy-Ansible-Rollen für die App entfernt, um nur noch _eine_ Deployment-Geschichte im Repository zu halten.
+Ansible bleibt auf die langlebige Monitoring-VM beschränkt.
+Dort verwaltet es die Konfiguration von Prometheus, Grafana, Loki, Alertmanager und Nginx, also Komponenten, die nicht mit jedem App-Rollout neu erzeugt werden.
 
 == Monitoring-Stack
 
@@ -359,7 +376,9 @@ Das ist bewusst gewählt, damit die Observability nicht mit der überwachten Inf
   Ein initialer Fehler bei der Volume-Mount-Konfiguration (siehe Kapitel @sec-lessons) wurde behoben, indem das Dashboard-Verzeichnis explizit in den Container gemountet wurde.
 - *Alertmanager* verarbeitet Prometheus-Alerts und kann bei gesetzten SMTP-Variablen E-Mail-Benachrichtigungen versenden.
 - *Loki* nimmt Logs von Promtail entgegen, welches auf jeder App-VM Container- und System-Logs einsammelt.
-- *Persistente Metriken und Logs* liegen auf einer separaten Persistent Disk mit `prevent_destroy = true`, damit sie VM-Neustarts und Redeploys überleben.
+- *Persistente Metriken und Logs* liegen auf einer separaten Persistent Disk, damit sie VM-Neustarts und Redeploys überleben.
+  Für einen dauerhaften Betrieb wäre ein Terraform-`prevent_destroy` auf dieser Disk sinnvoll, weil es versehentliche Löschung von Monitoring-Historie bei `terraform destroy` verhindert.
+  Im Projekt wurde dieser Schutz aus Ersparnisgründen nicht dauerhaft aktiviert, damit die Disk nach Projektende ohne zusätzlichen Terraform-Eingriff gelöscht werden kann.
 
 Auf den App-VMs laufen damit neben den fachlichen Containern auch unterstützende Betriebskomponenten.
 Promtail folgt dem Sidecar-Prinzip: Der Container läuft auf jeder App-VM neben Nginx und FastAPI, nimmt selbst keinen Nutzertraffic entgegen und leitet Container- sowie Systemlogs an Loki weiter.
@@ -395,31 +414,72 @@ Das gewählte Fokus-Feature ist ein klar strukturiertes Disaster-Recovery-Konzep
 Die zentrale Entscheidung: _Compute-Recovery_ und _Datenrecovery_ werden als zwei getrennte Recovery-Pfade behandelt, weil sie unterschiedliche Fehlerklassen adressieren (@fig-dr-paths).
 
 #figure(
-  block(width: 100%)[#set text(size: 8.5pt)
+  block(width: 100%)[#set text(size: 7.8pt)
+    #let ink = rgb("#5f7286")
+    #let muted = rgb("#6d7f92")
+    #let fill-header = rgb("#f5f8fb")
+    #let fill-problem = rgb("#fff4f2")
+    #let fill-detect = rgb("#f8fbff")
+    #let fill-action = rgb("#eef6ff")
+    #let fill-result = rgb("#e4f3ff")
+
     #diagram(
-      node-stroke: 0.5pt,
+      node-stroke: 0.55pt + ink,
+      edge-stroke: 0.55pt + ink,
       node-inset: 5pt,
-      spacing: (8mm, 7mm),
-      node-corner-radius: 3pt,
+      spacing: (6mm, 6mm),
+      node-corner-radius: 4pt,
 
-      node((0, 0), [Fehler-\ klassen], shape: hexagon, fill: rgb("#fff6d5")),
-      node((1.6, -1), [Compute-\ Ausfall], fill: rgb("#ffe2e2")),
-      node((1.6, 1), [Datenverlust\ (Firestore)], fill: rgb("#ffe2e2")),
-      edge((0, 0), (1.6, -1), "->"),
-      edge((0, 0), (1.6, 1), "->"),
+      node(
+        (0.75, -1.1),
+        text(weight: "bold", fill: muted)[Fehlerbild],
+        fill: fill-header,
+      ),
+      node(
+        (2.25, -1.1),
+        text(weight: "bold", fill: muted)[Erkennung],
+        fill: fill-header,
+      ),
+      node(
+        (3.75, -1.1),
+        text(weight: "bold", fill: muted)[Recovery],
+        fill: fill-header,
+      ),
+      node(
+        (5.25, -1.1),
+        text(weight: "bold", fill: muted)[Nachweis],
+        fill: fill-header,
+      ),
 
-      node((3.4, -1), [MIG Health\ + Auto-Replace], fill: rgb("#eafbe8")),
-      node((3.4, 1), [Integrity Check\ + Backup/Restore], fill: rgb("#eafbe8")),
-      edge((1.6, -1), (3.4, -1), "->"),
-      edge((1.6, 1), (3.4, 1), "->"),
+      node(
+        (-0.55, -0.25),
+        text(weight: "bold", fill: muted)[Compute],
+        stroke: none,
+      ),
+      node((0.75, -0.25), [VM/App\ fällt aus], fill: fill-problem),
+      node((2.25, -0.25), [`/api/health`\ + Alert], fill: fill-detect),
+      node((3.75, -0.25), [MIG ersetzt\ Instanz], fill: fill-action),
+      node((5.25, -0.25), [App über LB\ erreichbar], fill: fill-result),
 
-      node((5.2, -1), [App wieder\ erreichbar], fill: rgb("#e0f0ff")),
-      node((5.2, 1), [Daten wieder\ vollständig], fill: rgb("#e0f0ff")),
-      edge((3.4, -1), (5.2, -1), "->"),
-      edge((3.4, 1), (5.2, 1), "->"),
+      edge((0.75, -0.25), (2.25, -0.25), "->"),
+      edge((2.25, -0.25), (3.75, -0.25), "->"),
+      edge((3.75, -0.25), (5.25, -0.25), "->"),
+
+      node(
+        (-0.55, 0.85),
+        text(weight: "bold", fill: muted)[Daten],
+        stroke: none,
+      ),
+      node((0.75, 0.85), [Firestore-\ Daten fehlen], fill: fill-problem),
+      node((2.25, 0.85), [`/api/health/db`\ + Alert], fill: fill-detect),
+      node((3.75, 0.85), [Firestore\ Import], fill: fill-action),
+      node((5.25, 0.85), [DB-Check\ grün], fill: fill-result),
+
+      edge((0.75, 0.85), (2.25, 0.85), "->"),
+      edge((2.25, 0.85), (3.75, 0.85), "->"),
+      edge((3.75, 0.85), (5.25, 0.85), "->"),
     )],
-  caption: [Zwei-Pfad-Recovery: Compute-Fehler werden durch die MIG behandelt,
-    Datenfehler durch Integritätscheck, Backup und Restore.],
+  caption: [Zwei getrennte Recovery-Pfade mit jeweils eigener Erkennung, Wiederherstellung und Erfolgskontrolle.],
 ) <fig-dr-paths>
 
 Diese Trennung ergibt sich aus einer einfachen Beobachtung: Eine MIG heilt nur _Infrastruktur_, nicht _Daten_.
@@ -452,7 +512,7 @@ Im Fehlerfall enthält die Antwort `status: "unhealthy"`, einen maschinenlesbare
 Dadurch kann der Recovery-Test nicht nur einen roten Zustand anzeigen, sondern auch begründen, welche Referenzdaten wiederhergestellt werden müssen.
 
 Ein Blackbox Exporter fragt den Endpoint regelmäßig über den Prometheus-Job `db-health` ab und exportiert `probe_success` als Prometheus-Metrik.
-Der Alert `FirestoreIntegrityCheckFailed` wird nur ausgelöst, wenn `probe_success` fehlschlägt und die betroffene App-Instanz gleichzeitig über den normalen API-Scrape erreichbar ist.
+Der Alert `FirestoreIntegrityCheckFailed` wird ausgelöst, wenn `probe_success` fehlschlägt und die betroffene App-Instanz gleichzeitig über den normalen API-Scrape erreichbar ist.
 Dadurch wird ein echter Datenintegritätsfehler von einem allgemeinen App- oder VM-Ausfall getrennt.
 Ein Grafana-Stat-Panel _Database Integrity_ zeigt den Zustand kontinuierlich, unabhängig von App-Traffic.
 
@@ -464,7 +524,7 @@ Damit entsteht eine geschlossene Kette aus _Erkennen_ (`/api/health/db`), _Messe
 
 Die aktuelle Backup-Strecke ist bewusst als täglicher Export umgesetzt: Der automatisierte Schutzpunkt entsteht einmal pro Tag, ergänzt durch manuelle Vorab-Backups für geplante Recovery-Tests.
 Diese Lösung ist einfach, prüfbar und passt zum Projektumfang, hat aber einen groben RPO: Änderungen zwischen zwei Scheduler-Läufen sind nicht durch den letzten geplanten Export abgedeckt.
-Firestore-Exporte eignen sich laut Google für das Wiederherstellen nach versehentlicher Löschung und werden über Cloud Storage abgelegt; ein Export ist jedoch kein exakt zum Startzeitpunkt eingefrorener Snapshot @gcp-firestore-export.
+Firestore-Exporte eignen sich laut Google für das Wiederherstellen nach versehentlicher Löschung und werden über Cloud Storage abgelegt. Ein Export ist jedoch kein exakt zum Startzeitpunkt eingefrorener Snapshot @gcp-firestore-export.
 
 Die Terraform-Konfiguration legt drei zusammenhängende Ressourcen an:
 
@@ -476,49 +536,12 @@ Zusätzlich existiert ein manuelles Backup-Script `presentation/demo-scripts/fir
 Für den regulären manuellen Betrieb wurde derselbe Vorgang zusätzlich als GitHub-Actions-Workflow `Manual Firestore Backup` umgesetzt.
 Er ist über `workflow_dispatch` startbar, authentifiziert sich mit demselben GCP-Service-Account wie die Deployment-Pipeline und exportiert Firestore nach `gs://${project-id}-firestore-backups/manual/<timestamp>-run-<nr>-<label>`.
 Der erzeugte Backup-Pfad wird in der Job Summary ausgegeben, sodass der spätere Restore eindeutig auf einen konkreten Export zeigen kann.
-Der Restore erfolgt über `presentation/demo-scripts/firestore-restore.sh`, das entweder das jüngste manuelle Backup oder einen explizit angegebenen Backup-Pfad importiert.
-Der Import ist asynchron und kann mehrere Minuten dauern.
+Für den Restore existiert analog der Workflow `Manual Firestore Restore`, der nach manueller Bestätigung entweder das jüngste manuelle Backup oder einen explizit angegebenen `gs://`-Backup-Pfad importiert.
+Das lokale Script `presentation/demo-scripts/firestore-restore.sh` bleibt als Demo- und Fallback-Werkzeug erhalten.
 
-=== Recovery-Ablauf
+== Ausblick und Handlungsempfehlungen
 
-Der Recovery-Ablauf eskaliert bewusst schrittweise, um die Zwei-Pfad-Logik sichtbar zu machen:
-
-#figure(
-  block(width: 100%)[#set text(size: 8pt)
-    #diagram(
-      node-stroke: 0.5pt,
-      node-inset: 5pt,
-      spacing: (4mm, 5mm),
-      node-corner-radius: 3pt,
-
-      node((0, 0), [1. Baseline\ grün], fill: rgb("#eafbe8")),
-      node((1, 0), [2. Daten\ löschen], fill: rgb("#ffe2e2")),
-      node((2, 0), [3. Monitoring\ rot], fill: rgb("#ffe2e2")),
-      node((3, 0), [4. VMs killen\ (optional)], fill: rgb("#ffe2e2")),
-      node((4, 0), [5. Restore +\ MIG heilt], fill: rgb("#fff9cc")),
-      node((5, 0), [6. Baseline\ wieder OK], fill: rgb("#eafbe8")),
-
-      edge((0, 0), (1, 0), "->"),
-      edge((1, 0), (2, 0), "->"),
-      edge((2, 0), (3, 0), "->"),
-      edge((3, 0), (4, 0), "->"),
-      edge((4, 0), (5, 0), "->"),
-    )],
-  caption: [Staged Escalation des Recovery-Ablaufs: Daten werden vor Compute gekippt, damit der Unterschied zwischen App-Recovery und Daten-Recovery erkennbar wird.],
-) <fig-dr-flow>
-
-== Begründung einzelner Designentscheidungen
-
-- *Warum sichtbare Datenlöschung statt eines versteckten Sentinel-Fehlers?*
-  Eine Korruption, die nur im Backend sichtbar ist, ist schwer nachzuvollziehen.
-  Durch gezieltes Löschen von Referenzdaten entsteht ein unmittelbarer UI-Effekt, der die Alarmierung nachvollziehbar macht.
-- *Warum Cloud Scheduler statt VM-Cronjob?*
-  Ein VM-lokaler Cronjob hätte dasselbe Ergebnis, ist aber architektonisch weniger passend: Cloud Scheduler + Managed-Export-API zeigt einen echten PaaS-Backup-Pfad, der VMs überlebt.
-- *Warum ein eigener `demo-user`?*
-  Der Integrity-Check darf sich nicht auf „irgendeinen Nutzer" verlassen.
-  Mit einem festen Referenzdatensatz wird der Recovery-Test reproduzierbar und die Alarmierung deterministisch.
-
-== Point-in-Time Recovery (Ausblick)
+=== Point-in-Time Recovery und robusterer Integritätscheck
 
 Eine vollständig zeitgenaue Wiederherstellung (Point-in-Time Recovery, PITR) wird von Firestore nativ unterstützt.
 Im Unterschied zum täglichen Export hält PITR ältere Dokumentversionen in einem Recovery-Fenster vor: ohne PITR ist nur ungefähr die letzte Stunde verfügbar, mit aktiviertem PITR bis zu sieben Tage; Lesezugriffe sind innerhalb der letzten Stunde auf beliebige unterstützte Zeitpunkte und darüber hinaus innerhalb des PITR-Fensters minutengenau möglich @gcp-firestore-pitr.
@@ -527,6 +550,11 @@ Damit ist PITR deutlich granularer als der hier umgesetzte tägliche Export.
 Im Rahmen dieses Projekts wurde PITR nicht aktiviert, weil es zusätzliche Kosten verursacht und für die nachweisbare Backup-/Restore-Strecke nicht notwendig war.
 Für einen produktionsnäheren Betrieb wäre ein hybrider Ansatz sinnvoll: Daily Exports bleiben als langlebige, bucketbasierte Sicherung und als Grundlage für projektübergreifende Restores erhalten, während PITR die Lücke zwischen zwei geplanten Exporten schließt und versehentliche Schreib- oder Löschfehler feingranularer rückgängig machen kann.
 Architektonisch ließe sich PITR ohne Änderungen am App-Code nachziehen: Es müsste in der Firestore-Konfiguration aktiviert werden, anschließend könnten zeitpunktbezogene Reads, Exporte oder Datenbank-Klone für feinere Recovery-Szenarien genutzt werden.
+
+Zusätzlich sollte der Integritätscheck produktionsnäher gestaltet werden.
+Der aktuelle Check ist für die Demo bewusst deterministisch, aber auch fehleranfällig: Er hängt an festen Referenzdokumenten wie `users/demo-user` und kann rot werden, wenn diese Demo-Daten aus anderen Gründen verändert werden.
+Robuster wäre ein mehrstufiger Check, der zunächst Firestore-Konnektivität und Berechtigungen prüft, anschließend eine kleine, dedizierte Sentinel-Collection mit versionierten Prüfdokumenten validiert und fachliche Daten nur aggregiert oder stichprobenartig kontrolliert.
+Damit bliebe der Check aussagekräftig für echte Datenverluste, wäre aber weniger abhängig von einzelnen Demo-Objekten.
 
 // ========= 5. Ergebnisse und Diskussion =========
 = Ergebnisse und Diskussion
@@ -566,17 +594,19 @@ Architektonisch ließe sich PITR ohne Änderungen am App-Code nachziehen: Es mü
   caption: [Zusammenfassung der umgesetzten Systembereiche.],
 ) <tab-systemumfang>
 
-== Architektonische Iterationen
+== Testumfang und Methodik
 
-Die Commit-Historie des Repositories dokumentiert eine gradlinige Architekturentwicklung:
+Die automatisierte Testsuite konzentriert sich auf die FastAPI-Anwendung und wird in GitHub Actions vor Build und Deployment ausgeführt.
+Die Tests nutzen `pytest` und den FastAPI-`TestClient`; externe Abhängigkeiten wie Firestore und Gemini werden über Mocks ersetzt, damit die Suite ohne echte Cloud-Zugriffe deterministisch und schnell läuft.
+Damit prüft die CI vor allem fachliche API-Verträge, Fehlerbehandlung und die für das Disaster-Recovery-Feature relevanten Health-Endpunkte.
 
-+ _Single-VM + lokales Monitoring._
-+ _Monitoring auf eigene VM ausgelagert._ Begründung: bessere Fehlertoleranz, klarere Verantwortlichkeiten.
-+ _Self-healing MIG mit statischer VM-IP._ Begründung: Resilienz ohne zusätzliche Load-Balancer-Komplexität.
-+ _Statische IP an Load Balancer verschoben, MIG auf $N = 2$._ Begründung: konsistentes $N > 1$-Modell und stabile öffentliche Adresse.
-+ _App-Deployment aus Ansible gelöst, in Instance-Template + Startup-Script überführt._ Begründung: reproduzierbares, drift-freies Multi-Instance-Rollout.
+Abgedeckt sind Authentifizierung (Registrierung, Login, aktueller Nutzer), Chat- und Konversationsendpunkte, CRUD-Operationen für Reisepläne sowie `/api/health` und `/api/health/db`.
+Für den DB-Integritätscheck existieren explizite Tests für den grünen Zustand, fehlende Referenzdaten und technische Firestore-Konnektivitätsfehler.
+Gerade diese Negativtests sind wichtig, weil der Endpoint nicht nur Erreichbarkeit, sondern auch Datenintegrität signalisieren soll.
 
-Der Wechsel von einer direkt an die VM gebundenen statischen IP auf eine Load-Balancer-IP ist dabei bewusst als _Supersede_-Entscheidung markiert: das ältere Design war für einen einzelnen VM-Autoheal-Zyklus tragfähig, wurde aber mit dem Übergang zu $N > 1$ architektonisch zur falschen Abstraktion.
+Nicht Teil der automatisierten Tests sind vollständige End-to-End-Tests gegen eine echte GCP-Umgebung, echte Gemini-Antworten, Load-Balancer-Verhalten, MIG-Autohealing oder ein realer Firestore-Import.
+Diese Aspekte wurden im Projekt über die Demo-Skripte, die GitHub-Workflows für Backup/Restore und die Beobachtung in Grafana/Alertmanager validiert.
+Der Testansatz ist damit bewusst risikobasiert: Wiederholbare Backend-Logik wird automatisiert geprüft, während kosten- und zeitintensive Cloud-Abläufe als manuelle Integrations- und Recovery-Tests nachgewiesen werden.
 
 == Beobachtete Probleme und Lessons Learned <sec-lessons>
 
@@ -598,8 +628,6 @@ Der Wechsel von einer direkt an die VM gebundenen statischen IP auf eine Load-Ba
   Dadurch bleibt der Recovery-Punkt zwischen zwei täglichen Exporten gröber als in einem hybriden Export-plus-PITR-Setup.
 - Das Logging ist aktuell klassisch über Promtail nach Loki umgesetzt, nicht über OpenTelemetry.
   Ein OTel-Collector mit OTLP-Empfang wäre eine sinnvolle Erweiterung, um Logs, Metriken und Traces stärker zu standardisieren und vendor-neutral weiterzugeben.
-- Die MIG betreibt zwei Instanzen in _einer_ Region.
-  Ein echtes Multi-Region-Setup würde einen deutlich größeren Aufwand bedeuten, wurde im Projektumfang aber nicht umgesetzt.
 
 // ========= 6. Fazit =========
 = Fazit

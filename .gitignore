@@ -25,4 +25,4 @@ __pycache__/
 
 # OS
 .DS_Store
-.claude/CLAUDE.md
+.agents
