@@ -176,15 +176,13 @@ done
 
 gcloud iam service-accounts keys create sa-key.json \
   --iam-account=github-actions@YOUR_PROJECT_ID.iam.gserviceaccount.com
-
-# Firestore (Native mode)
-gcloud firestore databases create --location=europe-west3
 ```
 
 Notes:
 - The GitHub Actions deploy identity is the service account whose JSON key lives in `GCP_SA_KEY`.
 - `roles/serviceusage.serviceUsageAdmin` lets Terraform enable APIs such as Cloud Scheduler on the fly.
 - `roles/cloudscheduler.admin` is needed so Terraform can create the daily Firestore export job.
+- Firestore `(default)` is managed by Terraform in this project; no separate manual `gcloud firestore databases create` step is required for fresh projects.
 
 ### 2. SSH key pair (for Ansible → monitoring VM)
 

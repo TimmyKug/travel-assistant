@@ -223,10 +223,20 @@ jobs:
             fi
           fi
 
-          # Robust import attempt: if Firestore exists, import succeeds; if not, continue.
+          # If Firestore default DB exists in GCP but is not in Terraform state, import it.
           if ! terraform state list google_firestore_database.travel_db 2>/dev/null | grep -q "google_firestore_database.travel_db"; then
-            echo "Attempting Firestore import (safe no-op if DB does not exist yet)..."
-            terraform import google_firestore_database.travel_db "projects/${PROJECT_ID}/databases/(default)" || true
+            if gcloud firestore databases list --project="${PROJECT_ID}" --format='value(name)' | grep -q "(default)"; then
+              echo "Firestore default DB exists in GCP; importing into Terraform state..."
+              terraform import google_firestore_database.travel_db "projects/${PROJECT_ID}/databases/(default)"
+
+              # Verify import actually landed in state; fail early with clear error otherwise.
+              if ! terraform state list google_firestore_database.travel_db 2>/dev/null | grep -q "google_firestore_database.travel_db"; then
+                echo "ERROR: Firestore import reported success path but resource is still not in Terraform state."
+                exit 1
+              fi
+            else
+              echo "No existing Firestore default DB found in GCP; Terraform will create it."
+            fi
           fi
 
       - name: Terraform Apply
