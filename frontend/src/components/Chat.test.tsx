@@ -1,9 +1,16 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import Chat from "./Chat";
-import { createTrip, listTrips, sendMessage, updateTrip } from "../services/api";
+import {
+  createTrip,
+  listConversations,
+  listTrips,
+  renameConversation,
+  sendMessage,
+  updateTrip,
+} from "../services/api";
 
 vi.mock("../services/api", () => ({
   listConversations: vi.fn().mockResolvedValue([]),
@@ -11,6 +18,8 @@ vi.mock("../services/api", () => ({
   getConversation: vi.fn(),
   createTrip: vi.fn(),
   updateTrip: vi.fn(),
+  renameConversation: vi.fn(),
+  deleteConversation: vi.fn(),
   sendMessage: vi.fn(),
 }));
 
@@ -25,7 +34,12 @@ function renderChat() {
 describe("Chat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(listConversations).mockResolvedValue([]);
     vi.mocked(listTrips).mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("shows saved when assistant itinerary matches the linked trip itinerary", async () => {
@@ -149,6 +163,48 @@ describe("Chat", () => {
     );
 
     expect(await screen.findByText(/daily ai request limit reached/i)).toBeInTheDocument();
+  });
+
+  it("shows retry for transient failures and retries with the same request", async () => {
+    vi.mocked(sendMessage)
+      .mockRejectedValueOnce({ response: { status: 502, data: { detail: "temporary upstream issue" } } })
+      .mockResolvedValueOnce({
+        conversation_id: "conversation-1",
+        assistant_message: "Recovered on retry.",
+        recommendations: ["Continue planning"],
+      });
+
+    const user = userEvent.setup();
+    renderChat();
+
+    await user.type(screen.getByPlaceholderText(/ask about destinations/i), "Plan a trip{Enter}");
+    expect(await screen.findByText(/temporary upstream issue/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /retry/i }));
+
+    expect(sendMessage).toHaveBeenNthCalledWith(1, "Plan a trip", null, "trip_json");
+    expect(sendMessage).toHaveBeenNthCalledWith(2, "Plan a trip", null, "trip_json");
+    expect(await screen.findByText("Recovered on retry.")).toBeInTheDocument();
+  });
+
+  it("shows validation error when renaming a conversation to an empty title", async () => {
+    vi.mocked(listConversations).mockResolvedValue([
+      {
+        id: "conv-1",
+        title: "Summer Planning",
+        updated_at: "2026-04-01T10:00:00Z",
+      },
+    ]);
+    vi.spyOn(window, "prompt").mockReturnValue("   ");
+
+    const user = userEvent.setup();
+    renderChat();
+
+    expect(await screen.findByText("Summer Planning")).toBeInTheDocument();
+    await user.click(screen.getByLabelText(/rename conversation/i));
+
+    expect(renameConversation).not.toHaveBeenCalled();
+    expect(await screen.findByText(/title cannot be empty/i)).toBeInTheDocument();
   });
 
   it("saves an assistant response as a trip", async () => {

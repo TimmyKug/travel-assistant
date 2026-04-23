@@ -130,4 +130,107 @@ describe("TripDetail", () => {
     expect(deleteTrip).toHaveBeenCalledWith("trip-1");
     expect(await screen.findByText("Trips Page")).toBeInTheDocument();
   });
+
+  it("renders fallback text when no structured itinerary and no notes are present", async () => {
+    vi.mocked(getTrip).mockResolvedValue({
+      id: "trip-1",
+      title: "Empty Trip",
+      destination: "Nowhere",
+    });
+
+    renderTripDetail();
+
+    expect(await screen.findByText("Empty Trip")).toBeInTheDocument();
+    expect(screen.getByText(/no details available for this trip yet/i)).toBeInTheDocument();
+  });
+
+  it("parses itinerary from JSON notes and saves edited structured fields", async () => {
+    const structured = {
+      trip_title: "Notes Plan",
+      destination: "Seville",
+      summary: "Initial summary",
+      days: [
+        {
+          day: 1,
+          items: [
+            {
+              time: "09:00",
+              title: "Old Town Walk",
+              description: "Explore",
+              category: "activity",
+            },
+          ],
+        },
+      ],
+    };
+
+    vi.mocked(getTrip).mockResolvedValue({
+      id: "trip-1",
+      title: "Plain title",
+      destination: "Plain destination",
+      notes: JSON.stringify(structured),
+    });
+    vi.mocked(updateTrip).mockResolvedValue({
+      id: "trip-1",
+      title: "Edited Notes Plan",
+      destination: "Granada",
+      notes: "Updated summary",
+      itinerary: [
+        {
+          ...structured,
+          trip_title: "Edited Notes Plan",
+          destination: "Granada",
+          summary: "Updated summary",
+        } as Record<string, unknown>,
+      ],
+    });
+
+    const user = userEvent.setup();
+    renderTripDetail();
+    expect(await screen.findByText("Plain title")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+    await user.clear(screen.getByDisplayValue("Notes Plan"));
+    await user.type(screen.getByPlaceholderText(/trip title \*/i), "Edited Notes Plan");
+    await user.clear(screen.getByDisplayValue("Seville"));
+    await user.type(screen.getByPlaceholderText(/destination/i), "Granada");
+    await user.clear(screen.getByDisplayValue("Initial summary"));
+    await user.type(screen.getByPlaceholderText(/trip summary/i), "Updated summary");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(updateTrip).toHaveBeenCalledWith(
+      "trip-1",
+      expect.objectContaining({
+        title: "Edited Notes Plan",
+        destination: "Granada",
+        notes: "Updated summary",
+        itinerary: [
+          expect.objectContaining({
+            trip_title: "Edited Notes Plan",
+            destination: "Granada",
+            summary: "Updated summary",
+          }),
+        ],
+      })
+    );
+  });
+
+  it("shows an error when saving fails", async () => {
+    vi.mocked(getTrip).mockResolvedValue({
+      id: "trip-1",
+      title: "Fail Save",
+      destination: "Berlin",
+      notes: "Initial notes",
+    });
+    vi.mocked(updateTrip).mockRejectedValue(new Error("save failed"));
+
+    const user = userEvent.setup();
+    renderTripDetail();
+    expect(await screen.findByText("Fail Save")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(await screen.findByText(/could not save trip changes/i)).toBeInTheDocument();
+  });
 });
