@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import TripDetail from "./TripDetail";
@@ -190,9 +190,15 @@ describe("TripDetail", () => {
     expect(await screen.findByText("Plain title")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /edit/i }));
-    await user.type(screen.getByDisplayValue("Notes Plan"), "{selectall}Edited Notes Plan");
-    await user.type(screen.getByDisplayValue("Seville"), "{selectall}Granada");
-    await user.type(screen.getByDisplayValue("Initial summary"), "{selectall}Updated summary");
+    fireEvent.change(screen.getByDisplayValue("Notes Plan"), {
+      target: { value: "Edited Notes Plan" },
+    });
+    fireEvent.change(screen.getByDisplayValue("Seville"), {
+      target: { value: "Granada" },
+    });
+    fireEvent.change(screen.getByDisplayValue("Initial summary"), {
+      target: { value: "Updated summary" },
+    });
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
     expect(updateTrip).toHaveBeenCalledWith(
