@@ -1,0 +1,212 @@
+name: Perf — MIG Recovery Time
+
+# Stops an App-VM (simulating a crash), measures MIG autohealing duration,
+# repeats for N iterations with a cooldown between runs.
+
+on:
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: "Number of kill/recover cycles"
+        required: true
+        default: "5"
+        type: string
+      poll_interval:
+        description: "Polling interval in seconds"
+        required: false
+        default: "10"
+        type: string
+      cooldown_seconds:
+        description: "Wait between iterations"
+        required: false
+        default: "60"
+        type: string
+      timeout_minutes:
+        description: "Max wait per iteration"
+        required: false
+        default: "15"
+        type: string
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  REGION: ${{ vars.GCP_REGION || 'europe-west3' }}
+  ZONE: "${{ vars.GCP_REGION || 'europe-west3' }}-a"
+  MIG_NAME: travel-assistant-app-mig
+  BACKEND_SERVICE: travel-assistant-app-bes
+
+jobs:
+  mig_recovery:
+    name: Iterated MIG recovery measurement
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    timeout-minutes: 240
+
+    steps:
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Run kill/recover cycles
+        env:
+          ITERATIONS: ${{ inputs.iterations }}
+          POLL_INTERVAL: ${{ inputs.poll_interval }}
+          COOLDOWN: ${{ inputs.cooldown_seconds }}
+          TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
+        run: |
+          set -euo pipefail
+          mkdir -p perf-results
+          RESULTS_FILE="perf-results/mig-${GITHUB_RUN_NUMBER}.json"
+          echo "[]" > "$RESULTS_FILE"
+
+          for ITER in $(seq 1 "$ITERATIONS"); do
+            echo "=========================================="
+            echo "  Iteration ${ITER}/${ITERATIONS}"
+            echo "=========================================="
+
+            # Wait for MIG to be stable before starting this iteration
+            gcloud compute instance-groups managed wait-until "$MIG_NAME" \
+              --stable --zone="$ZONE" --project="$PROJECT_ID"
+
+            HEALTHY_BEFORE=$(gcloud compute backend-services get-health "$BACKEND_SERVICE" \
+              --global --project="$PROJECT_ID" \
+              --format="value(status.healthStatus.healthState)" | grep -c HEALTHY || true)
+            echo "Healthy backends before kill: $HEALTHY_BEFORE"
+
+            TARGET=$(gcloud compute instance-groups managed list-instances "$MIG_NAME" \
+              --zone="$ZONE" --project="$PROJECT_ID" \
+              --format="value(name)" | head -1)
+            echo "Target: $TARGET"
+
+            T0=$(date +%s)
+            T0_ISO=$(date -u -d @$T0 +%FT%TZ)
+            gcloud compute instances stop "$TARGET" \
+              --zone="$ZONE" --project="$PROJECT_ID" --quiet
+
+            DEADLINE=$(( T0 + TIMEOUT_MINUTES * 60 ))
+            T_UNHEALTHY=""
+            T_REPLACING=""
+            T_RUNNING=""
+            T_HEALTHY=""
+
+            while :; do
+              NOW=$(date +%s)
+              if [ "$NOW" -gt "$DEADLINE" ]; then
+                echo "Timeout waiting for recovery"
+                break
+              fi
+
+              ACTIONS=$(gcloud compute instance-groups managed list-instances "$MIG_NAME" \
+                --zone="$ZONE" --project="$PROJECT_ID" --format="value(currentAction)")
+              STATUSES=$(gcloud compute instance-groups managed list-instances "$MIG_NAME" \
+                --zone="$ZONE" --project="$PROJECT_ID" --format="value(status)")
+              HEALTH=$(gcloud compute backend-services get-health "$BACKEND_SERVICE" \
+                --global --project="$PROJECT_ID" \
+                --format="value(status.healthStatus.healthState)" || true)
+
+              HEALTHY_COUNT=$(echo "$HEALTH" | grep -c HEALTHY || true)
+              UNHEALTHY_COUNT=$(echo "$HEALTH" | grep -c UNHEALTHY || true)
+              RUNNING_COUNT=$(echo "$STATUSES" | grep -c RUNNING || true)
+
+              echo "[$((NOW-T0))s] healthy=$HEALTHY_COUNT unhealthy=$UNHEALTHY_COUNT running=$RUNNING_COUNT"
+
+              if [ -z "$T_UNHEALTHY" ] && [ "$UNHEALTHY_COUNT" -gt 0 ]; then
+                T_UNHEALTHY=$NOW
+              fi
+              if [ -z "$T_REPLACING" ] && echo "$ACTIONS" | grep -qE 'CREATING|RECREATING|REFRESHING'; then
+                T_REPLACING=$NOW
+              fi
+              if [ -z "$T_RUNNING" ] && [ "$RUNNING_COUNT" -ge "$HEALTHY_BEFORE" ]; then
+                if ! echo "$ACTIONS" | grep -qE 'CREATING|RECREATING|REFRESHING'; then
+                  T_RUNNING=$NOW
+                fi
+              fi
+              if [ "$HEALTHY_COUNT" -ge "$HEALTHY_BEFORE" ] && [ "$UNHEALTHY_COUNT" -eq 0 ]; then
+                T_HEALTHY=$NOW
+                break
+              fi
+
+              sleep "$POLL_INTERVAL"
+            done
+
+            rel() {
+              if [ -z "$1" ]; then echo "null"; else echo "$(( $1 - T0 ))"; fi
+            }
+
+            python - << PY
+          import json
+          path = "$RESULTS_FILE"
+          with open(path) as f:
+              results = json.load(f)
+          results.append({
+              "test": "mig_recovery",
+              "run_number": ${GITHUB_RUN_NUMBER},
+              "iteration": ${ITER},
+              "timestamp_utc": "$T0_ISO",
+              "target_instance": "$TARGET",
+              "healthy_target": ${HEALTHY_BEFORE},
+              "seconds_to_unhealthy": $(rel "$T_UNHEALTHY"),
+              "seconds_to_replacing": $(rel "$T_REPLACING"),
+              "seconds_to_running":   $(rel "$T_RUNNING"),
+              "seconds_to_healthy":   $(rel "$T_HEALTHY")
+          })
+          with open(path, "w") as f:
+              json.dump(results, f, indent=2)
+          PY
+
+            if [ "$ITER" -lt "$ITERATIONS" ]; then
+              echo "Cooldown ${COOLDOWN}s..."
+              sleep "$COOLDOWN"
+            fi
+          done
+
+          echo "=========================================="
+          echo "Sweep complete. Result JSON for copy/paste:"
+          echo "<<<PERF_JSON>>>"
+          cat "$RESULTS_FILE"
+          echo
+          echo "<<<END_PERF_JSON>>>"
+
+      - name: Upload result JSON
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-mig-${{ github.run_number }}
+          path: perf-results/
+
+      - name: Write summary
+        run: |
+          python - << 'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os, statistics
+          path = f"perf-results/mig-{os.environ['GITHUB_RUN_NUMBER']}.json"
+          with open(path) as f:
+              rows = json.load(f)
+
+          def med(field):
+              vals = [r[field] for r in rows if r.get(field) is not None]
+              return statistics.median(vals) if vals else None
+
+          print("## MIG Recovery Results")
+          print("")
+          print(f"Iterations: {len(rows)}")
+          print("")
+          print("| Event | Median (s) | Min | Max |")
+          print("|-------|-----------:|----:|----:|")
+          for field, label in [
+              ("seconds_to_unhealthy", "LB sees UNHEALTHY"),
+              ("seconds_to_replacing", "MIG begins replacement"),
+              ("seconds_to_running",   "Fleet RUNNING"),
+              ("seconds_to_healthy",   "Recovery complete"),
+          ]:
+              vals = [r[field] for r in rows if r.get(field) is not None]
+              if vals:
+                  print(f"| {label} | {statistics.median(vals):.0f} | {min(vals)} | {max(vals)} |")
+              else:
+                  print(f"| {label} | — | — | — |")
+          print("")
+          print(f"Raw JSON attached as artifact `perf-mig-{os.environ['GITHUB_RUN_NUMBER']}`.")
+          PY

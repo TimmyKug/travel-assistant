@@ -1,0 +1,185 @@
+name: Perf — DR Scale Test
+
+# Sweeps a list of document counts, repeats each N times, measures Firestore
+# export + import wall time. Isolated top-level collections per iteration so
+# real user data is untouched.
+
+on:
+  workflow_dispatch:
+    inputs:
+      doc_counts:
+        description: "Comma-separated doc counts to sweep"
+        required: true
+        default: "1000,10000,100000"
+        type: string
+      iterations:
+        description: "Repetitions per doc count"
+        required: true
+        default: "3"
+        type: string
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+
+jobs:
+  scale_test:
+    name: Sweep doc counts × iterations
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Firestore client
+        run: pip install google-cloud-firestore==2.19.0
+
+      - name: Run sweep
+        env:
+          DOC_COUNTS: ${{ inputs.doc_counts }}
+          ITERATIONS: ${{ inputs.iterations }}
+        run: |
+          set -euo pipefail
+          mkdir -p perf-results
+          BUCKET="${PROJECT_ID}-firestore-backups"
+          RESULTS_FILE="perf-results/scale-${GITHUB_RUN_NUMBER}.json"
+          echo "[]" > "$RESULTS_FILE"
+
+          # Comma-separated list → iterate
+          IFS=',' read -r -a COUNTS <<< "$DOC_COUNTS"
+          for DOC_COUNT in "${COUNTS[@]}"; do
+            DOC_COUNT=$(echo "$DOC_COUNT" | tr -d '[:space:]')
+            for ITER in $(seq 1 "$ITERATIONS"); do
+              COLLECTION="perf_test_${GITHUB_RUN_NUMBER}_${DOC_COUNT}_${ITER}"
+              OUTPUT_URI="gs://${BUCKET}/perf/${COLLECTION}"
+
+              echo "=========================================="
+              echo "  doc_count=${DOC_COUNT}  iteration=${ITER}/${ITERATIONS}"
+              echo "=========================================="
+
+              # Seed
+              SEED_START=$(date +%s)
+              python scripts/perf-seed-firestore.py \
+                --project "$PROJECT_ID" \
+                --collection "$COLLECTION" \
+                --count "$DOC_COUNT"
+              SEED_SEC=$(( $(date +%s) - SEED_START ))
+
+              # Export
+              EXP_START=$(date +%s)
+              gcloud firestore export "$OUTPUT_URI" \
+                --project="$PROJECT_ID" \
+                --collection-ids="$COLLECTION"
+              EXP_SEC=$(( $(date +%s) - EXP_START ))
+
+              # Delete seeded docs to simulate data loss
+              python scripts/perf-delete-firestore.py \
+                --project "$PROJECT_ID" \
+                --collection "$COLLECTION"
+
+              # Import
+              METADATA_URI="$(gsutil ls "$OUTPUT_URI" | grep '.overall_export_metadata$' | head -1)"
+              IMP_START=$(date +%s)
+              gcloud firestore import "$METADATA_URI" \
+                --project="$PROJECT_ID" \
+                --collection-ids="$COLLECTION"
+              IMP_SEC=$(( $(date +%s) - IMP_START ))
+
+              # Verify
+              ACTUAL=$(PROJECT_ID="$PROJECT_ID" COLLECTION="$COLLECTION" python - << 'PY'
+          import os
+          from google.cloud import firestore
+          db = firestore.Client(project=os.environ["PROJECT_ID"])
+          print(db.collection(os.environ["COLLECTION"]).count().get()[0][0].value)
+          PY
+          )
+
+              # Append result to aggregate JSON
+              TS="$(date -u +%FT%TZ)"
+              python - << PY
+          import json, os
+          path = "$RESULTS_FILE"
+          with open(path) as f:
+              results = json.load(f)
+          results.append({
+              "test": "dr_scale",
+              "run_number": ${GITHUB_RUN_NUMBER},
+              "iteration": ${ITER},
+              "timestamp_utc": "$TS",
+              "doc_count": ${DOC_COUNT},
+              "verified_count": int("$ACTUAL"),
+              "seed_seconds": ${SEED_SEC},
+              "export_seconds": ${EXP_SEC},
+              "import_seconds": ${IMP_SEC},
+              "collection": "$COLLECTION",
+              "backup_uri": "$OUTPUT_URI"
+          })
+          with open(path, "w") as f:
+              json.dump(results, f, indent=2)
+          PY
+
+              # Cleanup
+              python scripts/perf-delete-firestore.py \
+                --project "$PROJECT_ID" \
+                --collection "$COLLECTION"
+            done
+          done
+
+          echo "=========================================="
+          echo "Sweep complete. Result JSON for copy/paste:"
+          echo "<<<PERF_JSON>>>"
+          cat "$RESULTS_FILE"
+          echo
+          echo "<<<END_PERF_JSON>>>"
+
+      - name: Upload result JSON
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-scale-${{ github.run_number }}
+          path: perf-results/
+
+      - name: Write summary
+        run: |
+          python - << 'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os, statistics
+          path = f"perf-results/scale-{os.environ['GITHUB_RUN_NUMBER']}.json"
+          with open(path) as f:
+              rows = json.load(f)
+
+          # Group by doc_count
+          from collections import defaultdict
+          buckets = defaultdict(list)
+          for r in rows:
+              buckets[r["doc_count"]].append(r)
+
+          print("## DR Scale Test Results")
+          print("")
+          print(f"Iterations: {os.environ.get('INPUT_ITERATIONS', '?')} per doc count")
+          print("")
+          print("| Doc count | Seed (s, median) | Export (s, median) | Import (s, median) | N |")
+          print("|-----------|------------------|--------------------|--------------------|---|")
+          for dc in sorted(buckets):
+              rs = buckets[dc]
+              seed = statistics.median(r["seed_seconds"]   for r in rs)
+              exp  = statistics.median(r["export_seconds"] for r in rs)
+              imp  = statistics.median(r["import_seconds"] for r in rs)
+              print(f"| {dc} | {seed:.0f} | {exp:.0f} | {imp:.0f} | {len(rs)} |")
+          print("")
+          print(f"Raw JSON attached as artifact `perf-scale-{os.environ['GITHUB_RUN_NUMBER']}`.")
+          PY
