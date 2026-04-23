@@ -676,11 +676,11 @@ Die automatisierten Tests laufen in GitHub Actions vor Build und Deployment und 
 Im Backend prüfen `pytest` und der FastAPI-`TestClient` Authentifizierung, Chat- und Konversationsendpunkte, Trip-CRUD sowie `/api/health` und `/api/health/db`.
 Firestore und Gemini werden dabei gemockt, sodass die Suite deterministisch und ohne echte Cloud-Zugriffe läuft; für den DB-Integritätscheck existieren zusätzlich Negativtests für fehlende Referenzdaten und Firestore-Konnektivitätsfehler.
 
-Im Frontend prüfen Vitest und React Testing Library komponentennahe Nutzerflüsse wie Auth-Routing, Chat-Fehlerfälle, das Speichern einer Antwort als Reiseplan sowie das Erstellen und Löschen von Trips.
-Die API-Schicht wird gemockt; getestet werden damit UI-Verhalten und Zustandsübergänge, nicht visuelle Pixel-Regressionen.
+Im Frontend prüfen Vitest und React Testing Library komponentennahe Nutzerflüsse wie Login/Register-Formulare, Auth-Routing, Session-Management via AuthContext, Navigation, Chat-Fehlerfälle, das Speichern einer Antwort als Reiseplan sowie das Erstellen und Löschen von Trips.
+Die API-Schicht wird mit axios-mock-adapter gemockt; getestet werden damit UI-Verhalten, Zustandsübergänge und HTTP-Interceptor-Logik (Token-Injektion, 401-Handling), nicht visuelle Pixel-Regressionen.
 Ergänzend gatekeepen `ruff`, `mypy`, `pip-audit`, `tsc --noEmit`, ESLint, `vitest run --coverage` und `npm audit` formale Korrektheit, funktionale Korrektheit und Lieferkettensicherheit.
 
-Die Zeilenabdeckung liegt zum Projektabschluss bei rund 92 % im Backend und rund 39 % im Frontend; die detaillierten Coverage-Tabellen sind im Anhang in @tab-coverage-frontend und @tab-coverage-backend dokumentiert.
+Die Zeilenabdeckung liegt zum Projektabschluss bei rund 93 % im Backend und rund 65 % im Frontend; die detaillierten Coverage-Tabellen sind im Anhang in @tab-coverage-frontend und @tab-coverage-backend dokumentiert.
 Nach dem Deployment läuft zusätzlich ein Integrationsworkflow gegen die öffentliche App-URL, der Health-Endpunkte, Authentifizierung, Trip-CRUD und relevante Storage-Buckets mit echten GCP-Diensten prüft, aber bewusst auf Gemini-Aufrufe verzichtet.
 Vollständige End-to-End-Prüfungen von Load-Balancer-Verhalten, MIG-Autohealing oder realen Firestore-Imports bleiben aus Kosten- und Laufzeitgründen getrennten Demo- und Recovery-Nachweisen vorbehalten.
 
@@ -769,18 +769,12 @@ Die Frontend-Abdeckung stammt aus `npm run test:coverage` mit Vitest und V8-Cove
         [*Lines*],
         [*Nicht abgedeckte Zeilen*],
       ),
-      [`All files`], [37,48 %], [31,35 %], [33,19 %], [38,56 %], [],
-      [`src`], [63,63 %], [83,33 %], [66,66 %], [66,66 %], [],
+      [`All files`], [65,06 %], [51,18 %], [51,91 %], [67,83 %], [],
+      [`src`], [100 %], [100 %], [100 %], [100 %], [],
       [`App.tsx`], [100 %], [100 %], [100 %], [100 %], [],
-      [`AuthContext.tsx`],
-      [55,55 %],
-      [75 %],
-      [60 %],
-      [58,82 %],
-      [`17,22-24,28-30`],
-
+      [`AuthContext.tsx`], [100 %], [100 %], [100 %], [100 %], [],
       [`types.ts`], [0 %], [0 %], [0 %], [0 %], [],
-      [`src/components`], [43,89 %], [35,36 %], [36,81 %], [45,09 %], [],
+      [`src/components`], [60,89 %], [50,68 %], [52,73 %], [62,83 %], [],
       [`Chat.tsx`],
       [56,11 %],
       [49,31 %],
@@ -788,10 +782,16 @@ Die Frontend-Abdeckung stammt aus `npm run test:coverage` mit Vitest und V8-Cove
       [56,9 %],
       [`...-1078,1092-1093`],
 
-      [`Login.tsx`], [42,85 %], [33,33 %], [40 %], [45 %], [`16-27,52`],
+      [`Login.tsx`], [100 %], [100 %], [100 %], [100 %], [],
       [`Nav.tsx`], [100 %], [100 %], [100 %], [100 %], [],
-      [`Register.tsx`], [0 %], [0 %], [0 %], [0 %], [`9-53`],
-      [`TripDetail.tsx`], [0 %], [0 %], [0 %], [0 %], [`21-528`],
+      [`Register.tsx`], [100 %], [100 %], [100 %], [100 %], [],
+      [`TripDetail.tsx`],
+      [51,47 %],
+      [44,73 %],
+      [36,92 %],
+      [56,75 %],
+      [`...290,306,334-496`],
+
       [`TripPlanner.tsx`],
       [72,09 %],
       [61,22 %],
@@ -799,10 +799,10 @@ Die Frontend-Abdeckung stammt aus `npm run test:coverage` mit Vitest und V8-Cove
       [72,36 %],
       [`...246,267,296-299`],
 
-      [`src/services`], [0 %], [0 %], [0 %], [0 %], [],
-      [`api.ts`], [0 %], [0 %], [0 %], [0 %], [`4-65`],
-      [`src/utils`], [0 %], [0 %], [0 %], [0 %], [],
-      [`tripMarkdown.ts`], [0 %], [0 %], [0 %], [0 %], [`4-129`],
+      [`src/services`], [58,13 %], [55,55 %], [14,28 %], [70,58 %], [],
+      [`api.ts`], [58,13 %], [55,55 %], [14,28 %], [70,58 %], [],
+      [`src/utils`], [92,1 %], [50 %], [100 %], [94,36 %], [],
+      [`tripMarkdown.ts`], [92,1 %], [50 %], [100 %], [94,36 %], [`13-21,41`],
     )
   ],
   caption: [Frontend-Testabdeckung mit Vitest und V8-Coverage.],
@@ -824,21 +824,23 @@ Die Backend-Abdeckung stammt aus der `pytest`-Testsuite mit `pytest-cov`.
       [`main.py`], [34], [0], [100 %], [],
       [`metrics.py`], [8], [0], [100 %], [],
       [`routers/__init__.py`], [0], [0], [100 %], [],
-      [`routers/ai.py`], [50], [0], [100 %], [],
+      [`routers/ai.py`], [178], [21], [88 %], [`48-49, 52, 63, 65, 67, 69, 71, 85, 92, 102-103, 122, 147-153, 203`],
       [`routers/auth.py`], [62], [0], [100 %], [],
       [`routers/health.py`], [37], [3], [92 %], [`21, 62, 84`],
-      [`routers/trips.py`], [58], [0], [100 %], [],
+      [`routers/trips.py`], [66], [0], [100 %], [],
       [`services/__init__.py`], [0], [0], [100 %], [],
-      [`services/firestore_client.py`], [7], [1], [86 %], [`21`],
-      [`services/gemini.py`], [55], [38], [31 %], [`40-62, 70-96`],
-      [`services/jwt_auth.py`], [24], [5], [79 %], [`44-52`],
+      [`services/firestore_client.py`], [7], [0], [100 %], [],
+      [`services/gemini.py`], [61], [0], [100 %], [],
+      [`services/jwt_auth.py`], [24], [0], [100 %], [],
       [`tests/__init__.py`], [0], [0], [100 %], [],
       [`tests/conftest.py`], [25], [0], [100 %], [],
-      [`tests/test_ai.py`], [61], [0], [100 %], [],
+      [`tests/test_ai.py`], [154], [0], [100 %], [],
       [`tests/test_auth.py`], [55], [0], [100 %], [],
+      [`tests/test_gemini_integration.py`], [56], [43], [23 %], [`37-40, 46-63, 71-140`],
       [`tests/test_health.py`], [62], [3], [95 %], [`86, 93, 98`],
-      [`tests/test_trips.py`], [68], [0], [100 %], [],
-      [*TOTAL*], [*606*], [*50*], [*92 %*], [],
+      [`tests/test_services.py`], [111], [0], [100 %], [],
+      [`tests/test_trips.py`], [86], [0], [100 %], [],
+      [*TOTAL*], [*1026*], [*70*], [*93 %*], [],
     )
   ],
   caption: [Backend-Testabdeckung mit pytest-cov.],
