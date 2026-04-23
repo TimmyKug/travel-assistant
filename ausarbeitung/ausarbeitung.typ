@@ -705,7 +705,7 @@ Im Frontend prüfen Vitest und React Testing Library komponentennahe Nutzerflüs
 Die API-Schicht wird mit axios-mock-adapter gemockt; getestet werden damit UI-Verhalten, Zustandsübergänge und HTTP-Interceptor-Logik (Token-Injektion, 401-Handling), nicht visuelle Pixel-Regressionen.
 Ergänzend gatekeepen `ruff`, `mypy`, `pip-audit`, `tsc --noEmit`, ESLint, `vitest run --coverage` und `npm audit` formale Korrektheit, funktionale Korrektheit und Lieferkettensicherheit.
 
-Die gemessene Zeilenabdeckung liegt bei rund 93 % im Backend und rund 65 % im Frontend; die detaillierten Coverage-Tabellen sind im Anhang in @tab-coverage-frontend und @tab-coverage-backend dokumentiert.
+Die gemessene Zeilenabdeckung liegt bei rund 96 % im Backend und rund 65 % im Frontend; die detaillierten Coverage-Tabellen sind im Anhang in @tab-coverage-frontend und @tab-coverage-backend dokumentiert.
 Zusätzlich läuft ein Integrationsworkflow gegen die öffentliche App-URL, der Health-Endpunkte, Authentifizierung, Trip-CRUD und relevante Storage-Buckets mit echten GCP-Diensten prüft, aber bewusst auf Gemini-Aufrufe verzichtet.
 Vollständige End-to-End-Prüfungen von Load-Balancer-Verhalten, MIG-Autohealing oder realen Firestore-Imports bleiben aus Kosten- und Laufzeitgründen getrennten Demo- und Recovery-Nachweisen vorbehalten.
 
@@ -855,17 +855,17 @@ Die Backend-Abdeckung stammt aus der `pytest`-Testsuite mit `pytest-cov`.
       [`routers/trips.py`], [66], [0], [100 %], [],
       [`services/__init__.py`], [0], [0], [100 %], [],
       [`services/firestore_client.py`], [7], [0], [100 %], [],
-      [`services/gemini.py`], [61], [0], [100 %], [],
+      [`services/gemini.py`], [69], [5], [93 %], [`180-191`],
       [`services/jwt_auth.py`], [24], [0], [100 %], [],
       [`tests/__init__.py`], [0], [0], [100 %], [],
-      [`tests/conftest.py`], [25], [0], [100 %], [],
+      [`tests/conftest.py`], [22], [0], [100 %], [],
       [`tests/test_ai.py`], [154], [0], [100 %], [],
       [`tests/test_auth.py`], [55], [0], [100 %], [],
-      [`tests/integration/test_gemini.py`], [56], [43], [23 %], [`37-40, 46-63, 71-140`],
+      [`tests/integration/test_gemini.py`], [77], [5], [94 %], [`96-98, 155, 181`],
       [`tests/test_health.py`], [62], [3], [95 %], [`86, 93, 98`],
       [`tests/test_services.py`], [111], [0], [100 %], [],
       [`tests/test_trips.py`], [86], [0], [100 %], [],
-      [*TOTAL*], [*1026*], [*70*], [*93 %*], [],
+      [*TOTAL*], [*1052*], [*37*], [*96 %*], [],
     )
   ],
   caption: [Backend-Testabdeckung mit pytest-cov.],

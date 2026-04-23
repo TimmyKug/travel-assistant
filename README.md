@@ -121,7 +121,7 @@ Current test coverage:
 
 | Area | Tool | Command | Line coverage |
 |------|------|---------|---------------|
-| Backend | `pytest-cov` | `pytest tests/ --cov` | 93% |
+| Backend | `pytest-cov` | `pytest tests/ --cov` | 96% |
 | Frontend | Vitest + V8 coverage | `npm run test:coverage` | 65% |
 
 The app VMs bootstrap themselves from [`scripts/startup.sh`](scripts/startup.sh) — no
