@@ -33,3 +33,6 @@ htmlcov/
 # OS
 .DS_Store
 .agents
+
+# Test state
+.integration-test-state.json

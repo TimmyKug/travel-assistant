@@ -45,6 +45,30 @@ def test_list_trips_empty(client, mock_db):
     assert response.json() == []
 
 
+def test_get_trip_found(client, mock_db):
+    mock_ref = MagicMock()
+    mock_doc = _make_trip_doc("trip-abc")
+    mock_doc.exists = True
+    mock_ref.get.return_value = mock_doc
+    mock_db.collection.return_value.document.return_value.collection.return_value.document.return_value = mock_ref
+
+    response = client.get("/api/trips/trip-abc")
+    assert response.status_code == 200
+    assert response.json()["id"] == "trip-abc"
+    assert response.json()["title"] == "Paris Trip"
+
+
+def test_get_trip_not_found(client, mock_db):
+    mock_ref = MagicMock()
+    mock_doc = MagicMock()
+    mock_doc.exists = False
+    mock_ref.get.return_value = mock_doc
+    mock_db.collection.return_value.document.return_value.collection.return_value.document.return_value = mock_ref
+
+    response = client.get("/api/trips/nonexistent")
+    assert response.status_code == 404
+
+
 def test_create_trip(client, mock_db):
     mock_ref = MagicMock()
     mock_ref.id = "new-trip-id"
