@@ -5,9 +5,7 @@ def test_health(client):
 
 
 def test_db_health_healthy(client, mock_db):
-    user_doc = _doc(
-        True, {"display_name": "Sentinel User", "email": "sentinel@example.com"}
-    )
+    user_doc = _doc(True, {"display_name": "Sentinel User", "email": "sentinel@example.com"})
     trip_doc = _doc(
         True,
         {
