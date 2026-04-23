@@ -141,7 +141,9 @@ async def check_and_increment_rate_limit(uid: str) -> int:
     return update_in_transaction(transaction, ref)
 
 
-async def chat(uid: str, messages: list[dict], response_format: Literal["text", "trip_json"] = "text") -> str:
+async def chat(
+    uid: str, messages: list[dict], response_format: Literal["text", "trip_json"] = "text"
+) -> str:
     """
     Send a conversation to Gemini and return the assistant reply.
     messages format: [{"role": "user"|"model", "parts": ["text..."]}]

@@ -172,9 +172,7 @@ def test_chat_bootstrap_does_not_store_user_prompt(client, mock_db):
     mock_conv_ref = MagicMock()
     mock_conv_ref.id = "conv-bootstrap"
     mock_conv_ref.get.return_value.exists = False
-    mock_db.collection.return_value.document.return_value.collection.return_value.document.return_value = (
-        mock_conv_ref
-    )
+    mock_db.collection.return_value.document.return_value.collection.return_value.document.return_value = mock_conv_ref
 
     with patch(
         "routers.ai.gemini_chat",
@@ -206,9 +204,7 @@ def test_chat_invalid_envelope_returns_502(client, mock_db):
     mock_conv_ref = MagicMock()
     mock_conv_ref.id = "conv-bad-envelope"
     mock_conv_ref.get.return_value.exists = False
-    mock_db.collection.return_value.document.return_value.collection.return_value.document.return_value = (
-        mock_conv_ref
-    )
+    mock_db.collection.return_value.document.return_value.collection.return_value.document.return_value = mock_conv_ref
 
     with patch("routers.ai.gemini_chat", new=AsyncMock(return_value='{"response":"hello"}')):
         response = client.post("/api/ai/chat", json={"content": "Hello"})

@@ -53,9 +53,7 @@ def _parse_gemini_envelope(reply: str) -> dict[str, Any]:
 
     required_keys = {"triptitle", "response", "recommendations"}
     if set(data.keys()) != required_keys:
-        raise ValueError(
-            "Envelope must contain exactly triptitle, response, recommendations"
-        )
+        raise ValueError("Envelope must contain exactly triptitle, response, recommendations")
 
     trip_title = data.get("triptitle")
     response = data.get("response")
@@ -181,7 +179,9 @@ async def chat(body: MessageIn, user: dict = Depends(get_current_user)):
     logger.info("ai_chat_request", extra={"uid": uid, "conversation_id": conv_ref.id})
 
     forced_response_format: Literal["trip_json"] = "trip_json"
-    raw_reply = await gemini_chat(uid=uid, messages=request_history, response_format=forced_response_format)
+    raw_reply = await gemini_chat(
+        uid=uid, messages=request_history, response_format=forced_response_format
+    )
     try:
         envelope = _parse_gemini_envelope(raw_reply)
     except ValueError as first_exc:
