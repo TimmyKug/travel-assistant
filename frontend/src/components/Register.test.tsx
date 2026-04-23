@@ -103,10 +103,10 @@ describe("Register", () => {
   });
 
   it("disables the button while loading", async () => {
-    let resolveRequest: ((value: { data: { name: string; user_id: string; token: string } }) => void) | null = null;
+    let resolveRequest!: (value: { data: { name: string; user_id: string; token: string } }) => void;
     vi.mocked(api.default.post).mockImplementation(
       () =>
-        new Promise((resolve) => {
+        new Promise<{ data: { name: string; user_id: string; token: string } }>((resolve) => {
           resolveRequest = resolve;
         })
     );
@@ -123,7 +123,7 @@ describe("Register", () => {
     expect(button).toBeDisabled();
     expect(screen.getByRole("button", { name: /creating account/i })).toBeInTheDocument();
 
-    resolveRequest?.({ data: { name: "Tim", user_id: "user-1", token: "token" } });
+    resolveRequest({ data: { name: "Tim", user_id: "user-1", token: "token" } });
     expect(await screen.findByText("Dashboard")).toBeInTheDocument();
   });
 });
