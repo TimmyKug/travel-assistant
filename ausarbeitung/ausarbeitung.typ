@@ -146,9 +146,9 @@
 Die Planung einer Reise ist auch im Jahr 2026 trotz einer Vielzahl spezialisierter Online-Dienste aufwändig.
 Informationen über Ziele, Aktivitäten und Zeitpläne liegen verteilt vor und müssen von Reisenden manuell zusammengeführt werden.
 Gleichzeitig haben sich generative #acr("KI")-Modelle zu einer tragfähigen Basis für konversationelle Assistenzsysteme entwickelt.
-Vor diesem Hintergrund entstand die Projektidee eines dialogorientierten Reiseassistenten, der Nutzerinnen und Nutzern bei der Planung ganzer Reisen hilft, Gespräche speichert und personalisierte Vorschläge liefert.
+Vor diesem Hintergrund steht die Projektidee eines dialogorientierten Reiseassistenten, der Nutzerinnen und Nutzern bei der Planung ganzer Reisen hilft, Gespräche speichert und personalisierte Vorschläge liefert.
 
-Die Anwendung selbst bleibt dabei funktional bewusst schlicht und unterscheidet sich inhaltlich kaum von einem _leicht unterdurchschnittlichen_ #acr("KI")-Chatbot.
+Die Anwendung ist bewusst eher als Demonstrator für Cloud-Architektur und -Betrieb konzipiert denn als Feature-vollständige Produktivlösung.
 Der Fokus dieser Arbeit liegt stattdessen auf der _Cloud-nativen_ Umsetzung: dem Entwurf einer robusten, skalierbaren und wartbaren Architektur, die im Rahmen des Fokus-Features _Disaster Recovery_ sowohl Ausfälle als auch Datenverluste adressiert.
 Der Projektkontext umfasst die Nutzung aller drei Cloud-Ebenen (#acr("IaaS"), #acr("PaaS"), #acr("SaaS")), eine automatisierte Infrastrukturbereitstellung mit Terraform, eine Konfigurationsautomatisierung mit Ansible sowie ein erkennbares Monitoring-Konzept.
 Der vorliegende Projektbericht beschreibt die Umsetzung des entsprechenden Systems eines _Travel Assistant_ auf der #acr("GCP").
@@ -274,7 +274,7 @@ App-#acrpl("VM") werden bewusst über Instance Template und Startup-Script boots
 
 === Monitoring, Logging und Alerting
 
-Prometheus und Grafana waren vorgegeben; Loki wurde ergänzt, weil es sich nahtlos als Datenquelle in Grafana einbinden lässt.
+Prometheus und Grafana sind vorgegeben; Loki ergänzt den Stack, weil es sich nahtlos als Datenquelle in Grafana einbinden lässt.
 In der #acr("MIG")-Topologie ist Prometheus besonders passend, weil die `gce_sd_config`-Service-Discovery neu erzeugte Instanzen automatisch als Scrape-Targets erkennt @prom-gce-sd.
 Node Exporter und Blackbox Exporter ergänzen Host-Metriken und aktive End-to-End-Prüfungen @blackbox-exporter.
 Eine OpenTelemetry-basierte Pipeline wird als Ausblick behandelt.
@@ -284,7 +284,7 @@ Eine OpenTelemetry-basierte Pipeline wird als Ausblick behandelt.
 
 == Gesamtarchitektur
 
-@fig-architecture zeigt die finale Architektur nach der Migration auf einen Load-Balancer-basierten Betrieb mit $N > 1$ App-Instanzen.
+@fig-architecture zeigt die Architektur des Systems im Load-Balancer-basierten Betrieb mit $N > 1$ App-Instanzen.
 Der öffentliche Einstiegspunkt ist eine reservierte globale IP-Adresse, die von einem externen HTTP(S)-Load-Balancer gehalten wird.
 Dieser verteilt Traffic auf eine Managed Instance Group mit zwei App-VMs.
 Der Monitoring-Stack läuft getrennt auf einer persistenten VM mit eigener Persistent-Disk.
@@ -382,7 +382,7 @@ Ansible bleibt auf die langlebige Monitoring-VM beschränkt.
 
 == Deployment-Modell
 
-Das finale Deployment-Modell trennt App-Rollout und Monitoring-Konfiguration nach Verantwortlichkeit.
+Das Deployment-Modell trennt App-Rollout und Monitoring-Konfiguration nach Verantwortlichkeit.
 Terraform beschreibt die GCP-Infrastruktur einschließlich Load Balancer, Managed Instance Group, Instance Template, Firestore, IAM, Buckets und Cloud Scheduler.
 Die App-VMs werden nicht nachträglich per SSH konfiguriert, sondern starten über das Instance Template und ein Startup-Script selbstständig.
 
@@ -392,6 +392,30 @@ Container-Images werden mit dem Git-SHA getaggt; pro Commit entsteht damit eine 
 
 Ansible bleibt auf die langlebige Monitoring-VM beschränkt.
 Dort verwaltet es die Konfiguration von Prometheus, Grafana, Loki, Alertmanager und Nginx, also Komponenten, die nicht mit jedem App-Rollout neu erzeugt werden.
+
+== Anwendungsumfang (Frontend und Backend)
+
+Die Anwendung bildet einen durchgängigen Reiseplanungs-Workflow von der Konversation bis zur detaillierten Trip-Verwaltung ab.
+
+*Backend-seitig* erzwingt der Chat-Endpunkt `POST /api/ai/chat` ein striktes JSON-Enveloping:
+Gemini liefert exakt `triptitle`, `response` und `recommendations`.
+Bei Vertragsverletzungen erfolgt ein automatischer Reparatur-Retry mit verschärfter Instruktion; schlägt auch dieser fehl, antwortet das Backend mit `HTTP 502` und gekürzten Raw-Response-Snippets zur Diagnose.
+Der Endpunkt liefert strukturierte Antwortdaten (`trip_plan`) für Timeline-Rendering im Frontend sowie klickbare Folge-Prompts (`recommendations`).
+Konversationen speichern neben den Messages explizit `title`, `trip_title`, `recommendations` und `updated_at`:
+`title` dient als benutzerseitig editierbarer Anzeigename der Konversation, `trip_title` als modellseitiges Themenlabel aus dem Envelope.
+Die API bietet dafür auch `PATCH /api/ai/conversations/{id}` (Umbenennen) und `DELETE /api/ai/conversations/{id}`.
+Der Trip-Router enthält `GET /api/trips/{trip_id}` für eine dedizierte Trip-Detailseite.
+
+In `services/gemini.py` ist ein zweiphasiger Dialogfluss definiert:
+zunächst Präferenzklärung, dann Itinerary-Generierung nach explizitem `GO`-Signal der Nutzerin bzw. des Nutzers.
+Die Modellwahl ist über Umgebungsvariablen (`GEMINI_MODEL`, optional `GEMINI_REASONING_MODEL` mit `GEMINI_USE_REASONING=1`) konfigurierbar.
+Wie besprochen wird Gemini 3.1 Flash-Lite als Standardmodell verwendet, da es im Projektzeitraum verfügbar war und bessere Leistungswerte als 2.5 Flash bietet @gemini.
+
+*Frontend-seitig* umfasst die Chat-Oberfläche eine Konversationsverwaltung (Suche, Sortierung, Pinning, Umbenennen, Löschen, mobile History-Ansicht), serverseitig gelieferte Empfehlungschips sowie einen Retry-Flow für fehlgeschlagene Requests.
+Strukturierte KI-Antworten werden als Timeline-Karten mit Tagespunkten, Hotelvorschlägen pro Nacht und Budgetblock visualisiert.
+Reisepläne lassen sich direkt aus der Antwort speichern, bei bestehender Verknüpfung in denselben Trip zurückschreiben und als Markdown exportieren.
+`TripPlanner` unterstützt Suche/Sortierung, Export und direkten Sprung in Chat oder Detailansicht;
+`TripDetail` unterstützt Laden, Editieren, Speichern, Löschen und Export einzelner Trips einschließlich bearbeitbarer strukturierter Itinerary-Daten.
 
 == Monitoring-Stack
 
@@ -408,7 +432,7 @@ Das ist bewusst gewählt, damit die Observability nicht mit der überwachten Inf
 - *Loki* nimmt Logs von Promtail entgegen, welches auf jeder App-VM Container- und System-Logs einsammelt.
 - *Persistente Metriken und Logs* liegen auf einer separaten Persistent Disk, damit sie VM-Neustarts und Redeploys überleben.
   Für einen dauerhaften Betrieb wäre ein Terraform-`prevent_destroy` auf dieser Disk sinnvoll, weil es versehentliche Löschung von Monitoring-Historie bei `terraform destroy` verhindert.
-  Im Projekt wurde dieser Schutz aus Ersparnisgründen nicht dauerhaft aktiviert, damit die Disk nach Projektende ohne zusätzlichen Terraform-Eingriff gelöscht werden kann.
+  Dieser Schutz ist im gezeigten Setup nicht dauerhaft aktiviert, damit die Disk ohne zusätzlichen Terraform-Eingriff gelöscht werden kann (aus Ersparnisgründen).
 
 Auf den App-VMs laufen damit neben den fachlichen Containern auch unterstützende Betriebskomponenten.
 Promtail folgt dem Sidecar-Prinzip: Der Container läuft auf jeder App-VM neben Nginx und FastAPI, nimmt selbst keinen Nutzertraffic entgegen und leitet Container- sowie Systemlogs an Loki weiter.
@@ -518,7 +542,7 @@ Würde man ausschließlich auf MIG-Autohealing setzen, bliebe ein Szenario wie e
 == Compute-Recovery über die MIG
 
 Jede App-Instanz wird über einen HTTP-Health-Check gegen `/api/health` überwacht.
-Fällt eine Instanz aus, ersetzt die MIG sie automatisch anhand des aktuellen Instance-Templates.
+Fällt eine Instanz aus, ersetzt die MIG sie automatisch anhand des hinterlegten Instance-Templates.
 Das Startup-Script bootstrappt die Ersatz-Instanz ohne manuellen Eingriff.
 Die globale Load-Balancer-IP bleibt dabei unverändert, weil sie nicht an eine konkrete VM gebunden ist.
 
@@ -527,7 +551,7 @@ Die globale Load-Balancer-IP bleibt dabei unverändert, weil sie nicht an eine k
 === Deterministischer Integritätscheck
 
 Ein bloßer Ping auf Firestore würde einen Datenverlust nicht erkennen, da die Datenbank technisch weiterhin antwortet.
-Deshalb wurde ein dedizierter Endpoint `GET /api/health/db` entwickelt, der konkret die Existenz _und_ ein paar Pflichtfelder fester Referenzdokumente überprüft:
+Deshalb prüft ein dedizierter Endpoint `GET /api/health/db` konkret die Existenz _und_ ein paar Pflichtfelder fester Referenzdokumente:
 
 - `users/demo-user` (Felder: `display_name`, `email`)
 - `users/demo-user/trips/demo-trip` (Felder: `destination`, `start_date`, `end_date`, `status`)
@@ -552,8 +576,8 @@ Damit entsteht eine geschlossene Kette aus _Erkennen_ (`/api/health/db`), _Messe
 
 === Backups und Restore
 
-Die aktuelle Backup-Strecke ist bewusst als täglicher Export umgesetzt: Der automatisierte Schutzpunkt entsteht einmal pro Tag, ergänzt durch manuelle Vorab-Backups für geplante Recovery-Tests.
-Diese Lösung ist einfach, prüfbar und passt zum Projektumfang, hat aber einen groben RPO: Änderungen zwischen zwei Scheduler-Läufen sind nicht durch den letzten geplanten Export abgedeckt.
+Die Backup-Strecke ist bewusst als täglicher Export umgesetzt: Der automatisierte Schutzpunkt entsteht einmal pro Tag, ergänzt durch manuelle Vorab-Backups für geplante Recovery-Tests.
+Diese Lösung ist einfach, prüfbar und passt zum Projektumfang, hat aber einen groben #acr("RPO"): Änderungen zwischen zwei Scheduler-Läufen sind nicht durch den letzten geplanten Export abgedeckt.
 Firestore-Exporte eignen sich laut Google für das Wiederherstellen nach versehentlicher Löschung und werden über Cloud Storage abgelegt. Ein Export ist jedoch kein exakt zum Startzeitpunkt eingefrorener Snapshot @gcp-firestore-export.
 
 Die Terraform-Konfiguration legt drei zusammenhängende Ressourcen an:
@@ -563,11 +587,11 @@ Die Terraform-Konfiguration legt drei zusammenhängende Ressourcen an:
 + Ein Cloud-Scheduler-Job, der täglich um 03:00 Uhr Europe/Berlin die Firestore-Export-API mit OAuth-Token dieses Service Accounts aufruft und nach `gs://.../scheduled/` schreibt.
 
 Zusätzlich existiert ein manuelles Backup-Script `presentation/demo-scripts/firestore-backup.sh` für Vorab-Backups vor gezielten Recovery-Tests.
-Für den regulären manuellen Betrieb wurde derselbe Vorgang zusätzlich als GitHub-Actions-Workflow `Manual Firestore Backup` umgesetzt.
+Für den regulären manuellen Betrieb steht derselbe Vorgang zusätzlich als GitHub-Actions-Workflow `Manual Firestore Backup` bereit.
 Er ist über `workflow_dispatch` startbar, authentifiziert sich mit demselben GCP-Service-Account wie die Deployment-Pipeline und exportiert Firestore nach `gs://${project-id}-firestore-backups/manual/<timestamp>-run-<nr>-<label>`.
 Der erzeugte Backup-Pfad wird in der Job Summary ausgegeben, sodass der spätere Restore eindeutig auf einen konkreten Export zeigen kann.
 Für den Restore existiert analog der Workflow `Manual Firestore Restore`, der nach manueller Bestätigung entweder das jüngste manuelle Backup oder einen explizit angegebenen `gs://`-Backup-Pfad importiert.
-Das lokale Script `presentation/demo-scripts/firestore-restore.sh` bleibt als Demo- und Fallback-Werkzeug erhalten.
+Das lokale Script `presentation/demo-scripts/firestore-restore.sh` dient als Demo- und Fallback-Werkzeug.
 
 === Recovery-Zeit und Kostenbewertung
 
@@ -587,7 +611,7 @@ Eine belastbare Messreihe mit größeren Datenmengen konnte nicht mehr durchgef�
 Auch die Kosten lassen sich daher nur überschlägig anhand der veröffentlichten Google-Cloud-Preise berechnen.
 In Summe liegt der überschlägige Grundbetrieb bei rund 38 bis 40 USD pro Monat, zuzüglich etwa 0,76 USD pro Monat je GiB produktiver Firestore-Daten für 30 tägliche Backup-Artefakte.
 Die genaue Herleitung ist im Anhang in @tab-cost-estimate dokumentiert.
-Tatsächliche Rechnungswerte können durch Rundung, Wechselkurse, bereits verbrauchte Free-Tier-Anteile, Netzwerkverkehr, Artifact-Registry-Speicher und konkrete Exportgröße abweichen; ein abschließender Abgleich gegen echte Billing-Daten war wegen der fast aufgebrauchten Credits nicht mehr sinnvoll möglich.
+Tatsächliche Rechnungswerte können durch Rundung, Wechselkurse, bereits verbrauchte Free-Tier-Anteile, Netzwerkverkehr, Artifact-Registry-Speicher und konkrete Exportgröße abweichen; wegen ausgeschöpfter Credits erfolgt kein abschließender Abgleich gegen echte Billing-Daten.
 
 == Ausblick und Handlungsempfehlungen
 
@@ -597,19 +621,18 @@ Eine vollständig zeitgenaue Wiederherstellung (Point-in-Time Recovery, PITR) wi
 Im Unterschied zum täglichen Export hält PITR ältere Dokumentversionen in einem Recovery-Fenster vor: ohne PITR ist nur ungefähr die letzte Stunde verfügbar, mit aktiviertem PITR bis zu sieben Tage; Lesezugriffe sind innerhalb der letzten Stunde auf beliebige unterstützte Zeitpunkte und darüber hinaus innerhalb des PITR-Fensters minutengenau möglich @gcp-firestore-pitr.
 Damit ist PITR deutlich granularer als der hier umgesetzte tägliche Export.
 
-Im Rahmen dieses Projekts wurde PITR nicht aktiviert, weil es zusätzliche Kosten verursacht und für die nachweisbare Backup-/Restore-Strecke nicht notwendig war.
-Für einen produktionsnäheren Betrieb wäre ein hybrider Ansatz sinnvoll: Daily Exports bleiben als langlebige, bucketbasierte Sicherung und als Grundlage für projektübergreifende Restores erhalten, während PITR die Lücke zwischen zwei geplanten Exporten schließt und versehentliche Schreib- oder Löschfehler feingranularer rückgängig machen kann.
+PITR ist nicht aktiviert, weil es zusätzliche Kosten verursacht und für die nachweisbare Backup-/Restore-Strecke nicht notwendig ist.
+Für einen produktionsnäheren Betrieb wäre aber ein hybrider Ansatz sinnvoll: Daily Exports bleiben als langlebige, bucketbasierte Sicherung und als Grundlage für projektübergreifende Restores erhalten, während PITR die Lücke zwischen zwei geplanten Exporten schließt und versehentliche Schreib- oder Löschfehler feingranularer rückgängig machen kann.
 Architektonisch ließe sich PITR ohne Änderungen am App-Code nachziehen: Es müsste in der Firestore-Konfiguration aktiviert werden, anschließend könnten zeitpunktbezogene Reads, Exporte oder Datenbank-Klone für feinere Recovery-Szenarien genutzt werden.
 
 Zusätzlich wäre ein gezielter Restore der tatsächlich betroffenen Dokumente oder Collection Groups schneller als ein vollständiger Firestore-Import.
-Der aktuelle Integritätscheck benennt bereits konkret fehlende Referenzdokumente und Pflichtfelder; ein produktionsnäheres Repair-Script könnte genau diese Dokumente aus einem Export oder aus versionierten Seed-Daten wiederherstellen, statt die gesamte Datenbank neu zu importieren.
 Das reduziert die Restore-Dauer besonders bei kleinen, klar lokalisierbaren Datenfehlern.
 Bei großflächiger Korruption bleibt dagegen ein vollständiger Import, ein PITR-basierter Export oder ein Datenbank-Klon die robustere Strategie.
 
 === Robusterer Integritätscheck
 
 Zusätzlich sollte der Integritätscheck produktionsnäher gestaltet werden.
-Der aktuelle Check ist für die Demo bewusst deterministisch, erkennt aber vor allem das Fehlen fester Referenzdokumente wie `users/demo-user`.
+Der Check ist für die Demo bewusst deterministisch, erkennt aber vor allem das Fehlen fester Referenzdokumente wie `users/demo-user`.
 Kleinere Datenverluste können dagegen lokaler auftreten: einzelne gelöschte Trips, verwaiste Subcollection-Dokumente, fehlende Pflichtfelder oder Mengenabweichungen gegenüber dem erwarteten Datenbestand.
 Für solche Fälle wäre ein mehrstufiger Check sinnvoll.
 Die erste Stufe prüft Firestore-Konnektivität und Berechtigungen; die zweite validiert eine kleine, dedizierte Sentinel-Collection mit versionierten Prüfdokumenten; die dritte prüft fachliche Invarianten über Aggregationen, Stichproben und Vergleichswerte.
@@ -644,7 +667,7 @@ Eine Rotation ließe sich dann durch das Anlegen einer neuen Secret-Version und 
     align: (left, left),
     table.header([*Bereich*], [*Umsetzung*]),
     [Web-Anwendung],
-    [E-Mail/Passwort-Login mit JWT, KI-Dialog mit persistenten Konversationen und speicherbaren Reiseplänen, Rate-Limit pro Nutzer.],
+    [E-Mail/Passwort-Login mit JWT, zweiphasiger KI-Dialog (Präferenzklärung → Itinerary per `GO`) mit strikt validiertem JSON-Envelope, persistenten Konversationen (inkl. Rename/Delete, Empfehlungen) sowie Trip-Workflow mit Detailansicht, Bearbeitung und Markdown-Export.],
 
     [Cloud-Service-Modelle],
     [SaaS: Gemini API · PaaS: Firestore, Artifact Registry, Cloud Scheduler, Cloud Storage · IaaS: Compute Engine (MIG + Monitoring-VM), Load Balancer, Persistent Disks.],
@@ -675,21 +698,23 @@ Eine Rotation ließe sich dann durch das Anlegen einer neuen Secret-Version und 
 Die automatisierten Tests laufen in GitHub Actions vor Build und Deployment und decken sowohl Backend- als auch Frontend-Verhalten ab.
 Im Backend prüfen `pytest` und der FastAPI-`TestClient` Authentifizierung, Chat- und Konversationsendpunkte, Trip-CRUD sowie `/api/health` und `/api/health/db`.
 Firestore und Gemini werden dabei gemockt, sodass die Suite deterministisch und ohne echte Cloud-Zugriffe läuft; für den DB-Integritätscheck existieren zusätzlich Negativtests für fehlende Referenzdaten und Firestore-Konnektivitätsfehler.
+Zusätzlich existieren *Gemini*-Integrationstests mit `pytest -m integration`, die reale Gemini-Aufrufe abdecken und als Teil der Backend-Testsuite laufen.
+Davon getrennt läuft nach dem Deployment ein eigener Public-App-Integrationsworkflow gegen die bereitgestellte Umgebung.
 
 Im Frontend prüfen Vitest und React Testing Library komponentennahe Nutzerflüsse wie Login/Register-Formulare, Auth-Routing, Session-Management via AuthContext, Navigation, Chat-Fehlerfälle, das Speichern einer Antwort als Reiseplan sowie das Erstellen und Löschen von Trips.
 Die API-Schicht wird mit axios-mock-adapter gemockt; getestet werden damit UI-Verhalten, Zustandsübergänge und HTTP-Interceptor-Logik (Token-Injektion, 401-Handling), nicht visuelle Pixel-Regressionen.
 Ergänzend gatekeepen `ruff`, `mypy`, `pip-audit`, `tsc --noEmit`, ESLint, `vitest run --coverage` und `npm audit` formale Korrektheit, funktionale Korrektheit und Lieferkettensicherheit.
 
-Die Zeilenabdeckung liegt zum Projektabschluss bei rund 93 % im Backend und rund 65 % im Frontend; die detaillierten Coverage-Tabellen sind im Anhang in @tab-coverage-frontend und @tab-coverage-backend dokumentiert.
-Nach dem Deployment läuft zusätzlich ein Integrationsworkflow gegen die öffentliche App-URL, der Health-Endpunkte, Authentifizierung, Trip-CRUD und relevante Storage-Buckets mit echten GCP-Diensten prüft, aber bewusst auf Gemini-Aufrufe verzichtet.
+Die gemessene Zeilenabdeckung liegt bei rund 93 % im Backend und rund 65 % im Frontend; die detaillierten Coverage-Tabellen sind im Anhang in @tab-coverage-frontend und @tab-coverage-backend dokumentiert.
+Zusätzlich läuft ein Integrationsworkflow gegen die öffentliche App-URL, der Health-Endpunkte, Authentifizierung, Trip-CRUD und relevante Storage-Buckets mit echten GCP-Diensten prüft, aber bewusst auf Gemini-Aufrufe verzichtet.
 Vollständige End-to-End-Prüfungen von Load-Balancer-Verhalten, MIG-Autohealing oder realen Firestore-Imports bleiben aus Kosten- und Laufzeitgründen getrennten Demo- und Recovery-Nachweisen vorbehalten.
 
-== Grenzen der aktuellen Lösung
+== Grenzen der Lösung
 
 - Das Restore ist manuell angestoßen.
-  In einem Produktionsbetrieb wäre ein definierter RTO/RPO-Zielwert mit automatisierter Restore-Entscheidung wünschenswert.
+  In einem Produktionsbetrieb wäre ein definierter #acr("RTO")/#acr("RPO")-Zielwert mit automatisierter Restore-Entscheidung wünschenswert.
 - Die geplanten Firestore-Backups laufen nur täglich; PITR ist konzeptionell vorgesehen, aber aus Kostengründen nicht aktiviert.
-  Dadurch bleibt der Recovery-Punkt zwischen zwei täglichen Exporten gröber als in einem hybriden Export-plus-PITR-Setup.
+  Dadurch liegt der Recovery-Punkt zwischen zwei täglichen Exporten gröber als in einem hybriden Export-plus-PITR-Setup.
 - Das Logging ist bewusst pragmatisch über Promtail nach Loki umgesetzt.
   Für einen produktionsnäheren Ausbau wäre OpenTelemetry interessant, insbesondere um zusätzlich verteilte Traces und eine vendor-neutrale Telemetrie-Pipeline einzuführen.
 
@@ -703,8 +728,8 @@ Die eingeführte Unterscheidung zwischen Integritätscheck und reinem Connectivi
 Der Load Balancer und die CI/CD-Pipeline ergänzen diese Architektur um einen stabilen öffentlichen Einstiegspunkt und reproduzierbare Rollouts.
 
 Für zukünftige Iterationen bieten sich vor allem vier Richtungen an:
-_automatisiertes Restore_ (RTO/RPO-getrieben), ein hybrider _Daily-Export-plus-PITR_-Ansatz für Firestore, eine _OpenTelemetry_-basierte Observability-Pipeline und ein _Multi-Region-Failover_ für den Load Balancer.
-Die aktuelle Trennung zwischen Terraform-gesteuertem App-Rollout und Ansible-gesteuertem Monitoring-Host bleibt dabei tragfähig und ermöglicht diese Erweiterungen, ohne die bestehende Deployment-Geschichte zu brechen.
+_automatisiertes Restore_ (#acr("RTO")/#acr("RPO")-getrieben), ein hybrider _Daily-Export-plus-PITR_-Ansatz für Firestore, eine _OpenTelemetry_-basierte Observability-Pipeline und ein _Multi-Region-Failover_ für den Load Balancer.
+Die Trennung zwischen Terraform-gesteuertem App-Rollout und Ansible-gesteuertem Monitoring-Host bleibt dabei tragfähig und ermöglicht diese Erweiterungen, ohne die bestehende Deployment-Struktur zu brechen.
 
 // ========= Anhang =========
 = Anhang
@@ -750,7 +775,7 @@ Sie basiert auf den veröffentlichten On-Demand-Preisen und vereinfacht auf 730 
 
 == Testabdeckung
 
-Die folgenden Tabellen dokumentieren die zum Projektabschluss gemessene Testabdeckung für Frontend und Backend.
+Die folgenden Tabellen dokumentieren die gemessene Testabdeckung für Frontend und Backend.
 Die Frontend-Abdeckung stammt aus `npm run test:coverage` mit Vitest und V8-Coverage-Provider.
 
 #figure(
@@ -836,7 +861,7 @@ Die Backend-Abdeckung stammt aus der `pytest`-Testsuite mit `pytest-cov`.
       [`tests/conftest.py`], [25], [0], [100 %], [],
       [`tests/test_ai.py`], [154], [0], [100 %], [],
       [`tests/test_auth.py`], [55], [0], [100 %], [],
-      [`tests/test_gemini_integration.py`], [56], [43], [23 %], [`37-40, 46-63, 71-140`],
+      [`tests/integration/test_gemini.py`], [56], [43], [23 %], [`37-40, 46-63, 71-140`],
       [`tests/test_health.py`], [62], [3], [95 %], [`86, 93, 98`],
       [`tests/test_services.py`], [111], [0], [100 %], [],
       [`tests/test_trips.py`], [86], [0], [100 %], [],

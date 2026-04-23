@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from pathlib import Path
 
 import httpx
@@ -7,13 +8,16 @@ from google.cloud import firestore
 
 
 STATE_FILE = Path(os.environ.get("INTEGRATION_STATE_FILE", ".integration-test-state.json"))
-TEST_RUN_ID = os.environ["TEST_RUN_ID"]
+TEST_RUN_ID = os.environ.get("TEST_RUN_ID", f"local-{int(time.time())}")
 TEST_EMAIL = os.environ.get("TEST_EMAIL", f"integration-{TEST_RUN_ID}@example.com")
 TEST_PASSWORD = os.environ.get("TEST_PASSWORD", f"integration-{TEST_RUN_ID}-password")
 
 
 def _app_url() -> str:
-    return os.environ["APP_URL"].rstrip("/")
+    raw = os.environ.get("APP_URL", "http://localhost:8000").strip().rstrip("/")
+    if not raw.startswith(("http://", "https://")):
+        raw = f"http://{raw}"
+    return raw
 
 
 def _write_state(**updates):

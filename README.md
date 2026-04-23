@@ -1,6 +1,6 @@
 # AI Travel Assistant
 
-A full-stack AI travel assistant powered by Google Gemini Flash, running on GCP. Focus is not on the app itself, but on the infrastructure.
+A full-stack AI travel assistant powered by Google Gemini Flash, running on GCP. The app now includes a richer planning workflow (structured itineraries, conversation management, trip detail/edit/export), while the primary project focus remains on infrastructure.
 Infrastructure is provisioned with Terraform, monitoring is provisioned with Ansible, and a GCP Managed Instance Group keeps the app self-healing behind a global HTTP load balancer.
 
 Written for the Cloud Computing course — see [`ausarbeitung/`](ausarbeitung/) for the report (Typst + PDF) and [`presentation/`](presentation/) for the slides.
@@ -94,8 +94,8 @@ flowchart TD
 
 | Path | Purpose |
 |------|---------|
-| [`backend/`](backend/) | FastAPI app — routers (`auth`, `ai`, `trips`, `health`), Firestore + Gemini services, pytest suite |
-| [`frontend/`](frontend/) | React + Vite + Tailwind UI — login, chat, trip planner |
+| [`backend/`](backend/) | FastAPI app — routers (`auth`, `ai`, `trips`, `health`), strict Gemini envelope handling, Firestore + Gemini services, pytest suite |
+| [`frontend/`](frontend/) | React + Vite + Tailwind UI — login, AI chat, conversation history management, trip planner + trip detail/editor |
 | [`nginx/`](nginx/) | Multi-stage Dockerfile: builds the frontend, serves static files, proxies `/api` to backend |
 | [`terraform/`](terraform/) | All GCP infrastructure (VMs, MIG, LB, Firestore, Artifact Registry, GCS, scheduled backup job) |
 | [`ansible/`](ansible/) | Monitoring-VM provisioning (Prometheus, Loki, Grafana, Alertmanager) |
@@ -195,6 +195,17 @@ ssh-keygen -t ed25519 -C "github-actions-deploy" -f deploy_key -N ""
 | `SSH_PRIVATE_KEY` | Contents of `deploy_key` |
 | `SMTP_AUTH_PASSWORD` | Optional SMTP password/app password for Alertmanager email notifications |
 
+Required IAM rights for `GCP_SA_KEY` (service account `github-actions@<project>.iam.gserviceaccount.com`):
+- `roles/compute.admin` — create/update instance templates, MIG, load balancer resources, disks, and VM metadata.
+- `roles/cloudscheduler.admin` — create/update the Firestore export schedule.
+- `roles/iam.serviceAccountAdmin` — manage service-account-related IAM bindings used by Terraform resources.
+- `roles/iam.serviceAccountUser` — allow resources/workflows to impersonate or attach service accounts where needed.
+- `roles/resourcemanager.projectIamAdmin` — manage project-level IAM bindings applied by Terraform.
+- `roles/serviceusage.serviceUsageAdmin` — enable required APIs during provisioning.
+- `roles/datastore.owner` — manage Firestore database and export/import operations.
+- `roles/storage.admin` — manage Terraform state bucket, app-config bucket objects, and Firestore backup bucket objects.
+- `roles/artifactregistry.admin` — create/manage repositories and push/pull container images.
+
 ### 4. GitHub Variables
 
 | Name | Value |
@@ -236,18 +247,17 @@ uvicorn main:app --reload
 pytest tests/ -v          # run the test suite
 ```
 
-Optional Gemini integration tests (real API calls, opt-in):
+Gemini integration tests (real API calls):
 
 ```bash
 cd backend
 source .venv/bin/activate
-RUN_GEMINI_INTEGRATION=1 pytest tests/test_gemini_integration.py -m integration -v
+pytest tests/integration/test_gemini.py -m integration -v
 ```
 
 Notes:
 - These tests call Gemini directly and may consume quota/cost.
 - They bypass Firestore rate-limit bookkeeping to keep scope on Gemini behavior.
-- They are skipped by default unless `RUN_GEMINI_INTEGRATION=1` is set.
 
 Frontend:
 
@@ -255,7 +265,7 @@ Frontend:
 cd frontend
 npm install
 npm run dev
-npm run test:run       # run frontend tests (10 files / 46 tests)
+npm run test:run       # run frontend tests
 npm run test:coverage  # run tests and print coverage; writes frontend/coverage/
 npm run typecheck      # TypeScript check
 ```
@@ -274,6 +284,9 @@ npm run typecheck      # TypeScript check
 | `SMTP_AUTH_USERNAME` | no | Optional SMTP username |
 | `SMTP_AUTH_PASSWORD` | no | Optional SMTP password/app password |
 | `ALERT_EMAIL_TO` | no | Optional alert email recipient |
+| `GEMINI_MODEL` | no | Default Gemini model (fallback: `gemini-3.1-flash-lite-preview`) |
+| `GEMINI_REASONING_MODEL` | no | Alternate reasoning model (fallback: `gemini-2.5-flash`) |
+| `GEMINI_USE_REASONING` | no | Set to `1` to use `GEMINI_REASONING_MODEL` |
 
 ## Access
 
@@ -292,8 +305,8 @@ send email notifications when the optional SMTP settings are configured.
 | Collection | Contents |
 |------------|----------|
 | `users/{uid}` | User profiles |
-| `users/{uid}/conversations/{id}` | Chat history |
-| `users/{uid}/trips/{id}` | Saved itineraries |
+| `users/{uid}/conversations/{id}` | Chat history + metadata (`title`, `trip_title`, `recommendations`, `updated_at`) |
+| `users/{uid}/trips/{id}` | Saved trips with optional structured itinerary JSON (`itinerary`) and linked `conversation_id` |
 | `rate_limits/{uid}` | Gemini API daily usage (resets at midnight UTC) |
 | `analytics/daily_usage` | Aggregate request counters |
 
@@ -301,6 +314,26 @@ send email notifications when the optional SMTP settings are configured.
 
 Gemini free tier: **500 requests/day**. Per-user usage is tracked in Firestore using
 atomic transactions; users hitting the cap get a 429 with a clear message.
+
+## App upgrade scope (frontend + backend)
+
+### Backend changes
+
+- `POST /api/ai/chat` now enforces a strict Gemini JSON envelope with exactly `triptitle`, `response`, and `recommendations`.
+- If Gemini violates that contract, backend retries once with a repair instruction; if it still fails, the API returns `502` with trimmed raw-response diagnostics.
+- Chat responses now return `recommendations` (2-4 follow-up prompts) and optional `trip_plan` JSON for structured itinerary rendering.
+- Conversation API now supports rename/delete (`PATCH /api/ai/conversations/{id}`, `DELETE /api/ai/conversations/{id}`), while list/get remain unchanged.
+- Trip API now includes `GET /api/trips/{trip_id}` in addition to list/create/update/delete.
+- Gemini chat prompt runs as a two-phase flow: preference discovery first, itinerary generation after the user sends `GO`.
+
+### Frontend changes
+
+- Chat UI now includes recommendation chips, retry for failed requests, search/sort/pin for conversation history, rename/delete actions, and a mobile history drawer.
+- Structured itinerary JSON is rendered as timeline cards (days, activities, hotels by night, budget).
+- Assistant responses can be saved as trips; when a conversation already has a linked trip, itinerary changes can be written back via update.
+- Markdown export is available for generated/saved itineraries.
+- Trip planner now includes search/sort, per-trip export/delete actions, detail navigation, and jump-to-linked-chat.
+- New `TripDetail` route (`/trips/:tripId`) supports full trip view/edit/save/delete, structured itinerary editing, export, and opening the linked conversation.
 
 ## Disaster recovery
 

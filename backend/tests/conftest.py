@@ -1,10 +1,9 @@
 """
-Test configuration — sets required env vars and stubs heavy dependencies
-before any app import so module-level initialisations don't fail.
+Test configuration — sets required env vars before app import so
+module-level initialisations don't fail.
 """
 
 import os
-import sys
 from unittest.mock import MagicMock
 
 import pytest
@@ -13,10 +12,6 @@ import pytest
 os.environ.setdefault("GCP_PROJECT_ID", "test-project")
 os.environ.setdefault("GEMINI_API_KEY", "fake-gemini-key")
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-tests-only")
-
-# ── Stub out google.generativeai before it is imported ───────────────────────
-_mock_genai = MagicMock()
-sys.modules["google.generativeai"] = _mock_genai
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 

@@ -3,6 +3,7 @@ Gemini Flash client with daily rate-limit enforcement.
 Free tier: 500 requests/day tracked in Firestore.
 """
 
+import asyncio
 import logging
 import os
 import time
@@ -23,6 +24,7 @@ DEFAULT_MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite-preview")
 REASONING_MODEL_NAME = os.getenv("GEMINI_REASONING_MODEL", "gemini-2.5-flash")
 USE_REASONING = os.getenv("GEMINI_USE_REASONING", "0") == "1"
 MODEL_NAME = REASONING_MODEL_NAME if USE_REASONING else DEFAULT_MODEL_NAME
+REQUEST_TIMEOUT_SECONDS = float(os.getenv("GEMINI_REQUEST_TIMEOUT_SECONDS", "30"))
 
 SYSTEM_PROMPT = """You are a travel-planning assistant running a strict two-phase workflow.
 
@@ -165,12 +167,27 @@ async def chat(
     chat_session = _model.start_chat(history=history)
     t0 = time.perf_counter()
     try:
-        response = chat_session.send_message(latest)
+        response = await asyncio.wait_for(
+            asyncio.to_thread(chat_session.send_message, latest),
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
         duration = time.perf_counter() - t0
         gemini_duration_seconds.observe(duration)
         ai_requests_total.labels(status="success").inc()
         logger.info("gemini_chat_success", extra={"uid": uid, "duration_s": round(duration, 3)})
         return response.text
+    except TimeoutError as exc:
+        duration = time.perf_counter() - t0
+        gemini_duration_seconds.observe(duration)
+        ai_requests_total.labels(status="error").inc()
+        logger.warning(
+            "gemini_chat_timeout",
+            extra={"uid": uid, "timeout_s": REQUEST_TIMEOUT_SECONDS, "duration_s": round(duration, 3)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=f"Gemini request timed out after {REQUEST_TIMEOUT_SECONDS:.0f}s",
+        ) from exc
     except Exception:
         duration = time.perf_counter() - t0
         gemini_duration_seconds.observe(duration)
