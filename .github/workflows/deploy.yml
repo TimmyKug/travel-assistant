@@ -283,17 +283,27 @@ jobs:
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v2
 
+      # ── Push runtime secrets to Secret Manager ───────────────────────
+      # App VMs fetch these at startup via the `secretAccessor` binding set in
+      # Terraform, so the .env in GCS stays free of plaintext secrets.
+      - name: Sync runtime secrets to Secret Manager
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+        run: |
+          printf '%s' "$GEMINI_API_KEY" | gcloud secrets versions add gemini-api-key --data-file=-
+          printf '%s' "$JWT_SECRET_KEY" | gcloud secrets versions add jwt-secret-key --data-file=-
+
       # ── Upload app configs and .env to GCS ──────────────────────────
       - name: Upload app configs to GCS
         run: |
           BUCKET="${{ needs.provision.outputs.config_bucket }}"
           MONITORING_IP="${{ needs.provision.outputs.monitoring_internal_ip }}"
 
-          # Render .env in the same format as the Ansible template
+          # Non-secret runtime config only — GEMINI_API_KEY and JWT_SECRET_KEY
+          # are fetched from Secret Manager by the VM startup script.
           cat > /tmp/app.env << ENV
           GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID }}
-          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
-          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
           LOKI_URL=http://${MONITORING_IP}:3100/loki/api/v1/push
           IMAGE_TAG=${{ github.sha }}
           ENV

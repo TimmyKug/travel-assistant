@@ -65,11 +65,22 @@ chown -R deploy:deploy "$APP_DIR"
 # CI/CD uploads these on every deploy:
 #   docker-compose.yml          — service definitions
 #   monitoring/promtail/promtail.yml — log shipper config
-#   .env                        — rendered by Ansible from GitHub secrets
+#   .env                        — non-secret runtime config (secrets are pulled
+#                                 from Secret Manager in step 4b)
 echo "[startup] pulling configs from gs://$CONFIG_BUCKET/"
 gsutil -m cp "gs://$CONFIG_BUCKET/docker-compose.yml"                      "$APP_DIR/docker-compose.yml"
 gsutil -m cp "gs://$CONFIG_BUCKET/monitoring/promtail/promtail.yml"        "$APP_DIR/monitoring/promtail/promtail.yml"
 gsutil -m cp "gs://$CONFIG_BUCKET/.env"                                    "$APP_DIR/.env"
+
+# ── 4b. Pull runtime secrets from Secret Manager ──────────────────────────────
+# Kept out of the GCS bucket so plaintext secrets don't live alongside config.
+# The app VM service account has roles/secretmanager.secretAccessor per secret.
+echo "[startup] fetching runtime secrets from Secret Manager"
+GEMINI_API_KEY=$(gcloud secrets versions access latest --secret=gemini-api-key   --project="$PROJECT_ID")
+JWT_SECRET_KEY=$(gcloud secrets versions access latest --secret=jwt-secret-key   --project="$PROJECT_ID")
+printf 'GEMINI_API_KEY=%s\n' "$GEMINI_API_KEY" >> "$APP_DIR/.env"
+printf 'JWT_SECRET_KEY=%s\n' "$JWT_SECRET_KEY" >> "$APP_DIR/.env"
+unset GEMINI_API_KEY JWT_SECRET_KEY
 
 # The MIG rollout is keyed off the instance template's image tag. Pin that tag
 # locally even if the bucket contents lag briefly during the deploy pipeline.

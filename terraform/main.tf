@@ -33,12 +33,49 @@ resource "google_project_iam_member" "artifact_registry_reader" {
   member  = "serviceAccount:${google_service_account.travel_vm_sa.email}"
 }
 
-# App VM SA can read secrets (for startup script self-healing bootstrap)
 # App VM SA can read configs from GCS (for startup script self-healing bootstrap)
 resource "google_storage_bucket_iam_member" "app_sa_configs_reader" {
   bucket = google_storage_bucket.app_configs.name
   role   = "roles/storage.objectViewer"
   member = "serviceAccount:${google_service_account.travel_vm_sa.email}"
+}
+
+# ── Secret Manager ────────────────────────────────────────────────────────────
+# Runtime secrets (Gemini API key, JWT signing key) live in Secret Manager,
+# not in the GCS config bucket. The app VM fetches them at startup via the
+# service account below. Secret *values* are injected by CI (`gcloud secrets
+# versions add`) so they never enter Terraform state.
+resource "google_project_service" "secret_manager_api" {
+  service            = "secretmanager.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_secret_manager_secret" "gemini_api_key" {
+  secret_id = "gemini-api-key"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.secret_manager_api]
+}
+
+resource "google_secret_manager_secret" "jwt_secret_key" {
+  secret_id = "jwt-secret-key"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.secret_manager_api]
+}
+
+resource "google_secret_manager_secret_iam_member" "app_sa_gemini_accessor" {
+  secret_id = google_secret_manager_secret.gemini_api_key.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.travel_vm_sa.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "app_sa_jwt_accessor" {
+  secret_id = google_secret_manager_secret.jwt_secret_key.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.travel_vm_sa.email}"
 }
 
 # ── Service Account — Monitoring VM ──────────────────────────────────────────
