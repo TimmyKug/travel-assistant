@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Seeds deterministic Firestore demo data for the disaster-recovery demo.
+# Seeds deterministic Firestore sentinel data for integrity checks.
 set -euo pipefail
 
 PROJECT_ID="${1:-$(gcloud config get-value project 2>/dev/null)}"
@@ -16,24 +16,24 @@ from google.cloud import firestore
 db = firestore.Client(project='${PROJECT_ID}')
 now = datetime.now(timezone.utc).isoformat()
 
-db.collection('users').document('demo-user').set({
-    'display_name': 'Demo User',
-    'email': 'demo@example.com',
+db.collection('users').document('sentinel-user').set({
+    'display_name': 'Sentinel User',
+    'email': 'sentinel@example.com',
     'created_at': now,
 }, merge=True)
 
-db.collection('users').document('demo-user').collection('trips').document('demo-trip').set({
-    'title': 'Recovery Demo Trip',
+db.collection('users').document('sentinel-user').collection('trips').document('sentinel-trip').set({
+    'title': 'Recovery Sentinel Trip',
     'destination': 'Rome',
     'start_date': '2026-06-01',
     'end_date': '2026-06-07',
     'status': 'planned',
-    'notes': 'Reference trip for Firestore integrity demo',
+    'notes': 'Reference trip for Firestore integrity checks',
     'updated_at': now,
 }, merge=True)
 
-db.collection('users').document('demo-user').collection('conversations').document('demo-conversation').set({
-    'title': 'Recovery Demo Conversation',
+db.collection('users').document('sentinel-user').collection('conversations').document('sentinel-conversation').set({
+    'title': 'Recovery Sentinel Conversation',
     'messages': [
         {'role': 'user', 'parts': ['Plan my Rome trip']},
         {'role': 'model', 'parts': ['Sure, here is a simple itinerary.']},
@@ -46,9 +46,9 @@ db.collection('analytics').document('system').set({
     'last_seeded_at': now,
 }, merge=True)
 
-print('Seeded Firestore demo reference data.')
-print('User: users/demo-user')
-print('Trip: users/demo-user/trips/demo-trip')
-print('Conversation: users/demo-user/conversations/demo-conversation')
+print('Seeded Firestore sentinel reference data.')
+print('User: users/sentinel-user')
+print('Trip: users/sentinel-user/trips/sentinel-trip')
+print('Conversation: users/sentinel-user/conversations/sentinel-conversation')
 print('Analytics: analytics/system')
 "

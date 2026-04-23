@@ -12,8 +12,8 @@ from services.firestore_client import get_db
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-DEMO_USER_ID = "demo-user"
-DEMO_TRIP_ID = "demo-trip"
+SENTINEL_USER_ID = "sentinel-user"
+SENTINEL_TRIP_ID = "sentinel-trip"
 
 
 def _require_fields(doc_dict: dict | None, required_fields: list[str], label: str) -> list[str]:
@@ -27,15 +27,15 @@ def _require_fields(doc_dict: dict | None, required_fields: list[str], label: st
 @router.get("/health/db")
 async def db_health():
     """
-    Verifies that fixed demo reference documents exist and contain
-    the minimum fields required for the disaster-recovery demo.
+    Verifies that fixed sentinel documents exist and contain
+    the minimum fields required for integrity monitoring.
     """
     db = get_db()
     errors: list[str] = []
 
     try:
-        user_ref = db.collection("users").document(DEMO_USER_ID)
-        trip_ref = user_ref.collection("trips").document(DEMO_TRIP_ID)
+        user_ref = db.collection("users").document(SENTINEL_USER_ID)
+        trip_ref = user_ref.collection("trips").document(SENTINEL_TRIP_ID)
         analytics_ref = db.collection("analytics").document("system")
 
         user_doc = user_ref.get()
@@ -59,24 +59,24 @@ async def db_health():
         )
 
     if not user_doc.exists:
-        errors.append("users/demo-user missing")
+        errors.append("users/sentinel-user missing")
     else:
         errors.extend(
             _require_fields(
                 user_doc.to_dict(),
                 ["display_name", "email"],
-                "users/demo-user",
+                "users/sentinel-user",
             )
         )
 
     if not trip_doc.exists:
-        errors.append("users/demo-user/trips/demo-trip missing")
+        errors.append("users/sentinel-user/trips/sentinel-trip missing")
     else:
         errors.extend(
             _require_fields(
                 trip_doc.to_dict(),
                 ["destination", "start_date", "end_date", "status"],
-                "users/demo-user/trips/demo-trip",
+                "users/sentinel-user/trips/sentinel-trip",
             )
         )
 
@@ -98,8 +98,8 @@ async def db_health():
                 "event": "db_integrity_error",
                 "reason": "integrity_error",
                 "errors": errors,
-                "demo_user_id": DEMO_USER_ID,
-                "demo_trip_id": DEMO_TRIP_ID,
+                "sentinel_user_id": SENTINEL_USER_ID,
+                "sentinel_trip_id": SENTINEL_TRIP_ID,
             },
         )
         return JSONResponse(

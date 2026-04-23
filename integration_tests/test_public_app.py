@@ -1,6 +1,5 @@
 import json
 import os
-import time
 from pathlib import Path
 
 import httpx
@@ -72,7 +71,7 @@ def test_firestore_integrity_health():
     with httpx.Client(timeout=20) as client:
         response = client.get(f"{_app_url()}/api/health/db")
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     assert response.json()["status"] == "healthy"
 
 

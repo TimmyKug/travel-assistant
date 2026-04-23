@@ -111,11 +111,11 @@ Pushing to `main` triggers [`.github/workflows/deploy.yml`](.github/workflows/de
 1. **backend_checks** — runs ruff lint/format, mypy, pip-audit, and `pytest` against [`backend/tests/`](backend/tests/).
 2. **frontend_checks** — runs TypeScript checks, ESLint, Vitest frontend tests with coverage, and `npm audit`.
 3. **build** (matrix) — builds + pushes `backend` and `nginx` images to Artifact Registry, tagged with `github.sha` and `latest`.
-4. **provision** — `terraform apply` creates/updates infra and imports the Firestore DB if it already exists out-of-band.
+4. **provision** — `terraform apply` creates/updates infra, imports the Firestore DB if it already exists out-of-band, and seeds required Firestore sentinel documents.
 5. **deploy** — uploads `docker-compose.yml`, promtail config, and a rendered `.env` to the GCS config bucket, re-runs `terraform apply` with the new `app_image_tag` (triggers MIG rolling replacement), and runs Ansible against the monitoring VM.
 6. **verify** — calls the integration-test workflow against the public app URL after deployment.
 
-Integration checks live in [`.github/workflows/integration-tests.yml`](.github/workflows/integration-tests.yml). The workflow runs automatically as post-deploy verification and can also be started manually with `workflow_dispatch`. It takes the deployed app URL as input, skips Gemini to avoid quota/cost flakiness, creates a unique temporary user/trip through the public API, checks health endpoints and storage buckets, and cleans up Firestore test data in an `if: always()` step.
+Integration checks live in [`.github/workflows/integration-tests.yml`](.github/workflows/integration-tests.yml). The workflow runs automatically as post-deploy verification and can also be started manually with `workflow_dispatch`. It takes the deployed app URL as input, skips Gemini to avoid quota/cost flakiness, creates a unique temporary user/trip through the public API, checks health endpoints and storage buckets, and cleans up Firestore test data in an `if: always()` step. Sentinel documents are provisioned separately during infrastructure setup.
 
 Current test coverage:
 
@@ -360,7 +360,7 @@ The focus feature. Three layers:
 5. **Demo scripts** — presentation demo scripts in [`presentation/demo-scripts/`](presentation/demo-scripts/):
    - [`firestore-backup.sh`](presentation/demo-scripts/firestore-backup.sh) — ad-hoc export
    - [`firestore-restore.sh`](presentation/demo-scripts/firestore-restore.sh) — restore from a prior export
-   - [`firestore-seed-demo-data.sh`](presentation/demo-scripts/firestore-seed-demo-data.sh) — re-seed demo users/trips
+   - [`seed-sentinel-data.sh`](scripts/seed-sentinel-data.sh) — seed Firestore sentinel/reference documents for integrity checks (database setup)
    - [`demo-corrupt-db.sh`](presentation/demo-scripts/demo-corrupt-db.sh) — destructive demo for the presentation
 
 ## Monitoring data persistence

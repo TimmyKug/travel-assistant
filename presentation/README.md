@@ -6,7 +6,7 @@ Reveal.js slide deck for the AI Travel Assistant project presentation.
 
 - `index.html` - the slide deck
 - `server.py` - local helper server for live demo actions
-- `demo-scripts/` - Firestore backup, restore, seed, and corruption demo scripts
+- `demo-scripts/` - Firestore backup, restore, and corruption demo scripts
 - `backup-status.json` - sample backup status response used by the demo
 - `start_presentation.command` - macOS launcher for the local presentation server
 
@@ -29,4 +29,4 @@ On macOS, you can also run `start_presentation.command`.
 
 ## Notes
 
-Some demo actions call local scripts and `gcloud`, so they require an authenticated Google Cloud CLI session with access to the project. The static slides can still be viewed by opening `index.html`, but live demo actions need the local server.
+Some demo actions call local scripts and `gcloud`, so they require an authenticated Google Cloud CLI session with access to the project. Sentinel seeding is part of infrastructure provisioning and is intentionally not triggered by the presentation launcher. The static slides can still be viewed by opening `index.html`, but live demo actions need the local server.

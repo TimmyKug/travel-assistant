@@ -12,8 +12,6 @@ if [ -z "$PROJECT_ID" ]; then
 fi
 
 echo "Aktives gcloud-Projekt: $PROJECT_ID"
-echo "Spiele Demo-Daten in Firestore ein..."
-"demo-scripts/firestore-seed-demo-data.sh" "$PROJECT_ID"
 
 BACKUP_STATUS_FILE="backup-status.json"
 printf '{"status":"starting","message":"Backup wird gestartet..."}\n' > "$BACKUP_STATUS_FILE"

@@ -5,7 +5,9 @@ def test_health(client):
 
 
 def test_db_health_healthy(client, mock_db):
-    user_doc = _doc(True, {"display_name": "Demo User", "email": "demo@example.com"})
+    user_doc = _doc(
+        True, {"display_name": "Sentinel User", "email": "sentinel@example.com"}
+    )
     trip_doc = _doc(
         True,
         {
@@ -25,7 +27,7 @@ def test_db_health_healthy(client, mock_db):
 
 
 def test_db_health_missing_reference_data(client, mock_db):
-    user_doc = _doc(True, {"display_name": "Demo User"})
+    user_doc = _doc(True, {"display_name": "Sentinel User"})
     trip_doc = _doc(False)
     analytics_doc = _doc(True, {"seed_version": 1})
     _configure_health_mocks(mock_db, user_doc, trip_doc, analytics_doc)
@@ -37,8 +39,8 @@ def test_db_health_missing_reference_data(client, mock_db):
         "status": "unhealthy",
         "reason": "integrity_error",
         "errors": [
-            "users/demo-user missing field: email",
-            "users/demo-user/trips/demo-trip missing",
+            "users/sentinel-user missing field: email",
+            "users/sentinel-user/trips/sentinel-trip missing",
             "analytics/system missing field: last_seeded_at",
         ],
         "checked_documents": 3,
@@ -86,14 +88,14 @@ def _configure_health_mocks(mock_db, user_doc, trip_doc, analytics_doc):
         raise AssertionError(f"Unexpected collection: {name}")
 
     def document_side_effect(doc_id):
-        if doc_id == "demo-user":
+        if doc_id == "sentinel-user":
             return user_ref
         if doc_id == "system":
             return analytics_ref
         raise AssertionError(f"Unexpected document: {doc_id}")
 
     def trip_document_side_effect(doc_id):
-        if doc_id == "demo-trip":
+        if doc_id == "sentinel-trip":
             return trip_ref
         raise AssertionError(f"Unexpected trip document: {doc_id}")
 

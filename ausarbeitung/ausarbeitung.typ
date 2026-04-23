@@ -551,10 +551,10 @@ Die globale Load-Balancer-IP bleibt dabei unverändert, weil sie nicht an eine k
 === Deterministischer Integritätscheck
 
 Ein bloßer Ping auf Firestore würde einen Datenverlust nicht erkennen, da die Datenbank technisch weiterhin antwortet.
-Deshalb prüft ein dedizierter Endpoint `GET /api/health/db` konkret die Existenz _und_ ein paar Pflichtfelder fester Referenzdokumente:
+Deshalb prüft ein dedizierter Endpoint `GET /api/health/db` konkret die Existenz _und_ Pflichtfelder fester Sentinel-Dokumente:
 
-- `users/demo-user` (Felder: `display_name`, `email`)
-- `users/demo-user/trips/demo-trip` (Felder: `destination`, `start_date`, `end_date`, `status`)
+- `users/sentinel-user` (Felder: `display_name`, `email`)
+- `users/sentinel-user/trips/sentinel-trip` (Felder: `destination`, `start_date`, `end_date`, `status`)
 - `analytics/system` (Felder: `seed_version`, `last_seeded_at`)
 
 Fehlt eines dieser Dokumente oder ein Pflichtfeld, liefert der Endpoint `HTTP 500` mit einer strukturierten Fehlerliste und loggt ein Ereignis `db_integrity_error`.
@@ -563,7 +563,7 @@ Der Endpoint unterscheidet damit bewusst zwischen _Daten sind erreichbar, aber i
 
 Im Erfolgsfall antwortet der Endpoint mit `status: "healthy"` und `checked_documents: 3`.
 Im Fehlerfall enthält die Antwort `status: "unhealthy"`, einen maschinenlesbaren `reason` sowie die konkrete Liste der fehlenden Dokumente oder Felder.
-Dadurch kann der Recovery-Test nicht nur einen roten Zustand anzeigen, sondern auch begründen, welche Referenzdaten wiederhergestellt werden müssen.
+Dadurch kann der Recovery-Test nicht nur einen roten Zustand anzeigen, sondern auch begründen, welche Sentinel-Dokumente wiederhergestellt werden müssen.
 
 Ein Blackbox Exporter fragt den Endpoint regelmäßig über den Prometheus-Job `db-health` ab und exportiert `probe_success` als Prometheus-Metrik.
 Der Alert `FirestoreIntegrityCheckFailed` wird ausgelöst, wenn `probe_success` fehlschlägt und die betroffene App-Instanz gleichzeitig über den normalen API-Scrape erreichbar ist.
@@ -632,7 +632,7 @@ Bei großflächiger Korruption bleibt dagegen ein vollständiger Import, ein PIT
 === Robusterer Integritätscheck
 
 Zusätzlich sollte der Integritätscheck produktionsnäher gestaltet werden.
-Der Check ist für die Demo bewusst deterministisch, erkennt aber vor allem das Fehlen fester Referenzdokumente wie `users/demo-user`.
+Der Check ist bewusst deterministisch und erkennt vor allem das Fehlen fester Sentinel-Dokumente wie `users/sentinel-user`.
 Kleinere Datenverluste können dagegen lokaler auftreten: einzelne gelöschte Trips, verwaiste Subcollection-Dokumente, fehlende Pflichtfelder oder Mengenabweichungen gegenüber dem erwarteten Datenbestand.
 Für solche Fälle wäre ein mehrstufiger Check sinnvoll.
 Die erste Stufe prüft Firestore-Konnektivität und Berechtigungen; die zweite validiert eine kleine, dedizierte Sentinel-Collection mit versionierten Prüfdokumenten; die dritte prüft fachliche Invarianten über Aggregationen, Stichproben und Vergleichswerte.
@@ -645,8 +645,8 @@ Der Integritätscheck vergleicht anschließend Ist-Werte aus Aggregationen mit d
 
 Dieses Muster entspricht etablierten Data-Quality-Ansätzen in Google Cloud: Dataplex Auto Data Quality ordnet Prüfungen unter anderem den Dimensionen _Volume_, _Completeness_, _Consistency_ und _Uniqueness_ zu und unterstützt Data-Quality-Regeln als konfigurierbare Scans mit Monitoring und Alerting @gcp-dataplex-data-quality.
 Die Dataplex-API beschreibt dafür unter anderem Non-Null-, Uniqueness-, Statistikbereichs-, Zeilenbedingungs-, Tabellenbedingungs- und SQL-Assertion-Regeln @gcp-dataplex-data-quality-rule.
-Übertragen auf Firestore wäre der Check damit nicht nur ein statischer Demo-Sentinel, sondern ein Mix aus Sentinel, Aggregationsmetriken, Parity-Werten und fachlichen Regeln.
-Damit bliebe der Check aussagekräftig für echte Teilverluste, wäre aber weniger abhängig von einzelnen Demo-Objekten.
+Übertragen auf Firestore wäre der Check damit nicht nur ein statischer Sentinel, sondern ein Mix aus Sentinel, Aggregationsmetriken, Parity-Werten und fachlichen Regeln.
+Damit bliebe der Check aussagekräftig für echte Teilverluste, wäre aber weniger abhängig von einzelnen Sentinel-Objekten.
 
 === Secret Manager für sensible Konfiguration
 
