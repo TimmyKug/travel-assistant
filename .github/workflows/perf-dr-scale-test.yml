@@ -93,10 +93,9 @@ jobs:
                 --project "$PROJECT_ID" \
                 --collection "$COLLECTION"
 
-              # Import
-              METADATA_URI="$(gsutil ls "$OUTPUT_URI" | grep '.overall_export_metadata$' | head -1)"
+              # Import — pass the export prefix; gcloud finds the metadata file itself.
               IMP_START=$(date +%s)
-              gcloud firestore import "$METADATA_URI" \
+              gcloud firestore import "$OUTPUT_URI" \
                 --project="$PROJECT_ID" \
                 --collection-ids="$COLLECTION"
               IMP_SEC=$(( $(date +%s) - IMP_START ))
