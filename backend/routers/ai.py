@@ -5,8 +5,8 @@ AI chat router - wraps Gemini Flash with conversation persistence in Firestore.
 import json
 import logging
 import re
-from typing import Any, Literal
 from datetime import UTC, datetime
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
@@ -45,8 +45,8 @@ def _parse_gemini_envelope(reply: str) -> dict[str, Any]:
     raw = _extract_json_block(reply)
     try:
         data = json.loads(raw)
-    except json.JSONDecodeError:
-        raise ValueError("Envelope is not valid JSON")
+    except json.JSONDecodeError as err:
+        raise ValueError("Envelope is not valid JSON") from err
 
     if not isinstance(data, dict):
         raise ValueError("Envelope root must be an object")
