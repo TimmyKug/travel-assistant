@@ -18,8 +18,8 @@ env:
 jobs:
   # ── Parallel: test, build, provision ────────────────────────────────
 
-  test:
-    name: Test Backend
+  backend_checks:
+    name: Backend Checks
     runs-on: ubuntu-latest
     permissions:
       contents: read
