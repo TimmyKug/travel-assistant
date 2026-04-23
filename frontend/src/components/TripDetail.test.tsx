@@ -190,12 +190,9 @@ describe("TripDetail", () => {
     expect(await screen.findByText("Plain title")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /edit/i }));
-    await user.clear(screen.getByDisplayValue("Notes Plan"));
-    await user.type(screen.getByPlaceholderText(/trip title \*/i), "Edited Notes Plan");
-    await user.clear(screen.getByDisplayValue("Seville"));
-    await user.type(screen.getByPlaceholderText(/destination/i), "Granada");
-    await user.clear(screen.getByDisplayValue("Initial summary"));
-    await user.type(screen.getByPlaceholderText(/trip summary/i), "Updated summary");
+    await user.type(screen.getByDisplayValue("Notes Plan"), "{selectall}Edited Notes Plan");
+    await user.type(screen.getByDisplayValue("Seville"), "{selectall}Granada");
+    await user.type(screen.getByDisplayValue("Initial summary"), "{selectall}Updated summary");
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
     expect(updateTrip).toHaveBeenCalledWith(
