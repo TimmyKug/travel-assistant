@@ -170,6 +170,18 @@ jobs:
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Ensure required project APIs are enabled
+        run: |
+          gcloud services enable \
+            cloudresourcemanager.googleapis.com \
+            serviceusage.googleapis.com \
+            compute.googleapis.com \
+            firestore.googleapis.com \
+            iam.googleapis.com \
+            artifactregistry.googleapis.com \
+            cloudscheduler.googleapis.com \
+            --project "${{ vars.GCP_PROJECT_ID }}"
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -211,12 +223,10 @@ jobs:
             fi
           fi
 
-          # Check if Firestore exists in GCP but not in state, then import
+          # Robust import attempt: if Firestore exists, import succeeds; if not, continue.
           if ! terraform state list google_firestore_database.travel_db 2>/dev/null | grep -q "google_firestore_database.travel_db"; then
-            if gcloud firestore databases list --project="${PROJECT_ID}" --filter='name:(default)' --format='value(name)' 2>/dev/null | grep -q "(default)"; then
-              echo "Firestore database exists in GCP but not in state — importing..."
-              terraform import google_firestore_database.travel_db "projects/${PROJECT_ID}/databases/(default)" || true
-            fi
+            echo "Attempting Firestore import (safe no-op if DB does not exist yet)..."
+            terraform import google_firestore_database.travel_db "projects/${PROJECT_ID}/databases/(default)" || true
           fi
 
       - name: Terraform Apply
@@ -232,10 +242,10 @@ jobs:
           echo "config_bucket=$(terraform output -raw config_bucket_name)" >> $GITHUB_OUTPUT
           echo "app_static_ip=$(terraform output -raw app_static_ip)" >> $GITHUB_OUTPUT
 
-  # ── Sequential: deploy (after all parallel jobs) ────────────────────
+  # ── Parallel: app rollout + monitoring config (after checks/build/provision) ──
 
-  deploy:
-    name: Deploy
+  deploy_app:
+    name: Deploy App
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -303,7 +313,17 @@ jobs:
           TF_VAR_app_image_tag: ${{ github.sha }}
         run: terraform apply -auto-approve
 
-      # ── Ansible ─────────────────────────────────────────────────────
+  deploy_monitoring:
+    name: Deploy Monitoring
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs: [backend_checks, frontend_checks, build, provision]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Install Ansible
         run: pip install ansible==9.3.0
 
@@ -365,7 +385,7 @@ jobs:
 
   verify:
     name: Verify Deployment
-    needs: [deploy, provision]
+    needs: [deploy_app, deploy_monitoring, provision]
     uses: ./.github/workflows/integration-tests.yml
     with:
       app_url: http://${{ needs.provision.outputs.app_static_ip }}

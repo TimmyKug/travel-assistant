@@ -134,8 +134,19 @@ auto-healing and rolling updates zero-touch.
 ### 1. GCP prerequisites
 
 ```bash
+# Create project
+gcloud projects create YOUR_PROJECT_ID --name="Travel Assistant"
+
+# Switch gcloud context to the project
+gcloud config set project YOUR_PROJECT_ID
+
+# Enable billing for the project
+gcloud beta billing projects link YOUR_PROJECT_ID \
+  --billing-account=YOUR_BILLING_ACCOUNT_ID
+
 # Enable required APIs
 gcloud services enable \
+  cloudresourcemanager.googleapis.com \
   compute.googleapis.com \
   firestore.googleapis.com \
   iam.googleapis.com \
