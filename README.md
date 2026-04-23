@@ -122,7 +122,7 @@ Current test coverage:
 | Area | Tool | Command | Line coverage |
 |------|------|---------|---------------|
 | Backend | `pytest-cov` | `pytest tests/ --cov` | 96% |
-| Frontend | Vitest + V8 coverage | `npm run test:coverage` | 65% |
+| Frontend | Vitest + V8 coverage | `npm run test:coverage` | 74.83% |
 
 The app VMs bootstrap themselves from [`scripts/startup.sh`](scripts/startup.sh) — no
 Ansible required on the app side. That script runs on every MIG-created instance,

@@ -107,7 +107,7 @@ groups:
           summary: "Firestore integrity check failed"
           description: >
             The /api/health/db endpoint returned a non-success status for at
-            least 30 seconds while the app instance itself was reachable. Demo
+            least 30 seconds while the app instance itself was reachable. Sentinel
             reference data may be missing or corrupted.
 
   - name: app-vm-resources
