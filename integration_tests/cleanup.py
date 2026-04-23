@@ -5,7 +5,9 @@ from pathlib import Path
 from google.cloud import firestore
 
 
-STATE_FILE = Path(os.environ.get("INTEGRATION_STATE_FILE", ".integration-test-state.json"))
+STATE_FILE = Path(
+    os.environ.get("INTEGRATION_STATE_FILE", ".integration-test-state.json")
+)
 
 
 def delete_document_tree(doc_ref):

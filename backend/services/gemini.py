@@ -182,7 +182,11 @@ async def chat(
         ai_requests_total.labels(status="error").inc()
         logger.warning(
             "gemini_chat_timeout",
-            extra={"uid": uid, "timeout_s": REQUEST_TIMEOUT_SECONDS, "duration_s": round(duration, 3)},
+            extra={
+                "uid": uid,
+                "timeout_s": REQUEST_TIMEOUT_SECONDS,
+                "duration_s": round(duration, 3),
+            },
         )
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,

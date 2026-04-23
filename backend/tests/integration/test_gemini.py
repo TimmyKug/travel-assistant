@@ -104,101 +104,112 @@ async def test_gemini_phase2_returns_exact_trip_json_shape() -> None:
         "recommendations",
     }
     actual_envelope_keys = set(envelope.keys())
-    assert actual_envelope_keys == expected_envelope_keys, (
-        f"phase2 envelope keys mismatch. expected={expected_envelope_keys}, actual={actual_envelope_keys}"
-    )
-    assert isinstance(envelope["triptitle"], str) and envelope["triptitle"].strip(), (
-        f"phase2 triptitle must be non-empty string, got {envelope['triptitle']!r}"
-    )
-    assert isinstance(envelope["recommendations"], list), (
-        f"phase2 recommendations must be list, got {type(envelope['recommendations']).__name__}"
-    )
-    assert 2 <= len(envelope["recommendations"]) <= 4, (
-        f"phase2 recommendations count must be 2..4, got {len(envelope['recommendations'])}"
-    )
-    assert all(isinstance(item, str) and item.strip() for item in envelope["recommendations"]), (
-        f"phase2 recommendations must contain non-empty strings, got {envelope['recommendations']!r}"
-    )
+    assert (
+        actual_envelope_keys == expected_envelope_keys
+    ), f"phase2 envelope keys mismatch. expected={expected_envelope_keys}, actual={actual_envelope_keys}"
+    assert (
+        isinstance(envelope["triptitle"], str) and envelope["triptitle"].strip()
+    ), f"phase2 triptitle must be non-empty string, got {envelope['triptitle']!r}"
+    assert isinstance(
+        envelope["recommendations"], list
+    ), f"phase2 recommendations must be list, got {type(envelope['recommendations']).__name__}"
+    assert (
+        2 <= len(envelope["recommendations"]) <= 4
+    ), f"phase2 recommendations count must be 2..4, got {len(envelope['recommendations'])}"
+    assert all(
+        isinstance(item, str) and item.strip() for item in envelope["recommendations"]
+    ), f"phase2 recommendations must contain non-empty strings, got {envelope['recommendations']!r}"
 
     _step("phase2: validate structured trip payload")
     payload = envelope["response"]
-    assert isinstance(payload, dict), (
-        f"phase2 response payload must be object, got {type(payload).__name__}"
-    )
+    assert isinstance(
+        payload, dict
+    ), f"phase2 response payload must be object, got {type(payload).__name__}"
 
     expected_plan_keys = {"trip_title", "destination", "summary", "hotels", "days", "budget"}
     actual_plan_keys = set(payload.keys())
-    assert actual_plan_keys == expected_plan_keys, (
-        f"phase2 payload keys mismatch. expected={expected_plan_keys}, actual={actual_plan_keys}"
-    )
-    assert isinstance(payload["trip_title"], str) and payload["trip_title"].strip(), (
-        f"phase2 trip_title must be non-empty string, got {payload['trip_title']!r}"
-    )
-    assert isinstance(payload["destination"], str) and payload["destination"].strip(), (
-        f"phase2 destination must be non-empty string, got {payload['destination']!r}"
-    )
-    assert isinstance(payload["summary"], str), (
-        f"phase2 summary must be string, got {type(payload['summary']).__name__}"
-    )
+    assert (
+        actual_plan_keys == expected_plan_keys
+    ), f"phase2 payload keys mismatch. expected={expected_plan_keys}, actual={actual_plan_keys}"
+    assert (
+        isinstance(payload["trip_title"], str) and payload["trip_title"].strip()
+    ), f"phase2 trip_title must be non-empty string, got {payload['trip_title']!r}"
+    assert (
+        isinstance(payload["destination"], str) and payload["destination"].strip()
+    ), f"phase2 destination must be non-empty string, got {payload['destination']!r}"
+    assert isinstance(
+        payload["summary"], str
+    ), f"phase2 summary must be string, got {type(payload['summary']).__name__}"
 
-    assert isinstance(payload["hotels"], list) and len(payload["hotels"]) >= 1, (
-        f"phase2 hotels must be non-empty list, got {payload['hotels']!r}"
-    )
+    assert (
+        isinstance(payload["hotels"], list) and len(payload["hotels"]) >= 1
+    ), f"phase2 hotels must be non-empty list, got {payload['hotels']!r}"
     for hotel_night in payload["hotels"]:
-        assert {"night", "options"}.issubset(hotel_night.keys()), (
-            f"phase2 hotel night entry missing required keys: {hotel_night!r}"
-        )
-        assert isinstance(hotel_night["night"], int), (
-            f"phase2 hotel night number must be int, got {hotel_night.get('night')!r}"
-        )
+        assert {"night", "options"}.issubset(
+            hotel_night.keys()
+        ), f"phase2 hotel night entry missing required keys: {hotel_night!r}"
+        assert isinstance(
+            hotel_night["night"], int
+        ), f"phase2 hotel night number must be int, got {hotel_night.get('night')!r}"
         if "date" in hotel_night:
-            assert isinstance(hotel_night["date"], str), (
-                f"phase2 hotel night date must be string, got {hotel_night['date']!r}"
-            )
-        assert isinstance(hotel_night["options"], list) and len(hotel_night["options"]) >= 1, (
-            f"phase2 hotel options must be non-empty list, got {hotel_night.get('options')!r}"
-        )
+            assert isinstance(
+                hotel_night["date"], str
+            ), f"phase2 hotel night date must be string, got {hotel_night['date']!r}"
+        assert (
+            isinstance(hotel_night["options"], list) and len(hotel_night["options"]) >= 1
+        ), f"phase2 hotel options must be non-empty list, got {hotel_night.get('options')!r}"
         for hotel in hotel_night["options"]:
-            assert set(hotel.keys()) == {"name", "area", "nightly_estimate", "reason"}, (
-                f"phase2 hotel option keys mismatch: {hotel!r}"
-            )
-            assert isinstance(hotel["name"], str) and hotel["name"].strip(), (
-                f"phase2 hotel name must be non-empty string, got {hotel.get('name')!r}"
-            )
+            assert set(hotel.keys()) == {
+                "name",
+                "area",
+                "nightly_estimate",
+                "reason",
+            }, f"phase2 hotel option keys mismatch: {hotel!r}"
+            assert (
+                isinstance(hotel["name"], str) and hotel["name"].strip()
+            ), f"phase2 hotel name must be non-empty string, got {hotel.get('name')!r}"
 
-    assert isinstance(payload["days"], list) and len(payload["days"]) >= 1, (
-        f"phase2 days must be non-empty list, got {payload['days']!r}"
-    )
+    assert (
+        isinstance(payload["days"], list) and len(payload["days"]) >= 1
+    ), f"phase2 days must be non-empty list, got {payload['days']!r}"
     for day in payload["days"]:
-        assert {"day", "items"}.issubset(day.keys()), f"phase2 day entry missing required keys: {day!r}"
+        assert {"day", "items"}.issubset(
+            day.keys()
+        ), f"phase2 day entry missing required keys: {day!r}"
         assert isinstance(day["day"], int), f"phase2 day number must be int, got {day.get('day')!r}"
         if "date" in day:
-            assert isinstance(day["date"], str), f"phase2 day date must be string, got {day.get('date')!r}"
-        assert isinstance(day["items"], list), (
-            f"phase2 day items must be list, got {type(day.get('items')).__name__}"
-        )
+            assert isinstance(
+                day["date"], str
+            ), f"phase2 day date must be string, got {day.get('date')!r}"
+        assert isinstance(
+            day["items"], list
+        ), f"phase2 day items must be list, got {type(day.get('items')).__name__}"
         for item in day["items"]:
-            assert {"time", "title", "description", "category"}.issubset(item.keys()), (
-                f"phase2 itinerary item missing required keys: {item!r}"
-            )
-            assert item["category"] in {"transport", "activity", "food", "hotel", "note"}, (
-                f"phase2 invalid itinerary category: {item.get('category')!r}"
-            )
+            assert {"time", "title", "description", "category"}.issubset(
+                item.keys()
+            ), f"phase2 itinerary item missing required keys: {item!r}"
+            assert item["category"] in {
+                "transport",
+                "activity",
+                "food",
+                "hotel",
+                "note",
+            }, f"phase2 invalid itinerary category: {item.get('category')!r}"
             if "estimated_cost" in item:
-                assert isinstance(item["estimated_cost"], str), (
-                    f"phase2 estimated_cost must be string when present, got {item.get('estimated_cost')!r}"
-                )
+                assert isinstance(
+                    item["estimated_cost"], str
+                ), f"phase2 estimated_cost must be string when present, got {item.get('estimated_cost')!r}"
 
-    assert {"currency", "estimated_total"}.issubset(payload["budget"].keys()), (
-        f"phase2 budget missing required keys: {payload['budget']!r}"
-    )
-    assert isinstance(payload["budget"]["currency"], str) and payload["budget"]["currency"].strip(), (
-        f"phase2 budget currency must be non-empty string, got {payload['budget'].get('currency')!r}"
-    )
-    assert isinstance(payload["budget"]["estimated_total"], str), (
-        f"phase2 estimated_total must be string, got {type(payload['budget'].get('estimated_total')).__name__}"
-    )
+    assert {"currency", "estimated_total"}.issubset(
+        payload["budget"].keys()
+    ), f"phase2 budget missing required keys: {payload['budget']!r}"
+    assert (
+        isinstance(payload["budget"]["currency"], str) and payload["budget"]["currency"].strip()
+    ), f"phase2 budget currency must be non-empty string, got {payload['budget'].get('currency')!r}"
+    assert isinstance(
+        payload["budget"]["estimated_total"], str
+    ), f"phase2 estimated_total must be string, got {type(payload['budget'].get('estimated_total')).__name__}"
     if "notes" in payload["budget"]:
-        assert isinstance(payload["budget"]["notes"], str), (
-            f"phase2 budget notes must be string when present, got {payload['budget'].get('notes')!r}"
-        )
+        assert isinstance(
+            payload["budget"]["notes"], str
+        ), f"phase2 budget notes must be string when present, got {payload['budget'].get('notes')!r}"

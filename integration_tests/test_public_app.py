@@ -7,7 +7,9 @@ import httpx
 from google.cloud import firestore
 
 
-STATE_FILE = Path(os.environ.get("INTEGRATION_STATE_FILE", ".integration-test-state.json"))
+STATE_FILE = Path(
+    os.environ.get("INTEGRATION_STATE_FILE", ".integration-test-state.json")
+)
 TEST_RUN_ID = os.environ.get("TEST_RUN_ID", f"local-{int(time.time())}")
 TEST_EMAIL = os.environ.get("TEST_EMAIL", f"integration-{TEST_RUN_ID}@example.com")
 TEST_PASSWORD = os.environ.get("TEST_PASSWORD", f"integration-{TEST_RUN_ID}-password")
@@ -114,7 +116,9 @@ def test_auth_and_trip_crud_leave_no_data():
                 "notes": f"created by integration test {TEST_RUN_ID}",
                 "itinerary": [],
             }
-            created = client.post(f"{_app_url()}/api/trips/", json=trip_body, headers=headers)
+            created = client.post(
+                f"{_app_url()}/api/trips/", json=trip_body, headers=headers
+            )
             assert created.status_code == 200, created.text
             trip_id = created.json()["id"]
             _write_state(user_id=user_id, email=TEST_EMAIL, trip_id=trip_id)
@@ -132,14 +136,21 @@ def test_auth_and_trip_crud_leave_no_data():
             assert updated.status_code == 200, updated.text
             assert updated.json()["title"] == "Updated Integration Test Trip"
 
-            deleted = client.delete(f"{_app_url()}/api/trips/{trip_id}", headers=headers)
+            deleted = client.delete(
+                f"{_app_url()}/api/trips/{trip_id}", headers=headers
+            )
             assert deleted.status_code == 204, deleted.text
             trip_id = None
             _write_state(user_id=user_id, email=TEST_EMAIL, trip_id=None)
 
-            listed_after_delete = client.get(f"{_app_url()}/api/trips/", headers=headers)
+            listed_after_delete = client.get(
+                f"{_app_url()}/api/trips/", headers=headers
+            )
             assert listed_after_delete.status_code == 200, listed_after_delete.text
-            assert all(trip["id"] != created.json()["id"] for trip in listed_after_delete.json())
+            assert all(
+                trip["id"] != created.json()["id"]
+                for trip in listed_after_delete.json()
+            )
     finally:
         _cleanup_firestore_user(user_id, TEST_EMAIL)
         _write_state(user_id=user_id, email=TEST_EMAIL, cleanup_attempted=True)
