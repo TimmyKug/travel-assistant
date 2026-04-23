@@ -168,7 +168,8 @@ for role in \
   roles/serviceusage.serviceUsageAdmin \
   roles/datastore.owner \
   roles/storage.admin \
-  roles/artifactregistry.admin; do
+  roles/artifactregistry.admin \
+  roles/secretmanager.admin; do
   gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
     --member="serviceAccount:github-actions@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
     --role="$role"
@@ -214,6 +215,7 @@ Required IAM rights for `GCP_SA_KEY` (service account `github-actions@<project>.
 - `roles/datastore.owner` — manage Firestore database and export/import operations.
 - `roles/storage.admin` — manage Terraform state bucket, app-config bucket objects, and Firestore backup bucket objects.
 - `roles/artifactregistry.admin` — create/manage repositories and push/pull container images.
+- `roles/secretmanager.admin` — create the Secret Manager secrets (`gemini-api-key`, `jwt-secret-key`) and push new versions during deploy.
 
 ### 4. GitHub Variables
 

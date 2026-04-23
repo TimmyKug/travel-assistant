@@ -193,7 +193,7 @@ Die folgende Tabelle fasst das im Projekt gewählte Mapping auf die drei Cloud-S
       GitHub Actions für die #acr("CI/CD")-Automatisierung.],
 
     [#acr("PaaS")],
-    [Google Firestore (#acr("NoSQL")), Google Artifact Registry für Docker-Images, Google Cloud Scheduler für geplante Backups, Google Cloud Storage für Terraform-State, App-Konfigurationen und Firestore-Backups.],
+    [Google Firestore (#acr("NoSQL")), Google Artifact Registry für Docker-Images, Google Cloud Scheduler für geplante Backups, Google Cloud Storage für Terraform-State, App-Konfigurationen und Firestore-Backups, Google Secret Manager für Laufzeit-Secrets.],
 
     [#acr("IaaS")],
     [Google Compute Engine (App-#acr("MIG") + Monitoring-#acr("VM")), Load Balancer, Persistent Disks.],
@@ -233,7 +233,7 @@ Die folgende Tabelle fasst das im Projekt gewählte Mapping auf die drei Cloud-S
 == Begründung der Technologieauswahl
 
 Die Google Cloud Platform war durch die Projektvorgabe gesetzt.
-Die Auswahl der konkreten #acr("GCP")-Dienste folgt jedoch der Architektur: Compute Engine bildet die #acr("IaaS")-Schicht für App- und Monitoring-#acrpl("VM"), Firestore übernimmt als verwalteter #acr("PaaS")-Dienst die persistente Datenhaltung, Artifact Registry speichert die Container-Images, Cloud Storage hält Terraform-State, App-Konfigurationen und Backup-Artefakte, und Cloud Scheduler stößt die geplanten Firestore-Exporte an.
+Die Auswahl der konkreten #acr("GCP")-Dienste folgt jedoch der Architektur: Compute Engine bildet die #acr("IaaS")-Schicht für App- und Monitoring-#acrpl("VM"), Firestore übernimmt als verwalteter #acr("PaaS")-Dienst die persistente Datenhaltung, Artifact Registry speichert die Container-Images, Cloud Storage hält Terraform-State, App-Konfigurationen und Backup-Artefakte, Cloud Scheduler stößt die geplanten Firestore-Exporte an, und Secret Manager hält die Laufzeit-Secrets getrennt von der übrigen Konfiguration.
 GitHub Actions übernimmt als #acr("SaaS")-Dienst die #acr("CI/CD")-Ausführung.
 Dadurch werden alle drei Cloud-Service-Modelle sichtbar genutzt, ohne zusätzliche Eigenbetriebs-Komplexität einzuführen.
 
@@ -289,12 +289,12 @@ Der öffentliche Einstiegspunkt ist eine reservierte globale IP-Adresse, die von
 Dieser verteilt Traffic auf eine Managed Instance Group mit zwei App-VMs.
 Der Monitoring-Stack läuft getrennt auf einer persistenten VM mit eigener Persistent-Disk.
 
-Die Darstellung ist nach Cloud-Service-Modellen gegliedert: SaaS umfasst die extern konsumierten Dienste GitHub Actions und Gemini, PaaS die verwalteten GCP-Dienste Firestore, Artifact Registry, Cloud Storage und Cloud Scheduler, während IaaS die Compute- und Netzwerkkomponenten enthält.
+Die Darstellung ist nach Cloud-Service-Modellen gegliedert: SaaS umfasst die extern konsumierten Dienste GitHub Actions und Gemini, PaaS die verwalteten GCP-Dienste Firestore, Artifact Registry, Cloud Storage, Cloud Scheduler und Secret Manager, während IaaS die Compute- und Netzwerkkomponenten enthält.
 Dadurch werden drei Flussarten sichtbar: Nutzertraffic, Deployment/Bootstrap und Observability/Disaster Recovery.
 Gerade diese Trennung ist wichtig, weil ein Fehler im App-Pfad nicht gleichzeitig Monitoring, Backups oder die Wiederherstellung blockieren soll.
 
 #figure(
-  image("diagrams/System-Architecture.drawio.png", width: 100%),
+  image("diagrams/system-architecture.drawio.png", width: 100%),
   caption: [Gesamtarchitektur des Travel Assistant.
     Die Abbildung zeigt den produktiven Request-Pfad über Browser, Load Balancer und Managed Instance Group, den Deployment-Pfad über GitHub Actions, Artifact Registry und GCS-Konfiguration sowie die getrennten Monitoring- und Backup-Flüsse mit Prometheus, Loki, Grafana, Alertmanager, Cloud Scheduler und Firestore-Export.],
 ) <fig-architecture>
@@ -386,9 +386,14 @@ Das Deployment-Modell trennt App-Rollout und Monitoring-Konfiguration nach Veran
 Terraform beschreibt die GCP-Infrastruktur einschließlich Load Balancer, Managed Instance Group, Instance Template, Firestore, IAM, Buckets und Cloud Scheduler.
 Die App-VMs werden nicht nachträglich per SSH konfiguriert, sondern starten über das Instance Template und ein Startup-Script selbstständig.
 
-Das Startup-Script holt Docker-Compose, `.env` und Promtail-Konfiguration aus einem GCS-Bucket, authentifiziert Docker gegenüber Artifact Registry und startet den Compose-Stack mit Nginx, FastAPI, Promtail und Node Exporter.
+Das Startup-Script holt Docker-Compose, `.env` und Promtail-Konfiguration aus einem GCS-Bucket, zieht anschließend die sensiblen Laufzeitwerte (Gemini-API-Key, #acr("JWT")-Signing-Key) aus Google Secret Manager, authentifiziert Docker gegenüber Artifact Registry und startet den Compose-Stack mit Nginx, FastAPI, Promtail und Node Exporter.
 Dadurch kann jede neu erzeugte MIG-Instanz ohne manuellen Eingriff denselben Anwendungszustand herstellen.
 Container-Images werden mit dem Git-SHA getaggt; pro Commit entsteht damit eine eindeutige Template-Version, die den MIG-Rollout nachvollziehbar auslöst.
+
+Secrets und nicht-sensible Konfiguration werden dabei bewusst getrennt abgelegt:
+Der GCS-Bucket enthält nur Werte, deren Offenlegung unkritisch ist (Projekt-ID, Loki-Endpoint, Image-Tag), während Gemini-API-Key und #acr("JWT")-Signing-Key als benannte Secrets in Secret Manager liegen.
+Der App-#acr("VM")-Service-Account besitzt `roles/secretmanager.secretAccessor` pro Secret, sodass Zugriff feingranular vergeben und über Cloud Audit Logs nachvollziehbar ist.
+Rotationen erfolgen durch Anlegen einer neuen Secret-Version mit anschließender MIG-Instance-Rotation, ohne Terraform-State oder Bucket-Inhalte zu berühren.
 
 Ansible bleibt auf die langlebige Monitoring-VM beschränkt.
 Dort verwaltet es die Konfiguration von Prometheus, Grafana, Loki, Alertmanager und Nginx, also Komponenten, die nicht mit jedem App-Rollout neu erzeugt werden.
@@ -648,12 +653,13 @@ Die Dataplex-API beschreibt dafür unter anderem Non-Null-, Uniqueness-, Statist
 Übertragen auf Firestore wäre der Check damit nicht nur ein statischer Sentinel, sondern ein Mix aus Sentinel, Aggregationsmetriken, Parity-Werten und fachlichen Regeln.
 Damit bliebe der Check aussagekräftig für echte Teilverluste, wäre aber weniger abhängig von einzelnen Sentinel-Objekten.
 
-=== Secret Manager für sensible Konfiguration
+=== Parameter Manager für nicht-sensible Laufzeitkonfiguration
 
-Aktuell liegen Laufzeit-Secrets wie der Gemini-API-Key und das JWT-Signing-Secret als Werte in einer `.env`-Datei im GCS-App-Config-Bucket, die das Startup-Script beim VM-Start lädt.
-Für einen produktionsnäheren Betrieb wäre Google Secret Manager die passendere Ablage: Er bietet versionierte Secrets, feingranulare IAM-Bindings pro Secret sowie Audit-Logs über Zugriffe.
-App-VMs könnten Secrets zur Laufzeit über den Service Account der Instanz abrufen, sodass sie nicht mehr im Klartext im Bucket liegen müssen.
-Eine Rotation ließe sich dann durch das Anlegen einer neuen Secret-Version und eine anschließende MIG-Instance-Rotation umsetzen, ohne Terraform-State oder Bucket-Inhalte anzufassen.
+Die im GCS-Bucket verbliebene `.env` enthält ausschließlich nicht-sensible, deployment-spezifische Werte (Projekt-ID, Loki-Endpoint, Image-Tag), die beim `terraform apply` ohnehin aus bekannten Quellen gerendert werden.
+Parameter, die sich ohne Rollout ändern sollen --- etwa Feature-Flags, das verwendete Gemini-Modell (`GEMINI_MODEL`), Tagespkontingente oder Alert-Thresholds --- ließen sich in einer späteren Ausbaustufe aus Google Parameter Manager beziehen.
+Parameter Manager versioniert Konfigurationswerte analog zu Secret Manager, bietet IAM pro Parameter und unterstützt JSON/YAML-formatierte Parameter, erhebt aber bewusst keine Secret-Garantien wie Zugriffs-Audit oder CMEK-Zwang @gcp-parameter-manager.
+Zusammen mit Secret Manager ergäbe sich eine klare Dreiteilung: Secret Manager hält sensible Werte, Parameter Manager hält veränderliche Laufzeitkonfiguration, und der GCS-Bucket bleibt als Ablage für die mit dem Code versionierten Deployment-Artefakte (`docker-compose.yml`, Promtail-Konfiguration) erhalten.
+Im aktuellen Projektumfang wäre die zusätzliche Parameter-Manager-Schicht überdimensioniert, weil keine Werte existieren, die sich zwischen zwei Deployments ändern sollen.
 
 // ========= 5. Ergebnisse und Diskussion =========
 = Ergebnisse und Diskussion
@@ -670,7 +676,7 @@ Eine Rotation ließe sich dann durch das Anlegen einer neuen Secret-Version und 
     [E-Mail/Passwort-Login mit JWT, zweiphasiger KI-Dialog (Präferenzklärung → Itinerary per `GO`) mit strikt validiertem JSON-Envelope, persistenten Konversationen (inkl. Rename/Delete, Empfehlungen) sowie Trip-Workflow mit Detailansicht, Bearbeitung und Markdown-Export.],
 
     [Cloud-Service-Modelle],
-    [SaaS: Gemini API · PaaS: Firestore, Artifact Registry, Cloud Scheduler, Cloud Storage · IaaS: Compute Engine (MIG + Monitoring-VM), Load Balancer, Persistent Disks.],
+    [SaaS: Gemini API · PaaS: Firestore, Artifact Registry, Cloud Scheduler, Cloud Storage, Secret Manager · IaaS: Compute Engine (MIG + Monitoring-VM), Load Balancer, Persistent Disks.],
 
     [Infrastruktur],
     [Komplette Infrastruktur inklusive MIG, LB, Firestore, IAM, Cloud-Storage-Buckets für Terraform-State, App-Konfiguration und Firestore-Backups sowie Cloud-Scheduler-Job.],
