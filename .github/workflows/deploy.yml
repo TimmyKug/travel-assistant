@@ -16,7 +16,7 @@ env:
   TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
 
 jobs:
-  # ── Parallel: test, build, provision ────────────────────────────────
+  # ── Parallel: checks, build, provision ────────────────────────────────
 
   backend_checks:
     name: Backend Checks
@@ -238,7 +238,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    needs: [test, frontend_checks, build, provision]
+    needs: [backend_checks, frontend_checks, build, provision]
 
     steps:
       - name: Checkout repository

@@ -108,7 +108,7 @@ flowchart TD
 
 Pushing to `main` triggers [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
 
-1. **test** — runs `pytest` against [`backend/tests/`](backend/tests/).
+1. **backend_checks** — runs ruff lint/format, mypy, pip-audit, and `pytest` against [`backend/tests/`](backend/tests/).
 2. **frontend_checks** — runs TypeScript checks, ESLint, Vitest frontend tests with coverage, and `npm audit`.
 3. **build** (matrix) — builds + pushes `backend` and `nginx` images to Artifact Registry, tagged with `github.sha` and `latest`.
 4. **provision** — `terraform apply` creates/updates infra and imports the Firestore DB if it already exists out-of-band.
