@@ -10,7 +10,6 @@ import pytest
 
 from services import gemini as gemini_service
 
-
 pytestmark = [pytest.mark.integration]
 
 
