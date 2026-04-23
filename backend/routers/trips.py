@@ -46,6 +46,16 @@ async def list_trips(user: dict = Depends(get_current_user)):
     return [TripOut(id=d.id, **d.to_dict()) for d in docs]
 
 
+@router.get("/{trip_id}", response_model=TripOut)
+async def get_trip(trip_id: str, user: dict = Depends(get_current_user)):
+    db = get_db()
+    ref = db.collection("users").document(user["uid"]).collection("trips").document(trip_id)
+    doc = ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    return TripOut(id=doc.id, **doc.to_dict())
+
+
 @router.post("/", response_model=TripOut)
 async def create_trip(body: TripIn, user: dict = Depends(get_current_user)):
     db = get_db()

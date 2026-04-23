@@ -60,6 +60,7 @@ describe("TripPlanner", () => {
 
     expect(await screen.findByText("Lisbon Notes")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /delete trip/i }));
+    await user.click(screen.getByRole("button", { name: /^delete$/i }));
 
     expect(deleteTrip).toHaveBeenCalledWith("trip-1");
     expect(screen.queryByText("Lisbon Notes")).not.toBeInTheDocument();

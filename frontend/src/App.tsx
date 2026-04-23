@@ -4,6 +4,7 @@ import Login from "./components/Login";
 import Register from "./components/Register";
 import Chat from "./components/Chat";
 import TripPlanner from "./components/TripPlanner";
+import TripDetail from "./components/TripDetail";
 import Nav from "./components/Nav";
 
 export default function App() {
@@ -21,10 +22,11 @@ export default function App() {
   return (
     <div className="h-screen flex flex-col bg-slate-900 text-white">
       <Nav user={user} />
-      <main className="flex-1 overflow-hidden max-w-6xl w-full mx-auto px-4 py-6 flex flex-col">
+      <main className="flex-1 min-h-0 overflow-hidden max-w-6xl w-full mx-auto px-4 py-6 flex flex-col">
         <Routes>
           <Route path="/"      element={<Chat />} />
           <Route path="/trips" element={<TripPlanner />} />
+          <Route path="/trips/:tripId" element={<TripDetail />} />
           <Route path="*"      element={<Navigate to="/" />} />
         </Routes>
       </main>

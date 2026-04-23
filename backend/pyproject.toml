@@ -20,3 +20,6 @@ exclude = ["tests/", ".venv/"]
 [tool.pytest.ini_options]
 addopts = "--cov=. --cov-report=term-missing --cov-report=xml"
 testpaths = ["tests"]
+markers = [
+  "integration: integration tests that call external services",
+]

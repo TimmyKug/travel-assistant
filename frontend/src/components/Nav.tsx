@@ -11,11 +11,13 @@ export default function Nav({ user }: NavProps) {
   const { logout } = useAuth();
   const { pathname } = useLocation();
 
+  const isActive = (to: string) => (to === "/trips" ? pathname.startsWith("/trips") : pathname === to);
+
   const navLink = (to: string, Icon: React.ElementType, label: string) => (
     <Link
       to={to}
       className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition
-        ${pathname === to ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white hover:bg-slate-700"}`}
+        ${isActive(to) ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white hover:bg-slate-700"}`}
     >
       <Icon className="w-4 h-4" /> {label}
     </Link>

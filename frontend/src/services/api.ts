@@ -12,6 +12,14 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
+    if (err.response) {
+      console.error("API error", {
+        url: err.config?.url,
+        method: err.config?.method,
+        status: err.response.status,
+        data: err.response.data,
+      });
+    }
     if (err.response?.status === 401) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
@@ -23,9 +31,11 @@ api.interceptors.response.use(
 
 export const sendMessage = (
   content: string,
-  conversation_id: string | null = null
+  conversation_id: string | null = null,
+  response_format: "text" | "trip_json" = "text",
+  is_bootstrap = false
 ): Promise<SendMessageResponse> =>
-  api.post("/ai/chat", { content, conversation_id }).then((r) => r.data);
+  api.post("/ai/chat", { content, conversation_id, response_format, is_bootstrap }).then((r) => r.data);
 
 export const listConversations = (): Promise<Conversation[]> =>
   api.get("/ai/conversations").then((r) => r.data);
@@ -33,8 +43,17 @@ export const listConversations = (): Promise<Conversation[]> =>
 export const getConversation = (id: string): Promise<ConversationDetail> =>
   api.get(`/ai/conversations/${id}`).then((r) => r.data);
 
+export const renameConversation = (id: string, title: string): Promise<Conversation> =>
+  api.patch(`/ai/conversations/${id}`, { title }).then((r) => r.data);
+
+export const deleteConversation = (id: string): Promise<AxiosResponse> =>
+  api.delete(`/ai/conversations/${id}`);
+
 export const listTrips = (): Promise<Trip[]> =>
   api.get("/trips/").then((r) => r.data);
+
+export const getTrip = (id: string): Promise<Trip> =>
+  api.get(`/trips/${id}`).then((r) => r.data);
 
 export const createTrip = (data: Partial<Trip>): Promise<Trip> =>
   api.post("/trips/", data).then((r) => r.data);

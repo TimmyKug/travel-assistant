@@ -573,28 +573,25 @@ Das lokale Script `presentation/demo-scripts/firestore-restore.sh` bleibt als De
 
 Die im Projekt beobachteten Wiederherstellungszeiten unterscheiden sich deutlich zwischen Compute- und Datenpfad.
 Die #acr("MIG")-basierte Compute-Recovery dauerte typischerweise etwa fünf bis zehn Minuten.
-Diese Zeit setzt sich im Wesentlichen aus Health-Check-Erkennung, Autohealing-Entscheidung, Provisionierung einer Ersatz-#acr("VM"), Startup-Script, Docker-Image-Pull und erneutem Health-Check zusammen.
+Diese Zeit setzt sich im Wesentlichen aus Health-Check-Erkennung, Autohealing-Entscheidung, Provisionierung einer Ersatz-#acr("VM"), Startup-Script, Docker-Image-Pull und erneutem Health-Check zusammen (Health Check: 30-s-Intervall, 10-s-Timeout; Unhealthy-Erkennung nach drei Fehlversuchen frühestens nach ca. 60--70 s; neue Instanzen mit 300-s-Schonfrist).
 Für die Datenrecovery lagen Backup und Restore im Demo-Szenario jeweils nur bei wenigen Sekunden.
 Diese Werte sind jedoch nicht auf größere Produktivdatenmengen übertragbar: Der Datenbestand war bewusst sehr klein, und der Integritätscheck bezieht sich auf wenige Referenzdokumente.
 Außerdem laufen die geplanten Backups asynchron und beeinflussen daher nicht direkt die Nutzerverfügbarkeit; für die #acr("RTO")-Betrachtung ist vor allem der Restore-Pfad relevant.
 Eine belastbare Messreihe mit größeren Datenmengen konnte nicht mehr durchgeführt werden, weil die verbleibenden Google-Cloud-Credits am Projektende bereits stark begrenzt waren.
 
-Auch die Kosten lassen sich daher nur überschlägig anhand der veröffentlichten Google-Cloud-Preise berechnen.
-Die produktive Redundanz besteht aus zwei App-#acrpl("VM") in der #acr("MIG") sowie einer Monitoring-#acr("VM"), jeweils als `e2-small` in `europe-west3`.
-Bei einem On-Demand-Preis von 0,016752855 USD pro Stunde ergibt das für drei laufende #acrpl("VM") rund 36,69 USD pro Monat bei 730 Stunden; die zweite App-#acr("VM") als eigentlicher Compute-Redundanzanteil verursacht davon rund 12,23 USD pro Monat @gcp-compute-vm-pricing.
-Hinzu kommen die Persistent Disks: Zwei App-Boot-Disks zu je 20 GiB, eine Monitoring-Boot-Disk mit 20 GiB und die persistente Monitoring-Disk mit 10 GiB ergeben 70 GiB `pd-standard`.
-Da die Disk-Preise nach provisionierter Kapazität berechnet werden und in der Preistabelle für Standard Persistent Disk die ersten 30 GiB pro Monat kostenlos ausgewiesen sind, liegen die zusätzlichen Disk-Kosten überschlägig bei etwa 1,60 USD pro Monat; ohne freien Anteil wären es etwa 2,80 USD pro Monat @gcp-disk-pricing.
+#figure(
+  image("cloud-computing-credits.png", width: 100%),
+  caption: [Verbleibendes Google-Cloud-Credit-Guthaben zum Projektende.],
+) <fig-cloud-credits>
 
-Für die Firestore-Seite bleibt der Projektbetrieb selbst wegen der kleinen Datenmengen innerhalb des kostenlosen Kontingents von 1 GiB Speicher, 50.000 Reads, 20.000 Writes und 20.000 Deletes pro Tag plausibel kostenlos @firestore-pricing.
-Die Export-Strecke kann dennoch Kosten erzeugen, weil Firestore-Exporte laut Google einen Read pro exportiertem Dokument verursachen @gcp-firestore-export.
-Die Backup-Artefakte liegen im #acr("GCS")-Bucket in `europe-west3`; Standard Storage kostet dort 0,0253 USD pro GiB und Monat @gcp-storage-pricing.
-Bei täglichem Export und 30 Tagen Aufbewahrung entspricht das näherungsweise `30 * D * 0,0253 USD` pro Monat für eine Datenbankgröße von `D` GiB, also etwa 0,76 USD pro Monat je GiB produktiver Firestore-Daten.
-Der Cloud-Scheduler-Job liegt mit einem Job unter dem freien Kontingent von drei Jobs pro Monat; außerhalb des freien Kontingents wären 0,10 USD pro Job und Monat anzusetzen @gcp-scheduler-pricing.
+Auch die Kosten lassen sich daher nur überschlägig anhand der veröffentlichten Google-Cloud-Preise berechnen.
+In Summe liegt der überschlägige Grundbetrieb bei rund 38 bis 40 USD pro Monat, zuzüglich etwa 0,76 USD pro Monat je GiB produktiver Firestore-Daten für 30 tägliche Backup-Artefakte.
+Die genaue Herleitung ist im Anhang in @tab-cost-estimate dokumentiert.
 Tatsächliche Rechnungswerte können durch Rundung, Wechselkurse, bereits verbrauchte Free-Tier-Anteile, Netzwerkverkehr, Artifact-Registry-Speicher und konkrete Exportgröße abweichen; ein abschließender Abgleich gegen echte Billing-Daten war wegen der fast aufgebrauchten Credits nicht mehr sinnvoll möglich.
 
 == Ausblick und Handlungsempfehlungen
 
-=== Point-in-Time Recovery und robusterer Integritätscheck
+=== Point-in-Time Recovery und partieller Restore
 
 Eine vollständig zeitgenaue Wiederherstellung (Point-in-Time Recovery, PITR) wird von Firestore nativ unterstützt.
 Im Unterschied zum täglichen Export hält PITR ältere Dokumentversionen in einem Recovery-Fenster vor: ohne PITR ist nur ungefähr die letzte Stunde verfügbar, mit aktiviertem PITR bis zu sieben Tage; Lesezugriffe sind innerhalb der letzten Stunde auf beliebige unterstützte Zeitpunkte und darüber hinaus innerhalb des PITR-Fensters minutengenau möglich @gcp-firestore-pitr.
@@ -609,10 +606,24 @@ Der aktuelle Integritätscheck benennt bereits konkret fehlende Referenzdokument
 Das reduziert die Restore-Dauer besonders bei kleinen, klar lokalisierbaren Datenfehlern.
 Bei großflächiger Korruption bleibt dagegen ein vollständiger Import, ein PITR-basierter Export oder ein Datenbank-Klon die robustere Strategie.
 
+=== Robusterer Integritätscheck
+
 Zusätzlich sollte der Integritätscheck produktionsnäher gestaltet werden.
-Der aktuelle Check ist für die Demo bewusst deterministisch, aber auch fehleranfällig: Er hängt an festen Referenzdokumenten wie `users/demo-user` und kann rot werden, wenn diese Demo-Daten aus anderen Gründen verändert werden.
-Robuster wäre ein mehrstufiger Check, der zunächst Firestore-Konnektivität und Berechtigungen prüft, anschließend eine kleine, dedizierte Sentinel-Collection mit versionierten Prüfdokumenten validiert und fachliche Daten nur aggregiert oder stichprobenartig kontrolliert.
-Damit bliebe der Check aussagekräftig für echte Datenverluste, wäre aber weniger abhängig von einzelnen Demo-Objekten.
+Der aktuelle Check ist für die Demo bewusst deterministisch, erkennt aber vor allem das Fehlen fester Referenzdokumente wie `users/demo-user`.
+Kleinere Datenverluste können dagegen lokaler auftreten: einzelne gelöschte Trips, verwaiste Subcollection-Dokumente, fehlende Pflichtfelder oder Mengenabweichungen gegenüber dem erwarteten Datenbestand.
+Für solche Fälle wäre ein mehrstufiger Check sinnvoll.
+Die erste Stufe prüft Firestore-Konnektivität und Berechtigungen; die zweite validiert eine kleine, dedizierte Sentinel-Collection mit versionierten Prüfdokumenten; die dritte prüft fachliche Invarianten über Aggregationen, Stichproben und Vergleichswerte.
+Firestore unterstützt dafür Aggregationsabfragen wie `count()`, `sum()` und `average()`, die zusammenfassende Kennzahlen liefern, ohne alle Dokumente an die Anwendung zu übertragen @gcp-firestore-aggregation.
+
+Für kleine Datenverluste sind vor allem Anomalieindikatoren geeignet: erwartete Dokumentanzahlen pro Collection Group, Vollständigkeit kritischer Felder, Eindeutigkeit von IDs, referenzielle Konsistenz zwischen Nutzer- und Trip-Dokumenten sowie Parity- oder Checksum-Dokumente.
+Ein Parity-Dokument speichert beispielsweise pro Collection Group oder Mandant erwartete Zähler, letzte Änderungszeitpunkte oder Hashes über stabile Dokumentattribute.
+Wird ein Trip geschrieben oder gelöscht, kann dieser Kontrollwert in derselben Firestore-Transaktion beziehungsweise als atomarer Batch mitgepflegt werden; Firestore beschreibt Transaktionen und Batch Writes als atomare Operationen, bei denen alle Schreiboperationen zusammen erfolgreich sind oder verworfen werden @firestore-transactions.
+Der Integritätscheck vergleicht anschließend Ist-Werte aus Aggregationen mit diesen Kontrollwerten und kann kleine Abweichungen erkennen, ohne sofort einen vollständigen Firestore-Import anzustoßen.
+
+Dieses Muster entspricht etablierten Data-Quality-Ansätzen in Google Cloud: Dataplex Auto Data Quality ordnet Prüfungen unter anderem den Dimensionen _Volume_, _Completeness_, _Consistency_ und _Uniqueness_ zu und unterstützt Data-Quality-Regeln als konfigurierbare Scans mit Monitoring und Alerting @gcp-dataplex-data-quality.
+Die Dataplex-API beschreibt dafür unter anderem Non-Null-, Uniqueness-, Statistikbereichs-, Zeilenbedingungs-, Tabellenbedingungs- und SQL-Assertion-Regeln @gcp-dataplex-data-quality-rule.
+Übertragen auf Firestore wäre der Check damit nicht nur ein statischer Demo-Sentinel, sondern ein Mix aus Sentinel, Aggregationsmetriken, Parity-Werten und fachlichen Regeln.
+Damit bliebe der Check aussagekräftig für echte Teilverluste, wäre aber weniger abhängig von einzelnen Demo-Objekten.
 
 === Secret Manager für sensible Konfiguration
 
@@ -661,31 +672,17 @@ Eine Rotation ließe sich dann durch das Anlegen einer neuen Secret-Version und 
 
 == Testumfang und Methodik
 
-Die automatisierte Testsuite deckt Backend- und Frontend-Verhalten ab und wird in GitHub Actions vor Build und Deployment ausgeführt.
-Die Backend-Tests nutzen `pytest` und den FastAPI-`TestClient`; externe Abhängigkeiten wie Firestore und Gemini werden über Mocks ersetzt, damit die Suite ohne echte Cloud-Zugriffe deterministisch und schnell läuft.
-Damit prüft die CI vor allem fachliche API-Verträge, Fehlerbehandlung und die für das Disaster-Recovery-Feature relevanten Health-Endpunkte.
+Die automatisierten Tests laufen in GitHub Actions vor Build und Deployment und decken sowohl Backend- als auch Frontend-Verhalten ab.
+Im Backend prüfen `pytest` und der FastAPI-`TestClient` Authentifizierung, Chat- und Konversationsendpunkte, Trip-CRUD sowie `/api/health` und `/api/health/db`.
+Firestore und Gemini werden dabei gemockt, sodass die Suite deterministisch und ohne echte Cloud-Zugriffe läuft; für den DB-Integritätscheck existieren zusätzlich Negativtests für fehlende Referenzdaten und Firestore-Konnektivitätsfehler.
 
-Abgedeckt sind Authentifizierung (Registrierung, Login, aktueller Nutzer), Chat- und Konversationsendpunkte, CRUD-Operationen für Reisepläne sowie `/api/health` und `/api/health/db`.
-Für den DB-Integritätscheck existieren explizite Tests für den grünen Zustand, fehlende Referenzdaten und technische Firestore-Konnektivitätsfehler.
-Gerade diese Negativtests sind wichtig, weil der Endpoint nicht nur Erreichbarkeit, sondern auch Datenintegrität signalisieren soll.
+Im Frontend prüfen Vitest und React Testing Library komponentennahe Nutzerflüsse wie Auth-Routing, Chat-Fehlerfälle, das Speichern einer Antwort als Reiseplan sowie das Erstellen und Löschen von Trips.
+Die API-Schicht wird gemockt; getestet werden damit UI-Verhalten und Zustandsübergänge, nicht visuelle Pixel-Regressionen.
+Ergänzend gatekeepen `ruff`, `mypy`, `pip-audit`, `tsc --noEmit`, ESLint, `vitest run --coverage` und `npm audit` formale Korrektheit, funktionale Korrektheit und Lieferkettensicherheit.
 
-Im Frontend ergänzen Vitest und React Testing Library diese Backend-Sicht um komponentennahe Verhaltenstests.
-Geprüft werden unter anderem Auth-Routing, Chat-Verhalten inklusive Fehlerfall und Speichern einer Antwort als Reiseplan sowie das Erstellen und Löschen von Reisen im Trip-Planner.
-Die Tests mocken die API-Schicht und prüfen damit bewusst UI-Verhalten und Zustandsübergänge, nicht visuelle Pixel-Regressionen.
-
-Ergänzend zur Testsuite laufen in der CI-Pipeline statische Code-Quality- und Sicherheitsprüfungen, die den Backend- und Frontend-Code vor Build und Deployment gatekeepen.
-Für das Python-Backend kommen `ruff` (Linting und Formatierung), `mypy` (statische Typprüfung) und `pip-audit` (CVE-Scan der gepinnten Dependencies) zum Einsatz.
-Im React/TypeScript-Frontend übernehmen `tsc --noEmit` die Typprüfung, ESLint mit den React-Hooks- und React-Refresh-Regeln die Lint-Ebene, `vitest run --coverage` die Tests mit Coverage-Ausgabe und `npm audit` den Dependency-Scan.
-Testabdeckung wird im Backend über `pytest-cov` als Cobertura-Report erzeugt; im Frontend erzeugt Vitest über den V8-Coverage-Provider eine Text-, HTML- und LCOV-Ausgabe.
-Aktuell liegt die Zeilenabdeckung des Backends bei rund 92 %, die des Frontends bei rund 55 %.
-Damit sind die drei gängigen Qualitätsdimensionen abgedeckt: formale Korrektheit (Linting, Typen), funktionale Korrektheit (Tests) und Lieferkettensicherheit (CVE-Scans).
-
-Nicht Teil der automatisierten Tests sind vollständige End-to-End-Tests gegen eine echte GCP-Umgebung, echte Gemini-Antworten, Load-Balancer-Verhalten, MIG-Autohealing oder ein realer Firestore-Import.
-Diese Aspekte wurden im Projekt über die Demo-Skripte, die GitHub-Workflows für Backup/Restore und die Beobachtung in Grafana/Alertmanager validiert.
-Der Testansatz ist damit bewusst risikobasiert: Wiederholbare Backend-Logik wird automatisiert geprüft, während kosten- und zeitintensive Cloud-Abläufe gezielt als Integrations- und Recovery-Tests nachgewiesen werden.
-Ergänzend existiert ein Integrationsworkflow, der nach dem Deployment als Verification-Schritt und bei Bedarf manuell gegen die bereitgestellte öffentliche App-URL läuft.
-Er prüft Health-Endpunkte, Authentifizierung, Trip-CRUD und die relevanten Storage-Buckets mit echten GCP-Diensten, verzichtet aber bewusst auf Gemini-Aufrufe.
-Die dabei erzeugten Testdaten verwenden eine eindeutige E-Mail pro Workflow-Lauf und werden sowohl im Test selbst als auch in einem abschließenden Cleanup-Schritt (`if: always()`) aus Firestore entfernt.
+Die Zeilenabdeckung liegt zum Projektabschluss bei rund 92 % im Backend und rund 55 % im Frontend; die detaillierten Coverage-Tabellen sind im Anhang in @tab-coverage-frontend und @tab-coverage-backend dokumentiert.
+Nach dem Deployment läuft zusätzlich ein Integrationsworkflow gegen die öffentliche App-URL, der Health-Endpunkte, Authentifizierung, Trip-CRUD und relevante Storage-Buckets mit echten GCP-Diensten prüft, aber bewusst auf Gemini-Aufrufe verzichtet.
+Vollständige End-to-End-Prüfungen von Load-Balancer-Verhalten, MIG-Autohealing oder realen Firestore-Imports bleiben aus Kosten- und Laufzeitgründen getrennten Demo- und Recovery-Nachweisen vorbehalten.
 
 == Grenzen der aktuellen Lösung
 
@@ -693,8 +690,8 @@ Die dabei erzeugten Testdaten verwenden eine eindeutige E-Mail pro Workflow-Lauf
   In einem Produktionsbetrieb wäre ein definierter RTO/RPO-Zielwert mit automatisierter Restore-Entscheidung wünschenswert.
 - Die geplanten Firestore-Backups laufen nur täglich; PITR ist konzeptionell vorgesehen, aber aus Kostengründen nicht aktiviert.
   Dadurch bleibt der Recovery-Punkt zwischen zwei täglichen Exporten gröber als in einem hybriden Export-plus-PITR-Setup.
-- Das Logging ist aktuell klassisch über Promtail nach Loki umgesetzt, nicht über OpenTelemetry.
-  Ein OTel-Collector mit OTLP-Empfang wäre eine sinnvolle Erweiterung, um Logs, Metriken und Traces stärker zu standardisieren und vendor-neutral weiterzugeben.
+- Das Logging ist bewusst pragmatisch über Promtail nach Loki umgesetzt.
+  Für einen produktionsnäheren Ausbau wäre OpenTelemetry interessant, insbesondere um zusätzlich verteilte Traces und eine vendor-neutrale Telemetrie-Pipeline einzuführen.
 
 // ========= 6. Fazit =========
 = Fazit
@@ -708,6 +705,141 @@ Der Load Balancer und die CI/CD-Pipeline ergänzen diese Architektur um einen st
 Für zukünftige Iterationen bieten sich vor allem vier Richtungen an:
 _automatisiertes Restore_ (RTO/RPO-getrieben), ein hybrider _Daily-Export-plus-PITR_-Ansatz für Firestore, eine _OpenTelemetry_-basierte Observability-Pipeline und ein _Multi-Region-Failover_ für den Load Balancer.
 Die aktuelle Trennung zwischen Terraform-gesteuertem App-Rollout und Ansible-gesteuertem Monitoring-Host bleibt dabei tragfähig und ermöglicht diese Erweiterungen, ohne die bestehende Deployment-Geschichte zu brechen.
+
+// ========= Anhang =========
+= Anhang
+
+== Kostenrechnung
+
+Die folgende Tabelle zeigt die überschlägige Kostenrechnung für den Grundbetrieb.
+Sie basiert auf den veröffentlichten On-Demand-Preisen und vereinfacht auf 730 Stunden pro Monat.
+
+#figure(
+  table(
+    columns: (1.25fr, 1.7fr, 1.05fr),
+    stroke: 0.45pt + luma(180),
+    inset: (x: 5pt, y: 4pt),
+    align: (left, left, right),
+    table.header([*Posten*], [*Annahme / Rechnung*], [*Monatlich*]),
+    [Compute],
+    [3 × `e2-small` × 730 h × 0,016752855 USD/h @gcp-compute-vm-pricing],
+    [36,69 USD],
+
+    [Persistent Disks],
+    [70 GiB `pd-standard`; mit 30 GiB Free-Tier-Anteil ca. 40 GiB kostenpflichtig @gcp-disk-pricing],
+    [ca. 1,60 USD],
+
+    [Firestore],
+    [Kleine Projekt-Datenmenge innerhalb des Free Tier; Exporte verursachen dennoch Reads @firestore-pricing @gcp-firestore-export],
+    [ca. 0 USD],
+
+    [Backup Storage],
+    [`30 * D * 0,0253 USD` bei 30 täglichen Backups und Datenbankgröße `D` GiB @gcp-storage-pricing],
+    [ca. 0,76 USD/GiB],
+
+    [Cloud Scheduler],
+    [1 Job; innerhalb des Free Tier von drei Jobs, sonst 0,10 USD/Job @gcp-scheduler-pricing],
+    [ca. 0 USD],
+
+    [*Summe*],
+    [Grundbetrieb ohne variable Zusatzkosten],
+    [*ca. 38--40 USD + 0,76 USD/GiB*],
+  ),
+  caption: [Überschlägige monatliche Kostenrechnung.],
+) <tab-cost-estimate>
+
+== Testabdeckung
+
+Die folgenden Tabellen dokumentieren die zum Projektabschluss gemessene Testabdeckung für Frontend und Backend.
+Die Frontend-Abdeckung stammt aus `npm run test:coverage` mit Vitest und V8-Coverage-Provider.
+
+#figure(
+  block(width: 100%)[
+    #set text(size: 7.5pt)
+    #table(
+      columns: (1.45fr, auto, auto, auto, auto, 1.55fr),
+      stroke: 0.45pt + luma(180),
+      inset: (x: 4pt, y: 3pt),
+      align: (left, right, right, right, right, left),
+      table.header(
+        [*Datei*],
+        [*Statements*],
+        [*Branches*],
+        [*Functions*],
+        [*Lines*],
+        [*Nicht abgedeckte Zeilen*],
+      ),
+      [`All files`], [52,58 %], [61,01 %], [46,87 %], [54,82 %], [],
+      [`src`], [63,63 %], [83,33 %], [66,66 %], [66,66 %], [],
+      [`App.tsx`], [100 %], [100 %], [100 %], [100 %], [],
+      [`AuthContext.tsx`],
+      [55,55 %],
+      [75 %],
+      [60 %],
+      [58,82 %],
+      [`17,22-24,28-30`],
+
+      [`types.ts`], [0 %], [0 %], [0 %], [0 %], [],
+      [`src/components`], [61,01 %], [62,61 %], [55,4 %], [62,66 %], [],
+      [`Chat.tsx`],
+      [77,5 %],
+      [75 %],
+      [65,62 %],
+      [79,71 %],
+      [`...125-128,263-284`],
+
+      [`Login.tsx`], [42,85 %], [33,33 %], [40 %], [45 %], [`16-27,52`],
+      [`Nav.tsx`], [100 %], [100 %], [100 %], [100 %], [],
+      [`Register.tsx`], [0 %], [0 %], [0 %], [0 %], [`9-53`],
+      [`TripPlanner.tsx`],
+      [64 %],
+      [51,72 %],
+      [53,33 %],
+      [69,44 %],
+      [`...,81,127,143-144`],
+
+      [`src/services`], [0 %], [0 %], [0 %], [0 %], [],
+      [`api.ts`], [0 %], [0 %], [0 %], [0 %], [`4-46`],
+    )
+  ],
+  caption: [Frontend-Testabdeckung mit Vitest und V8-Coverage.],
+) <tab-coverage-frontend>
+
+Die Backend-Abdeckung stammt aus der `pytest`-Testsuite mit `pytest-cov`.
+
+#figure(
+  block(width: 100%)[
+    #set text(size: 8pt)
+    #table(
+      columns: (1.9fr, auto, auto, auto, 1.3fr),
+      stroke: 0.45pt + luma(180),
+      inset: (x: 4pt, y: 3pt),
+      align: (left, right, right, right, left),
+      table.header(
+        [*Datei*], [*Statements*], [*Miss*], [*Coverage*], [*Fehlend*]
+      ),
+      [`main.py`], [34], [0], [100 %], [],
+      [`metrics.py`], [8], [0], [100 %], [],
+      [`routers/__init__.py`], [0], [0], [100 %], [],
+      [`routers/ai.py`], [50], [0], [100 %], [],
+      [`routers/auth.py`], [62], [0], [100 %], [],
+      [`routers/health.py`], [37], [3], [92 %], [`21, 62, 84`],
+      [`routers/trips.py`], [58], [0], [100 %], [],
+      [`services/__init__.py`], [0], [0], [100 %], [],
+      [`services/firestore_client.py`], [7], [1], [86 %], [`21`],
+      [`services/gemini.py`], [55], [38], [31 %], [`40-62, 70-96`],
+      [`services/jwt_auth.py`], [24], [5], [79 %], [`44-52`],
+      [`tests/__init__.py`], [0], [0], [100 %], [],
+      [`tests/conftest.py`], [25], [0], [100 %], [],
+      [`tests/test_ai.py`], [61], [0], [100 %], [],
+      [`tests/test_auth.py`], [55], [0], [100 %], [],
+      [`tests/test_health.py`], [62], [3], [95 %], [`86, 93, 98`],
+      [`tests/test_trips.py`], [68], [0], [100 %], [],
+      [*TOTAL*], [*606*], [*50*], [*92 %*], [],
+    )
+  ],
+  caption: [Backend-Testabdeckung mit pytest-cov.],
+) <tab-coverage-backend>
 
 // ========= Referenzen =========
 #bibliography("references.bib", title: "Referenzen", style: "ieee", full: true)

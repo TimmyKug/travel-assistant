@@ -117,6 +117,13 @@ Pushing to `main` triggers [`.github/workflows/deploy.yml`](.github/workflows/de
 
 Integration checks live in [`.github/workflows/integration-tests.yml`](.github/workflows/integration-tests.yml). The workflow runs automatically as post-deploy verification and can also be started manually with `workflow_dispatch`. It takes the deployed app URL as input, skips Gemini to avoid quota/cost flakiness, creates a unique temporary user/trip through the public API, checks health endpoints and storage buckets, and cleans up Firestore test data in an `if: always()` step.
 
+Current test coverage:
+
+| Area | Tool | Command | Line coverage |
+|------|------|---------|---------------|
+| Backend | `pytest-cov` | `pytest tests/ --cov` | 92% |
+| Frontend | Vitest + V8 coverage | `npm run test:coverage` | 54.82% |
+
 The app VMs bootstrap themselves from [`scripts/startup.sh`](scripts/startup.sh) — no
 Ansible required on the app side. That script runs on every MIG-created instance,
 pulls the configs from GCS, and starts the docker-compose stack. This keeps
@@ -228,6 +235,19 @@ cp ../.env.example .env   # fill in values
 uvicorn main:app --reload
 pytest tests/ -v          # run the test suite
 ```
+
+Optional Gemini integration tests (real API calls, opt-in):
+
+```bash
+cd backend
+source .venv/bin/activate
+RUN_GEMINI_INTEGRATION=1 pytest tests/test_gemini_integration.py -m integration -v
+```
+
+Notes:
+- These tests call Gemini directly and may consume quota/cost.
+- They bypass Firestore rate-limit bookkeeping to keep scope on Gemini behavior.
+- They are skipped by default unless `RUN_GEMINI_INTEGRATION=1` is set.
 
 Frontend:
 
