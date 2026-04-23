@@ -115,7 +115,7 @@ describe("Login", () => {
   });
 
   it("clears previous errors when trying again", async () => {
-    const { rerender } = renderLogin();
+    renderLogin();
     vi.mocked(api.default.post).mockRejectedValueOnce({ response: { data: { detail: "First error" } } });
 
     const user = userEvent.setup();
