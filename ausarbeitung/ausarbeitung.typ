@@ -680,7 +680,7 @@ Im Frontend prüfen Vitest und React Testing Library komponentennahe Nutzerflüs
 Die API-Schicht wird gemockt; getestet werden damit UI-Verhalten und Zustandsübergänge, nicht visuelle Pixel-Regressionen.
 Ergänzend gatekeepen `ruff`, `mypy`, `pip-audit`, `tsc --noEmit`, ESLint, `vitest run --coverage` und `npm audit` formale Korrektheit, funktionale Korrektheit und Lieferkettensicherheit.
 
-Die Zeilenabdeckung liegt zum Projektabschluss bei rund 92 % im Backend und rund 55 % im Frontend; die detaillierten Coverage-Tabellen sind im Anhang in @tab-coverage-frontend und @tab-coverage-backend dokumentiert.
+Die Zeilenabdeckung liegt zum Projektabschluss bei rund 92 % im Backend und rund 39 % im Frontend; die detaillierten Coverage-Tabellen sind im Anhang in @tab-coverage-frontend und @tab-coverage-backend dokumentiert.
 Nach dem Deployment läuft zusätzlich ein Integrationsworkflow gegen die öffentliche App-URL, der Health-Endpunkte, Authentifizierung, Trip-CRUD und relevante Storage-Buckets mit echten GCP-Diensten prüft, aber bewusst auf Gemini-Aufrufe verzichtet.
 Vollständige End-to-End-Prüfungen von Load-Balancer-Verhalten, MIG-Autohealing oder realen Firestore-Imports bleiben aus Kosten- und Laufzeitgründen getrennten Demo- und Recovery-Nachweisen vorbehalten.
 
@@ -769,7 +769,7 @@ Die Frontend-Abdeckung stammt aus `npm run test:coverage` mit Vitest und V8-Cove
         [*Lines*],
         [*Nicht abgedeckte Zeilen*],
       ),
-      [`All files`], [52,58 %], [61,01 %], [46,87 %], [54,82 %], [],
+      [`All files`], [37,48 %], [31,35 %], [33,19 %], [38,56 %], [],
       [`src`], [63,63 %], [83,33 %], [66,66 %], [66,66 %], [],
       [`App.tsx`], [100 %], [100 %], [100 %], [100 %], [],
       [`AuthContext.tsx`],
@@ -780,26 +780,29 @@ Die Frontend-Abdeckung stammt aus `npm run test:coverage` mit Vitest und V8-Cove
       [`17,22-24,28-30`],
 
       [`types.ts`], [0 %], [0 %], [0 %], [0 %], [],
-      [`src/components`], [61,01 %], [62,61 %], [55,4 %], [62,66 %], [],
+      [`src/components`], [43,89 %], [35,36 %], [36,81 %], [45,09 %], [],
       [`Chat.tsx`],
-      [77,5 %],
-      [75 %],
-      [65,62 %],
-      [79,71 %],
-      [`...125-128,263-284`],
+      [56,11 %],
+      [49,31 %],
+      [54,02 %],
+      [56,9 %],
+      [`...-1078,1092-1093`],
 
       [`Login.tsx`], [42,85 %], [33,33 %], [40 %], [45 %], [`16-27,52`],
       [`Nav.tsx`], [100 %], [100 %], [100 %], [100 %], [],
       [`Register.tsx`], [0 %], [0 %], [0 %], [0 %], [`9-53`],
+      [`TripDetail.tsx`], [0 %], [0 %], [0 %], [0 %], [`21-528`],
       [`TripPlanner.tsx`],
-      [64 %],
-      [51,72 %],
-      [53,33 %],
-      [69,44 %],
-      [`...,81,127,143-144`],
+      [72,09 %],
+      [61,22 %],
+      [61,11 %],
+      [72,36 %],
+      [`...246,267,296-299`],
 
       [`src/services`], [0 %], [0 %], [0 %], [0 %], [],
-      [`api.ts`], [0 %], [0 %], [0 %], [0 %], [`4-46`],
+      [`api.ts`], [0 %], [0 %], [0 %], [0 %], [`4-65`],
+      [`src/utils`], [0 %], [0 %], [0 %], [0 %], [],
+      [`tripMarkdown.ts`], [0 %], [0 %], [0 %], [0 %], [`4-129`],
     )
   ],
   caption: [Frontend-Testabdeckung mit Vitest und V8-Coverage.],
