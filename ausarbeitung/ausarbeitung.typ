@@ -165,14 +165,7 @@ Ziel des Projekts war die Entwicklung einer containerbasierten Web-Anwendung, di
 
 == Problemstellung
 
-Aus technischer Sicht stellten sich im Projekt vier Kernfragen, die die Architektur wesentlich prägten:
-
-+ *Wie wird ein stabiler öffentlicher Endpunkt erreicht, obwohl einzelne #acrpl("VM") selbstheilend ausgetauscht werden dürfen?*
-+ *Wie wird erreicht, dass ein Fehlerzustand angezeigt wird, wenn die Applikation ausfällt oder die Daten korrupt sind?*
-+ *Wie wird eine (automatische) Wiederherstellung der exakt gleichen Applikation erreicht?*
-+ *Wie wird erreicht, dass Zwischenstände von Daten gesichert und wiederhergestellt werden können?*
-
-Die Beantwortung dieser Fragen leitete sowohl die Infrastrukturgestaltung als auch die Gliederung dieser Ausarbeitung.
+Architekturprägend waren vier Kernfragen: wie ein stabiler öffentlicher Endpunkt trotz selbstheilender #acrpl("VM") entsteht, wie App- und Datenfehler sichtbar gemacht werden, wie eine identische Wiederherstellung der Anwendung automatisiert abläuft und wie Datenstände gesichert und zurückgespielt werden.
 Die folgenden Kapitel entwickeln die Lösung von den technologischen Grundlagen (Kapitel 2) über die Architektur und Umsetzung (Kapitel 3) bis hin zum Fokus-Feature _Disaster Recovery_ (Kapitel 4), einer Diskussion der Ergebnisse (Kapitel 5) und einem Fazit (Kapitel 6).
 
 // ========= 2. Technische Grundlagen =========
@@ -223,7 +216,7 @@ Die folgende Tabelle fasst das im Projekt gewählte Mapping auf die drei Cloud-S
   ),
   caption: [Firestore-Datenmodell.],
 ) <tab-firestore>
-- *KI-Modell:* Google Gemini #acr("API") mit _Gemini 3.1 Flash-Lite_ für die Reiseassistenz.
+- *KI-Modell:* Google Gemini #acr("API") mit _Gemini 3.1 Flash-Lite_ für die Reiseassistenz; gewählt gegenüber 2.5 Flash wegen besserer Geschwindigkeits- und Intelligenzwerte @gemini bei gleichem Free-Tier-Kontingent @gemini-rate-limits.
 - *Container und Orchestrierung:* Docker + Docker Compose, ein eigener Nginx als Reverse Proxy pro App-#acr("VM").
 - *Infrastructure as Code:* Terraform (Provider `hashicorp/google ~> 5.0`) für Netzwerk, #acrpl("VM"), Load Balancer, Firestore, #acr("IAM") und Cloud Scheduler.
 - *Konfigurationsmanagement:* Ansible (Playbook + Rolle) ausschließlich für die persistente Monitoring-#acr("VM").
@@ -237,16 +230,10 @@ Die Auswahl der konkreten #acr("GCP")-Dienste folgt jedoch der Architektur: Comp
 GitHub Actions übernimmt als #acr("SaaS")-Dienst die #acr("CI/CD")-Ausführung.
 Dadurch werden alle drei Cloud-Service-Modelle sichtbar genutzt, ohne zusätzliche Eigenbetriebs-Komplexität einzuführen.
 
-=== Backend: FastAPI vs. Flask und Django
+=== Backend und Frontend
 
-FastAPI wurde gegenüber Flask und Django bevorzugt, weil es typsichere JSON-#acrpl("API") direkt unterstützt: Pydantic-Modelle dienen zugleich als Validierungsschicht und als Quelle der automatisch generierten OpenAPI-Spezifikation, und der #acr("ASGI")-Unterbau liefert asynchrone #acr("I/O"), die bei Gemini-Aufrufen mit mehreren Sekunden Antwortzeit relevant ist @fastapi-features.
-Flask müsste Validierung und OpenAPI über Zusatzbibliotheken nachrüsten, Django bringt mit #acr("ORM"), Admin und Templating Funktionen mit, die im Projekt nicht gebraucht werden.
-
-=== Frontend: React + Vite vs. Create-React-App und Next.js
-
-React als #acr("UI")-Bibliothek wurde aufgrund der persönlichen Vertrautheit gewählt, um den Fokus auf die Cloud-Architektur statt auf die Einarbeitung in neue Frontend-Technologien zu legen.
-Als Build-Werkzeug kam Vite zum Einsatz, weil #acr("CRA") 2023 abgekündigt wurde und Vite als De-facto-Nachfolger für #acr("SPA")-Builds gilt @vite-why.
-Gegen Next.js als Fullstack-Alternative sprachen zwei Gründe: Zum einen existiert das Backend bereits als eigenständiger FastAPI-Dienst, womit #acr("SSR") und #acr("API")-Routen überdimensioniert wären; zum anderen würde ein Next.js-Monolith die im Projekt bewusst gezogene Trennung zwischen statisch ausgeliefertem Frontend und containerisiertem Backend verwischen, die sowohl das Deployment-Modell als auch die Zuordnung zu den Cloud-Service-Ebenen trägt.
+FastAPI wurde gegenüber Flask und Django gewählt, weil Pydantic-Modelle gleichzeitig Validierung und automatisch generierte OpenAPI-Spezifikation liefern und der #acr("ASGI")-Unterbau asynchrone #acr("I/O") für die mehrsekündigen Gemini-Aufrufe bereitstellt @fastapi-features.
+Im Frontend kommt React mit Vite zum Einsatz, weil #acr("CRA") 2023 abgekündigt wurde und Vite als Nachfolger für #acr("SPA")-Builds gilt @vite-why; Next.js hätte die bewusste Trennung zwischen statischem Frontend und containerisiertem Backend aufgeweicht.
 
 === Datenhaltung: Firestore vs. Cloud SQL und selbstbetriebene #acr("DB")
 
@@ -254,11 +241,6 @@ Firestore wurde gegenüber Cloud SQL und einer selbstbetriebenen Datenbank bevor
 Nutzerprofile, Konversationen und Reisepläne sind dokumentenförmig; die Subcollection-Struktur `users/{uid}/conversations/{id}` entspricht direkt dem #acr("UI")-Zugriffspfad.
 Das tägliche Rate-Limit erfordert einen atomaren Read-Modify-Write, den Firestore über #acr("ACID")-Transaktionen auf Dokumentebene abdeckt @firestore-transactions.
 Cloud SQL verursacht unabhängig von der Nutzung laufende Kosten @gcp-sql-pricing, während Firestore mit seinem Free-Tier-Sockel den Projektbetrieb abdeckt @firestore-pricing.
-
-=== KI-Modell: Gemini 3.1 Flash-Lite vs. 2.5 Flash
-
-Innerhalb des kostenlosen Kontingents der Gemini #acr("API") @gemini-rate-limits kamen Gemini 2.5 Flash und das zur Projektzeit als Preview verfügbare Gemini 3.1 Flash-Lite in Frage.
-Letzteres wurde gewählt, da Google für das Modell bessere Geschwindigkeits- und Intelligenzwerte ausweist @gemini.
 
 === Container-Orchestrierung: Docker Compose vs. Kubernetes (#acr("GKE"))
 
@@ -268,9 +250,7 @@ Die im Projekt benötigten Kubernetes-Funktionen --- horizontales Replizieren un
 === #acr("IaC") und Konfigurationsmanagement: Terraform und Ansible
 
 Terraform und Ansible waren durch die Modulvorgabe gesetzt; die Entscheidung betraf ihre Aufteilung.
-Terraform beschreibt deklarativ den Zielzustand der Infrastruktur und verwaltet Abhängigkeiten zwischen Ressourcen @terraform-google-provider.
-Ansible arbeitet agentenlos über #acr("SSH") @ansible-agentless und wird ausschließlich für die persistente Monitoring-#acr("VM") eingesetzt.
-App-#acrpl("VM") werden bewusst über Instance Template und Startup-Script bootstrapped, damit neu erzeugte #acr("MIG")-Instanzen ohne nachträglichen #acr("SSH")-Eingriff einsatzfähig sind.
+Terraform beschreibt deklarativ die Infrastruktur @terraform-google-provider, Ansible arbeitet agentenlos über #acr("SSH") @ansible-agentless und bleibt auf die persistente Monitoring-#acr("VM") beschränkt; App-#acrpl("VM") werden stattdessen über Instance Template und Startup-Script bootstrapped.
 
 === Monitoring, Logging und Alerting
 
@@ -302,12 +282,8 @@ Gerade diese Trennung ist wichtig, weil ein Fehler im App-Pfad nicht gleichzeiti
 == Request-Pfad und Deployment-Flüsse
 
 @fig-flows reduziert die Architektur auf drei operative Flüsse: Nutzertraffic, Rollout-Artefakte und Monitoring-Konfiguration.
-Produktions-Traffic wird ausschließlich über den Load Balancer in die MIG geleitet; App-VMs werden daher nicht direkt als öffentliche Einstiegspunkte betrachtet.
-Das CI/CD-System baut dagegen Container-Images, legt sie in der Artifact Registry ab, aktualisiert die GCP-Infrastruktur über Terraform und lädt die zur Laufzeit benötigten Konfigurationsdateien in einen GCS-App-Config-Bucket.
-
-Die App-VMs ziehen beim Start genau diese Artefakte: Das Startup-Script liest die Compose-Dateien und Umgebungswerte aus GCS, authentifiziert Docker gegenüber Artifact Registry und startet Nginx, FastAPI, Promtail und Node Exporter lokal per Docker Compose.
-So kann eine neue MIG-Instanz vollständig selbstständig starten, ohne dass GitHub Actions oder Ansible per SSH in die einzelne App-VM eingreifen müssen.
-Ansible bleibt auf die langlebige Monitoring-VM beschränkt.
+Produktions-Traffic läuft ausschließlich über den Load Balancer in die MIG; App-VMs sind keine öffentlichen Einstiegspunkte.
+Die Details des Rollout-Flusses --- Artefakt-Bereitstellung, Bootstrap und Secret-Handhabung --- behandelt @sec-deployment.
 
 #figure(
   block(width: 100%)[#set text(size: 8.5pt)
@@ -380,47 +356,25 @@ Ansible bleibt auf die langlebige Monitoring-VM beschränkt.
     Images und App-Konfiguration werden als Artefakte bereitgestellt; Ansible wird nur für die persistente Monitoring-VM verwendet.],
 ) <fig-flows>
 
-== Deployment-Modell
+== Deployment-Modell <sec-deployment>
 
-Das Deployment-Modell trennt App-Rollout und Monitoring-Konfiguration nach Verantwortlichkeit.
-Terraform beschreibt die GCP-Infrastruktur einschließlich Load Balancer, Managed Instance Group, Instance Template, Firestore, IAM, Buckets und Cloud Scheduler.
-Die App-VMs werden nicht nachträglich per SSH konfiguriert, sondern starten über das Instance Template und ein Startup-Script selbstständig.
+Terraform beschreibt die GCP-Infrastruktur (Load Balancer, MIG, Instance Template, Firestore, IAM, Buckets, Cloud Scheduler); App-VMs werden nicht per SSH konfiguriert, sondern starten über Instance Template und Startup-Script selbstständig.
+Das Startup-Script holt Docker-Compose, `.env` und Promtail-Konfiguration aus einem GCS-Bucket, zieht sensible Laufzeitwerte (Gemini-API-Key, #acr("JWT")-Signing-Key) aus Google Secret Manager, authentifiziert Docker gegenüber Artifact Registry und startet den Compose-Stack mit Nginx, FastAPI, Promtail und Node Exporter.
+Container-Images werden mit dem Git-SHA getaggt, sodass pro Commit eine eindeutige Template-Version den MIG-Rollout auslöst.
 
-Das Startup-Script holt Docker-Compose, `.env` und Promtail-Konfiguration aus einem GCS-Bucket, zieht anschließend die sensiblen Laufzeitwerte (Gemini-API-Key, #acr("JWT")-Signing-Key) aus Google Secret Manager, authentifiziert Docker gegenüber Artifact Registry und startet den Compose-Stack mit Nginx, FastAPI, Promtail und Node Exporter.
-Dadurch kann jede neu erzeugte MIG-Instanz ohne manuellen Eingriff denselben Anwendungszustand herstellen.
-Container-Images werden mit dem Git-SHA getaggt; pro Commit entsteht damit eine eindeutige Template-Version, die den MIG-Rollout nachvollziehbar auslöst.
+Secrets und nicht-sensible Konfiguration sind bewusst getrennt: Der GCS-Bucket hält unkritische Werte (Projekt-ID, Loki-Endpoint, Image-Tag), Gemini-API-Key und #acr("JWT")-Signing-Key liegen als benannte Secrets in Secret Manager.
+Der App-#acr("VM")-Service-Account besitzt `roles/secretmanager.secretAccessor` pro Secret; Rotationen erfolgen per neuer Secret-Version plus MIG-Instance-Rotation, ohne Terraform-State oder Bucket-Inhalte zu berühren.
 
-Secrets und nicht-sensible Konfiguration werden dabei bewusst getrennt abgelegt:
-Der GCS-Bucket enthält nur Werte, deren Offenlegung unkritisch ist (Projekt-ID, Loki-Endpoint, Image-Tag), während Gemini-API-Key und #acr("JWT")-Signing-Key als benannte Secrets in Secret Manager liegen.
-Der App-#acr("VM")-Service-Account besitzt `roles/secretmanager.secretAccessor` pro Secret, sodass Zugriff feingranular vergeben und über Cloud Audit Logs nachvollziehbar ist.
-Rotationen erfolgen durch Anlegen einer neuen Secret-Version mit anschließender MIG-Instance-Rotation, ohne Terraform-State oder Bucket-Inhalte zu berühren.
-
-Ansible bleibt auf die langlebige Monitoring-VM beschränkt.
-Dort verwaltet es die Konfiguration von Prometheus, Grafana, Loki, Alertmanager und Nginx, also Komponenten, die nicht mit jedem App-Rollout neu erzeugt werden.
+Ansible bleibt auf die langlebige Monitoring-VM beschränkt und verwaltet dort Prometheus, Grafana, Loki, Alertmanager und Nginx --- Komponenten, die nicht mit jedem App-Rollout neu erzeugt werden.
 
 == Anwendungsumfang (Frontend und Backend)
 
-Die Anwendung bildet einen durchgängigen Reiseplanungs-Workflow von der Konversation bis zur detaillierten Trip-Verwaltung ab.
+Die Anwendung bildet einen durchgängigen Reiseplanungs-Workflow von der Konversation bis zur Trip-Verwaltung ab.
+Backend-seitig erzwingt `POST /api/ai/chat` ein striktes JSON-Enveloping (`triptitle`, `response`, `recommendations`); bei Vertragsverletzungen folgt ein Reparatur-Retry, danach `HTTP 502` mit gekürztem Raw-Snippet zur Diagnose.
+`services/gemini.py` implementiert einen zweiphasigen Dialogfluss (Präferenzklärung, dann Itinerary-Generierung nach `GO`-Signal); Konversationen und Trips werden über dedizierte CRUD-Endpunkte persistiert.
 
-*Backend-seitig* erzwingt der Chat-Endpunkt `POST /api/ai/chat` ein striktes JSON-Enveloping:
-Gemini liefert exakt `triptitle`, `response` und `recommendations`.
-Bei Vertragsverletzungen erfolgt ein automatischer Reparatur-Retry mit verschärfter Instruktion; schlägt auch dieser fehl, antwortet das Backend mit `HTTP 502` und gekürzten Raw-Response-Snippets zur Diagnose.
-Der Endpunkt liefert strukturierte Antwortdaten (`trip_plan`) für Timeline-Rendering im Frontend sowie klickbare Folge-Prompts (`recommendations`).
-Konversationen speichern neben den Messages explizit `title`, `trip_title`, `recommendations` und `updated_at`:
-`title` dient als benutzerseitig editierbarer Anzeigename der Konversation, `trip_title` als modellseitiges Themenlabel aus dem Envelope.
-Die API bietet dafür auch `PATCH /api/ai/conversations/{id}` (Umbenennen) und `DELETE /api/ai/conversations/{id}`.
-Der Trip-Router enthält `GET /api/trips/{trip_id}` für eine dedizierte Trip-Detailseite.
-
-In `services/gemini.py` ist ein zweiphasiger Dialogfluss definiert:
-zunächst Präferenzklärung, dann Itinerary-Generierung nach explizitem `GO`-Signal der Nutzerin bzw. des Nutzers.
-Die Modellwahl ist über Umgebungsvariablen (`GEMINI_MODEL`, optional `GEMINI_REASONING_MODEL` mit `GEMINI_USE_REASONING=1`) konfigurierbar.
-Wie besprochen wird Gemini 3.1 Flash-Lite als Standardmodell verwendet, da es im Projektzeitraum verfügbar war und bessere Leistungswerte als 2.5 Flash bietet @gemini.
-
-*Frontend-seitig* umfasst die Chat-Oberfläche eine Konversationsverwaltung (Suche, Sortierung, Pinning, Umbenennen, Löschen, mobile History-Ansicht), serverseitig gelieferte Empfehlungschips sowie einen Retry-Flow für fehlgeschlagene Requests.
-Strukturierte KI-Antworten werden als Timeline-Karten mit Tagespunkten, Hotelvorschlägen pro Nacht und Budgetblock visualisiert.
-Reisepläne lassen sich direkt aus der Antwort speichern, bei bestehender Verknüpfung in denselben Trip zurückschreiben und als Markdown exportieren.
-`TripPlanner` unterstützt Suche/Sortierung, Export und direkten Sprung in Chat oder Detailansicht;
-`TripDetail` unterstützt Laden, Editieren, Speichern, Löschen und Export einzelner Trips einschließlich bearbeitbarer strukturierter Itinerary-Daten.
+Frontend-seitig rendert die Chat-Oberfläche Konversationsverwaltung (Suche, Pinning, Umbenennen, Löschen), Empfehlungschips und einen Retry-Flow; strukturierte Antworten werden als Timeline-Karten mit Tagespunkten, Hotelvorschlägen und Budgetblock visualisiert.
+Reisepläne lassen sich direkt aus dem Chat speichern, später in denselben Trip zurückschreiben und als Markdown exportieren.
 
 == Monitoring-Stack
 
@@ -439,11 +393,7 @@ Das ist bewusst gewählt, damit die Observability nicht mit der überwachten Inf
   Für einen dauerhaften Betrieb wäre ein Terraform-`prevent_destroy` auf dieser Disk sinnvoll, weil es versehentliche Löschung von Monitoring-Historie bei `terraform destroy` verhindert.
   Dieser Schutz ist im gezeigten Setup nicht dauerhaft aktiviert, damit die Disk ohne zusätzlichen Terraform-Eingriff gelöscht werden kann (aus Ersparnisgründen).
 
-Auf den App-VMs laufen damit neben den fachlichen Containern auch unterstützende Betriebskomponenten.
-Promtail folgt dem Sidecar-Prinzip: Der Container läuft auf jeder App-VM neben Nginx und FastAPI, nimmt selbst keinen Nutzertraffic entgegen und leitet Container- sowie Systemlogs an Loki weiter.
-Der Node Exporter ist als begleitender Exporter ähnlich eingebunden, beobachtet aber die VM als Host und stellt CPU-, Speicher- und Dateisystemmetriken für Prometheus bereit.
-Beide Komponenten erhöhen die Beobachtbarkeit, ohne die fachliche Anwendung direkt zu verändern.
-Die Persistent Disk der Monitoring-VM ist dagegen kein Sidecar, sondern angebundener persistenter Speicher für Prometheus, Loki, Grafana und Alertmanager.
+Auf jeder App-VM laufen Promtail und Node Exporter als Sidecars neben Nginx und FastAPI: Promtail leitet Container- und Systemlogs an Loki weiter, Node Exporter stellt Host-Metriken für Prometheus bereit.
 
 === Alertierung und Betriebszugriff
 
@@ -570,14 +520,9 @@ Im Erfolgsfall antwortet der Endpoint mit `status: "healthy"` und `checked_docum
 Im Fehlerfall enthält die Antwort `status: "unhealthy"`, einen maschinenlesbaren `reason` sowie die konkrete Liste der fehlenden Dokumente oder Felder.
 Dadurch kann der Recovery-Test nicht nur einen roten Zustand anzeigen, sondern auch begründen, welche Sentinel-Dokumente wiederhergestellt werden müssen.
 
-Ein Blackbox Exporter fragt den Endpoint regelmäßig über den Prometheus-Job `db-health` ab und exportiert `probe_success` als Prometheus-Metrik.
-Der Alert `FirestoreIntegrityCheckFailed` wird ausgelöst, wenn `probe_success` fehlschlägt und die betroffene App-Instanz gleichzeitig über den normalen API-Scrape erreichbar ist.
-Dadurch wird ein echter Datenintegritätsfehler von einem allgemeinen App- oder VM-Ausfall getrennt.
-Ein Grafana-Stat-Panel _Database Integrity_ zeigt den Zustand kontinuierlich, unabhängig von App-Traffic.
-
-Für die Alarmierung lädt Prometheus die Regel aus `alerts.yml` und übergibt den kritischen Alert an Alertmanager.
-Alertmanager gruppiert gleichartige Meldungen, sendet bei konfigurierten SMTP-Variablen eine E-Mail und markiert den Alarm nach erfolgreichem Restore automatisch als resolved, sobald der Blackbox-Probe wieder `probe_success = 1` liefert.
-Damit entsteht eine geschlossene Kette aus _Erkennen_ (`/api/health/db`), _Messen_ (Blackbox Exporter), _Alarmieren_ (Prometheus/Alertmanager) und _Nachweisen der Wiederherstellung_ (grünes Grafana-Panel und resolved Alert).
+Ein Blackbox Exporter fragt den Endpoint über den Prometheus-Job `db-health` ab und exportiert `probe_success`.
+Der Alert `FirestoreIntegrityCheckFailed` feuert nur, wenn `probe_success` fehlschlägt _und_ die App-Instanz über den API-Scrape erreichbar bleibt --- so wird ein Datenintegritätsfehler von einem App- oder VM-Ausfall getrennt.
+Alertmanager versendet bei konfigurierten SMTP-Variablen eine E-Mail und markiert den Alarm automatisch als resolved, sobald der Probe wieder `probe_success = 1` liefert; ein Grafana-Stat-Panel _Database Integrity_ zeigt den Zustand zusätzlich kontinuierlich.
 
 === Backups und Restore
 
@@ -674,40 +619,11 @@ Im aktuellen Projektumfang existieren solche Werte nicht, weshalb diese Schicht 
 // ========= 5. Ergebnisse und Diskussion =========
 = Ergebnisse und Diskussion
 
-== Umgesetzter Systemumfang
+== Rückblick auf den umgesetzten Systemumfang
 
-#figure(
-  table(
-    columns: (1fr, 1.8fr),
-    stroke: 0.5pt + luma(180),
-    align: (left, left),
-    table.header([*Bereich*], [*Umsetzung*]),
-    [Web-Anwendung],
-    [E-Mail/Passwort-Login mit JWT, zweiphasiger KI-Dialog (Präferenzklärung → Itinerary per `GO`) mit strikt validiertem JSON-Envelope, persistenten Konversationen (inkl. Rename/Delete, Empfehlungen) sowie Trip-Workflow mit Detailansicht, Bearbeitung und Markdown-Export.],
-
-    [Cloud-Service-Modelle],
-    [SaaS: Gemini API · PaaS: Firestore, Artifact Registry, Cloud Scheduler, Cloud Storage, Secret Manager · IaaS: Compute Engine (MIG + Monitoring-VM), Load Balancer, Persistent Disks.],
-
-    [Infrastruktur],
-    [Komplette Infrastruktur inklusive MIG, LB, Firestore, IAM, Cloud-Storage-Buckets für Terraform-State, App-Konfiguration und Firestore-Backups sowie Cloud-Scheduler-Job.],
-
-    [Konfiguration],
-    [Auf die persistente Monitoring-VM fokussiert; App-VMs werden über Startup-Script bereitgestellt.],
-
-    [Disaster Recovery],
-    [Sichtbare Datenkorruption, MIG-Autohealing, Grafana-Alert und Restore-Script.],
-
-    [Monitoring],
-    [Prometheus (GCE-SD), Grafana, Loki, Alertmanager, Blackbox Exporter und Node Exporter auf separater VM mit persistenter Disk.],
-
-    [Entwicklung und Betrieb],
-    [Typed FastAPI-Endpunkte, pytest-Testsuite, Vitest-Frontendtests, CI über GitHub Actions.],
-
-    [Rollout-Modell],
-    [GitHub Actions: Build/Push → `terraform apply` → Ansible (Monitoring) → Instance-Template-Rotation; globale statische IP vor HTTP(S)-LB, $N > 1$ App-Instanzen mit Rolling-Replace.],
-  ),
-  caption: [Zusammenfassung der umgesetzten Systembereiche.],
-) <tab-systemumfang>
+Das umgesetzte System umfasst eine durchgängige, cloud-native End-to-End-Lösung aus React-Frontend, FastAPI-Backend, Firestore-Datenhaltung und Gemini-gestützter Assistenzlogik.
+Auf Infrastrukturebene wurden die zentralen Betriebsbausteine --- #acr("MIG"), Load Balancer, Artifact Registry, Secret Manager, Cloud Scheduler sowie ein separater Monitoring-Host mit Prometheus/Grafana/Loki --- reproduzierbar über Terraform und Ansible bereitgestellt.
+Mit der #acr("CI/CD")-Pipeline, automatisierten Tests und den nachgewiesenen Recovery-Pfaden (Compute-Autohealing, Firestore-Export/Import) ist damit nicht nur ein funktionaler Prototyp, sondern ein belastbarer Betriebs- und Wiederanlaufrahmen umgesetzt.
 
 == Testumfang und Methodik
 
@@ -727,14 +643,10 @@ Vollständige End-to-End-Prüfungen von Load-Balancer-Verhalten, MIG-Autohealing
 
 == Grenzen der Lösung
 
-- Das Restore ist manuell angestoßen.
-  In einem Produktionsbetrieb wäre ein definierter #acr("RTO")/#acr("RPO")-Zielwert mit automatisierter Restore-Entscheidung wünschenswert.
-- Die geplanten Firestore-Backups laufen nur täglich; PITR ist konzeptionell vorgesehen, aber aus Kostengründen nicht aktiviert.
-  Dadurch liegt der Recovery-Punkt zwischen zwei täglichen Exporten gröber als in einem hybriden Export-plus-PITR-Setup.
-- Der Monitoring-Zugriff ist im gezeigten Setup bewusst niedrigschwellig gehalten (öffentliche Erreichbarkeit der Monitoring-VM und anonymer Grafana-Viewer-Zugriff), damit in der Präsentation ohne zusätzliche Zugangshürden schnell zwischen App, Dashboard und Recovery-Nachweis gewechselt werden kann.
-  Für einen produktionsnäheren Betrieb wären hier jedoch Härtungsmaßnahmen notwendig, etwa IP-Restriktionen, verpflichtende Authentifizierung und HTTPS-Absicherung.
-- Das Logging ist bewusst pragmatisch über Promtail nach Loki umgesetzt.
-  Für einen produktionsnäheren Ausbau wäre OpenTelemetry interessant, insbesondere um zusätzlich verteilte Traces und eine vendor-neutrale Telemetrie-Pipeline einzuführen.
+- Das Restore ist manuell angestoßen; es gibt keine automatisierte #acr("RTO")/#acr("RPO")-getriebene Recovery-Entscheidung.
+- Der belastbar nachgewiesene Daten-Recovery-Pfad basiert auf täglichen Firestore-Exporten; #acr("PITR") ist zwar aktiviert, wurde im Projekt jedoch nicht als eigener, automatisierter Restore-Pfad getestet.
+- Der Monitoring-Zugriff ist bewusst niedrigschwellig (öffentlich erreichbare Monitoring-VM, anonymer Grafana-Viewer), damit in der Präsentation ohne Zugangshürden zwischen App, Dashboard und Recovery-Nachweis gewechselt werden kann --- für den Produktionsbetrieb wären IP-Restriktionen, Authentifizierungspflicht und HTTPS nötig.
+- Logging läuft pragmatisch über Promtail nach Loki; verteilte Traces und eine vendor-neutrale Telemetrie-Pipeline fehlen.
 
 // ========= 6. Fazit =========
 = Fazit
