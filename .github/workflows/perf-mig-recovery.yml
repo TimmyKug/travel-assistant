@@ -69,14 +69,34 @@ jobs:
             echo "  Iteration ${ITER}/${ITERATIONS}"
             echo "=========================================="
 
-            # Wait for MIG to be stable before starting this iteration
+            # Wait for MIG to be stable, then wait until all backends are HEALTHY
+            # before starting this iteration. Otherwise the recovery check fires
+            # spuriously on the first still-warming instance.
             gcloud compute instance-groups managed wait-until "$MIG_NAME" \
               --stable --zone="$ZONE" --project="$PROJECT_ID"
 
-            HEALTHY_BEFORE=$(gcloud compute backend-services get-health "$BACKEND_SERVICE" \
-              --global --project="$PROJECT_ID" \
-              --format="value(status.healthStatus.healthState)" | grep -c HEALTHY || true)
-            echo "Healthy backends before kill: $HEALTHY_BEFORE"
+            TARGET_SIZE=$(gcloud compute instance-groups managed describe "$MIG_NAME" \
+              --zone="$ZONE" --project="$PROJECT_ID" --format="value(targetSize)")
+            echo "MIG target size: $TARGET_SIZE"
+
+            WARMUP_DEADLINE=$(( $(date +%s) + 600 ))
+            while :; do
+              HEALTHY_NOW=$(gcloud compute backend-services get-health "$BACKEND_SERVICE" \
+                --global --project="$PROJECT_ID" \
+                --format="value(status.healthStatus.healthState)" | grep -c HEALTHY || true)
+              if [ "$HEALTHY_NOW" -ge "$TARGET_SIZE" ]; then
+                echo "All $TARGET_SIZE backends HEALTHY — ready to start iteration."
+                break
+              fi
+              if [ "$(date +%s)" -gt "$WARMUP_DEADLINE" ]; then
+                echo "WARNING: only $HEALTHY_NOW/$TARGET_SIZE HEALTHY after warmup window; proceeding anyway"
+                break
+              fi
+              echo "Waiting for all backends to be HEALTHY ($HEALTHY_NOW/$TARGET_SIZE)..."
+              sleep 10
+            done
+
+            HEALTHY_BEFORE=$TARGET_SIZE
 
             TARGET=$(gcloud compute instance-groups managed list-instances "$MIG_NAME" \
               --zone="$ZONE" --project="$PROJECT_ID" \
@@ -135,7 +155,8 @@ jobs:
             done
 
             rel() {
-              if [ -z "$1" ]; then echo "null"; else echo "$(( $1 - T0 ))"; fi
+              # Emit a Python-valid literal: None when the event did not fire.
+              if [ -z "$1" ]; then echo "None"; else echo "$(( $1 - T0 ))"; fi
             }
 
             python - << PY
