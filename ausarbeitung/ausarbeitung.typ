@@ -681,8 +681,8 @@ Sie basiert auf den veröffentlichten On-Demand-Preisen und vereinfacht auf 730 
     [36,69 USD],
 
     [Persistent Disks],
-    [70 GiB `pd-standard`; mit 30 GiB Free-Tier-Anteil ca. 40 GiB kostenpflichtig @gcp-disk-pricing],
-    [ca. 1,60 USD],
+    [70 GiB `pd-standard`; in `europe-west3` ohne anrechenbaren Compute-Free-Tier vollständig kostenpflichtig @gcp-disk-pricing],
+    [ca. 2,80 USD],
 
     [Firestore],
     [Kleine Projekt-Datenmenge innerhalb des Free Tier; Exporte verursachen dennoch Reads @firestore-pricing @gcp-firestore-export],
@@ -698,7 +698,7 @@ Sie basiert auf den veröffentlichten On-Demand-Preisen und vereinfacht auf 730 
 
     [*Summe*],
     [Grundbetrieb ohne variable Zusatzkosten],
-    [*ca. 38--40 USD + 0,76 USD/GiB*],
+    [*ca. 40--42 USD + 0,76 USD/GiB*],
   ),
   caption: [Überschlägige monatliche Kostenrechnung.],
 ) <tab-cost-estimate>
