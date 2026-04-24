@@ -598,25 +598,56 @@ Der erzeugte Backup-Pfad wird in der Job Summary ausgegeben, sodass der spätere
 Für den Restore existiert analog der Workflow `Manual Firestore Restore`, der nach manueller Bestätigung entweder das jüngste manuelle Backup oder einen explizit angegebenen `gs://`-Backup-Pfad importiert.
 Das lokale Script `presentation/demo-scripts/firestore-restore.sh` dient als Demo- und Fallback-Werkzeug.
 
-=== Recovery-Zeit und Kostenbewertung
+=== Recovery-Zeit
 
-Die im Projekt beobachteten Wiederherstellungszeiten unterscheiden sich deutlich zwischen Compute- und Datenpfad.
-Die #acr("MIG")-basierte Compute-Recovery dauerte typischerweise etwa fünf bis zehn Minuten.
-Diese Zeit setzt sich im Wesentlichen aus Health-Check-Erkennung, Autohealing-Entscheidung, Provisionierung einer Ersatz-#acr("VM"), Startup-Script, Docker-Image-Pull und erneutem Health-Check zusammen (Health Check: 30-s-Intervall, 10-s-Timeout; Unhealthy-Erkennung nach drei Fehlversuchen frühestens nach ca. 60--70 s; neue Instanzen mit 300-s-Schonfrist).
-Für die Datenrecovery lagen Backup und Restore im Demo-Szenario jeweils nur bei wenigen Sekunden.
-Diese Werte sind jedoch nicht auf größere Produktivdatenmengen übertragbar: Der Datenbestand war bewusst sehr klein, und der Integritätscheck bezieht sich auf wenige Referenzdokumente.
-Außerdem laufen die geplanten Backups asynchron und beeinflussen daher nicht direkt die Nutzerverfügbarkeit; für die #acr("RTO")-Betrachtung ist vor allem der Restore-Pfad relevant.
-Eine belastbare Messreihe mit größeren Datenmengen konnte nicht mehr durchgeführt werden, weil die verbleibenden Google-Cloud-Credits am Projektende bereits stark begrenzt waren.
+Compute- und Datenpfad wurden jeweils über eine eigene Messreihe quantifiziert.
+Beide Messreihen sind als GitHub-Actions-Workflows (`perf-mig-recovery.yml`, `perf-dr-scale-test.yml`) automatisiert und reproduzierbar; sie schreiben die gemessenen Zeiten als JSON-Artefakte, die anschließend über `scripts/perf-plot.py` in die hier eingebundenen Diagramme überführt werden.
+
+==== Compute-Recovery
+
+Die Compute-Messreihe umfasst fünf aufeinanderfolgende Kill-and-Restore-Zyklen, in denen jeweils eine App-#acr("VM") der #acr("MIG") gestoppt und die Zeit bis zur vollständig wiederhergestellten Fleet gemessen wird.
+Die verbleibende zweite Instanz bedient währenddessen weiter Traffic, sodass die Messung gezielt das Autohealing-Verhalten abbildet und nicht einen Gesamtausfall.
 
 #figure(
-  image("cloud-computing-credits.png", width: 100%),
-  caption: [Verbleibendes Google-Cloud-Credit-Guthaben zum Projektende.],
-) <fig-cloud-credits>
+  image("diagrams/perf-mig.png", width: 100%),
+  caption: [MIG-Recovery-Timeline über fünf Iterationen. Links: Ereigniszeiten pro Iteration. Rechts: Median mit Min/Max-Whiskers.],
+) <fig-mig-recovery>
 
-Auch die Kosten lassen sich daher nur überschlägig anhand der veröffentlichten Google-Cloud-Preise berechnen.
-In Summe liegt der überschlägige Grundbetrieb bei rund 38 bis 40 USD pro Monat, zuzüglich etwa 0,76 USD pro Monat je GiB produktiver Firestore-Daten für 30 tägliche Backup-Artefakte.
+Die Ergebnisse sind über alle Iterationen bemerkenswert stabil: der Median bis zur vollständigen Wiederherstellung liegt bei 498 s (≈ 8 min 18 s) bei einer Spannweite von nur 33 s (491--524 s).
+Der Ablauf gliedert sich in drei klar trennbare Phasen.
+Die #acr("MIG") stößt die Ersatz-Provisionierung bereits nach median 21 s an, weil sie gestoppte Instanzen direkt über ihren #acr("VM")-Status erkennt und nicht auf Health-Check-Failures wartet.
+Die neue #acr("VM") erreicht nach median 391 s den Status RUNNING; dieser Schritt dominiert das Gesamtbudget und wird im Wesentlichen durch die Paketinstallation von Docker, die Artifact-Registry-Authentifizierung und den `docker compose pull` aus dem Startup-Script bestimmt.
+Nach weiteren rund 107 s ist die App antwortbereit und passt den Health-Check, sodass der Load Balancer Traffic auf die neue Instanz routet.
+
+Die eingangs im Projekt angenommene rein Health-Check-basierte Erkennungszeit (3 × 30 s = 90 s) beschreibt also nur den Sonderfall eines laufenden, aber abstürzenden Anwendungsprozesses.
+Im hier gemessenen Szenario eines kompletten #acr("VM")-Ausfalls liegt die effektive Erkennung mehr als eine Größenordnung darunter und ist für die #acr("RTO")-Betrachtung vernachlässigbar; der dominierende Term ist der #acr("VM")-Bootstrap.
+Ein vorgepacktes Image mit vorinstalliertem Docker und vorgepullten Container-Images würde diesen Term deutlich reduzieren und die Recovery überschlägig in den Bereich von fünf Minuten bringen.
+
+==== Daten-Recovery
+
+Für die Datenseite wurde eine zweite Messreihe mit drei Wiederholungen pro Größenklasse über 1 000, 10 000 und 100 000 synthetische Dokumente gefahren.
+Jede Iteration legt eine isolierte Collection an, exportiert sie nach #acr("GCS"), löscht sie aus Firestore und importiert sie anschließend wieder, jeweils mit Zeitmessung pro Phase.
+
+#figure(
+  image("diagrams/perf-scale.png", width: 100%),
+  caption: [Firestore-Seed-, Export- und Import-Dauer in Abhängigkeit von der Datenmenge (log-log-Skala). Transparente Punkte zeigen die einzelnen Iterationen, Linien die Mediane.],
+) <fig-dr-scale>
+
+Die Messung zeigt ein klar asymmetrisches Bild.
+Der _Export_ skaliert nur schwach und bleibt auch bei 100 000 Dokumenten unter 15 s, weil er serverseitig als Snapshot implementiert ist und im Wesentlichen Fixkosten aufweist.
+Der _Import_ skaliert dagegen streng linear mit rund 5,6 ms pro Dokument: median 10 s bei 1 000, 107 s bei 10 000 und 563 s (≈ 9 min 23 s) bei 100 000 Dokumenten.
+Linear extrapoliert entspricht das bei einer Million Dokumenten einer Restore-Dauer von rund 94 Minuten.
+
+Der Restore ist damit der dominierende Term im #acr("RTO")-Budget der Datenrecovery, während der Export für die #acr("RTO")-Planung praktisch irrelevant bleibt und nur die Backup-Häufigkeit (und damit den #acr("RPO")) begrenzt.
+Solange der Datenbestand in der Größenordnung einiger zehntausend Dokumente bleibt, deckt der vollständige Import das Ziel einer Recovery innerhalb weniger Minuten ab.
+Bei stark wachsendem Datenvolumen würden die in @fig-dr-paths skizzierten Teilstrategien --- gezielter Restore betroffener Collection Groups oder ein #acr("PITR")-basiertes Zeitpunkt-Recovery --- zum dominanten Hebel, weil ein vollständiger Import dann aus dem zulässigen #acr("RTO")-Fenster fällt.
+
+=== Kostenbewertung
+
+Die Kosten lassen sich anhand der veröffentlichten Google-Cloud-Preise überschlägig berechnen.
+In Summe liegt der Grundbetrieb bei rund 38 bis 40 USD pro Monat, zuzüglich etwa 0,76 USD pro Monat je GiB produktiver Firestore-Daten für 30 tägliche Backup-Artefakte.
 Die genaue Herleitung ist im Anhang in @tab-cost-estimate dokumentiert.
-Tatsächliche Rechnungswerte können durch Rundung, Wechselkurse, bereits verbrauchte Free-Tier-Anteile, Netzwerkverkehr, Artifact-Registry-Speicher und konkrete Exportgröße abweichen; wegen ausgeschöpfter Credits erfolgt kein abschließender Abgleich gegen echte Billing-Daten.
+Tatsächliche Rechnungswerte können durch Rundung, Wechselkurse, Netzwerkverkehr, Artifact-Registry-Speicher und konkrete Exportgröße abweichen.
 
 == Ausblick und Handlungsempfehlungen
 

@@ -1,0 +1,62 @@
+[
+  {
+    "test": "mig_recovery",
+    "run_number": 3,
+    "iteration": 1,
+    "timestamp_utc": "2026-04-24T01:27:14Z",
+    "target_instance": "travel-assistant-vm-d0zx",
+    "healthy_target": 2,
+    "seconds_to_unhealthy": 401,
+    "seconds_to_replacing": 21,
+    "seconds_to_running": 387,
+    "seconds_to_healthy": 524
+  },
+  {
+    "test": "mig_recovery",
+    "run_number": 3,
+    "iteration": 2,
+    "timestamp_utc": "2026-04-24T01:37:09Z",
+    "target_instance": "travel-assistant-vm-d0zx",
+    "healthy_target": 2,
+    "seconds_to_unhealthy": 404,
+    "seconds_to_replacing": 22,
+    "seconds_to_running": 391,
+    "seconds_to_healthy": 498
+  },
+  {
+    "test": "mig_recovery",
+    "run_number": 3,
+    "iteration": 3,
+    "timestamp_utc": "2026-04-24T01:46:36Z",
+    "target_instance": "travel-assistant-vm-d0zx",
+    "healthy_target": 2,
+    "seconds_to_unhealthy": 397,
+    "seconds_to_replacing": 21,
+    "seconds_to_running": 383,
+    "seconds_to_healthy": 492
+  },
+  {
+    "test": "mig_recovery",
+    "run_number": 3,
+    "iteration": 4,
+    "timestamp_utc": "2026-04-24T01:55:57Z",
+    "target_instance": "travel-assistant-vm-d0zx",
+    "healthy_target": 2,
+    "seconds_to_unhealthy": 394,
+    "seconds_to_replacing": 21,
+    "seconds_to_running": 394,
+    "seconds_to_healthy": 491
+  },
+  {
+    "test": "mig_recovery",
+    "run_number": 3,
+    "iteration": 5,
+    "timestamp_utc": "2026-04-24T02:05:18Z",
+    "target_instance": "travel-assistant-vm-d0zx",
+    "healthy_target": 2,
+    "seconds_to_unhealthy": 408,
+    "seconds_to_replacing": 21,
+    "seconds_to_running": 394,
+    "seconds_to_healthy": 518
+  }
+]

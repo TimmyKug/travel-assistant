@@ -365,6 +365,20 @@ The focus feature. Three layers:
    - [`seed-sentinel-data.sh`](scripts/seed-sentinel-data.sh) — seed Firestore sentinel/reference documents for integrity checks (database setup)
    - [`demo-corrupt-db.sh`](presentation/demo-scripts/demo-corrupt-db.sh) — destructive demo for the presentation
 
+### Recovery-time measurements
+
+Both recovery paths have reproducible `workflow_dispatch` GitHub Actions that emit JSON result artifacts.
+
+- [`perf-mig-recovery.yml`](.github/workflows/perf-mig-recovery.yml) — stops one App VM per iteration and measures MIG autohealing duration (median across 5 iterations: **~498 s ≈ 8 min 18 s**, of which ~21 s MIG replace trigger + ~370 s VM boot + ~107 s app bootstrap). Inputs: `iterations`, `poll_interval`, `cooldown_seconds`, `timeout_minutes`.
+- [`perf-dr-scale-test.yml`](.github/workflows/perf-dr-scale-test.yml) — sweeps a comma-separated list of document counts, seeds an isolated Firestore collection, exports it, deletes it, re-imports it, and verifies the restored count. Inputs: `doc_counts` (e.g. `1000,10000,100000`), `iterations`. Measurement at 100 000 docs: ~8 s export, ~563 s import — import dominates and scales linearly at ~5.6 ms/doc.
+
+Result JSON is emitted inline in the "Emit result JSON" step between `<<<PERF_JSON>>>` markers and also uploaded as a workflow artifact. [`scripts/perf-plot.py`](scripts/perf-plot.py) turns either JSON file into a PNG:
+
+```bash
+python scripts/perf-plot.py --input perf-mig.json   --output perf-mig.png
+python scripts/perf-plot.py --input perf-scale.json --output perf-scale.png
+```
+
 ## Monitoring data persistence
 
 Prometheus, Loki, and Grafana data lives on a dedicated GCP persistent disk (`travel-assistant-monitoring`) mounted at `/mnt/monitoring-data`. In production, Terraform `prevent_destroy` would be useful to protect this disk from accidental deletion. In this project it is not permanently enabled, so the disk can be removed after the course project without an extra Terraform state intervention.

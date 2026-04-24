@@ -47,8 +47,9 @@ def plot_scale(rows: list[dict], output: Path) -> None:
                 ax.scatter([dc], [r[field]], color=color, alpha=0.25, s=18)
 
     ax.set_xscale("log")
+    ax.set_yscale("log")
     ax.set_xlabel("Dokumente pro Iteration")
-    ax.set_ylabel("Dauer (Sekunden)")
+    ax.set_ylabel("Dauer (Sekunden, log)")
     ax.set_title("Firestore DR-Phasen — Dauer pro Datenmenge")
     ax.grid(True, which="both", alpha=0.3)
     ax.legend(loc="upper left")
