@@ -50,7 +50,7 @@ def plot_scale(rows: list[dict], output: Path) -> None:
     ax.set_xlabel("Dokumente pro Iteration")
     ax.set_ylabel("Dauer (Sekunden)")
     ax.set_title("Firestore DR-Phasen — Dauer pro Datenmenge")
-    ax.grid(True, which="both", alpha=0.3)
+    ax.grid(False)
     ax.legend(loc="upper left")
 
     # Nicely formatted x ticks
