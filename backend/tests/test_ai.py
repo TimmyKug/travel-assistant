@@ -131,7 +131,7 @@ def test_chat_trip_json_format_returns_trip_plan(client, mock_db):
     ):
         response = client.post(
             "/api/ai/chat",
-            json={"content": "Plan a trip to Rome", "response_format": "trip_json"},
+            json={"content": "Plan a trip to Rome"},
         )
 
     assert response.status_code == 200
@@ -160,7 +160,7 @@ def test_chat_trip_json_format_invalid_json_returns_none(client, mock_db):
     ):
         response = client.post(
             "/api/ai/chat",
-            json={"content": "Plan a trip", "response_format": "trip_json"},
+            json={"content": "Plan a trip"},
         )
 
     assert response.status_code == 200

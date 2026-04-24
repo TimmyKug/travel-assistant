@@ -100,7 +100,6 @@ describe("api helper functions", () => {
       expect(JSON.parse(config.data)).toEqual({
         content: "Plan Porto",
         conversation_id: "conv-1",
-        response_format: "trip_json",
         is_bootstrap: true,
       });
       return [
@@ -113,7 +112,7 @@ describe("api helper functions", () => {
       ];
     });
 
-    const result = await sendMessage("Plan Porto", "conv-1", "trip_json", true);
+    const result = await sendMessage("Plan Porto", "conv-1", true);
     expect(result).toEqual({
       conversation_id: "conv-1",
       assistant_message: "ok",

@@ -47,9 +47,8 @@ def plot_scale(rows: list[dict], output: Path) -> None:
                 ax.scatter([dc], [r[field]], color=color, alpha=0.25, s=18)
 
     ax.set_xscale("log")
-    ax.set_yscale("log")
     ax.set_xlabel("Dokumente pro Iteration")
-    ax.set_ylabel("Dauer (Sekunden, log)")
+    ax.set_ylabel("Dauer (Sekunden)")
     ax.set_title("Firestore DR-Phasen — Dauer pro Datenmenge")
     ax.grid(True, which="both", alpha=0.3)
     ax.legend(loc="upper left")
@@ -72,9 +71,8 @@ def plot_mig(rows: list[dict], output: Path) -> None:
     ]
 
     iterations = [r["iteration"] for r in rows]
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5.5), gridspec_kw={"width_ratios": [3, 2]})
+    fig, ax1 = plt.subplots(figsize=(9, 5.5))
 
-    # Left: per-iteration timeline
     width = 0.18
     x = np.arange(len(iterations))
     for i, (field, label, color) in enumerate(events):
@@ -88,37 +86,6 @@ def plot_mig(rows: list[dict], output: Path) -> None:
     ax1.set_title("MIG-Recovery — Ereigniszeiten pro Iteration")
     ax1.grid(True, axis="y", alpha=0.3)
     ax1.legend(loc="upper right", fontsize=9)
-
-    # Right: median summary
-    labels = [lbl for _, lbl, _ in events]
-    medians: list[float] = []
-    mins: list[float] = []
-    maxs: list[float] = []
-    colors = [c for _, _, c in events]
-    for field, _, _ in events:
-        vals = [r[field] for r in rows if r.get(field) is not None]
-        if vals:
-            medians.append(statistics.median(vals))
-            mins.append(min(vals))
-            maxs.append(max(vals))
-        else:
-            medians.append(0); mins.append(0); maxs.append(0)
-
-    y = np.arange(len(labels))
-    ax2.barh(y, medians, color=colors)
-    ax2.errorbar(
-        medians, y,
-        xerr=[np.subtract(medians, mins), np.subtract(maxs, medians)],
-        fmt="none", ecolor="black", capsize=4, linewidth=1,
-    )
-    for yi, m in zip(y, medians):
-        ax2.text(m, yi, f"  {m:.0f}s", va="center", fontsize=9)
-    ax2.set_yticks(y)
-    ax2.set_yticklabels(labels)
-    ax2.invert_yaxis()
-    ax2.set_xlabel("Sekunden (Median, Whiskers = Min/Max)")
-    ax2.set_title(f"Median über {len(rows)} Iterationen")
-    ax2.grid(True, axis="x", alpha=0.3)
 
     fig.tight_layout()
     fig.savefig(output, dpi=150)

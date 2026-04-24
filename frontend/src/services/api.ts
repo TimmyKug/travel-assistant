@@ -32,10 +32,9 @@ api.interceptors.response.use(
 export const sendMessage = (
   content: string,
   conversation_id: string | null = null,
-  response_format: "text" | "trip_json" = "text",
   is_bootstrap = false
 ): Promise<SendMessageResponse> =>
-  api.post("/ai/chat", { content, conversation_id, response_format, is_bootstrap }).then((r) => r.data);
+  api.post("/ai/chat", { content, conversation_id, is_bootstrap }).then((r) => r.data);
 
 export const listConversations = (): Promise<Conversation[]> =>
   api.get("/ai/conversations").then((r) => r.data);

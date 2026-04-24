@@ -338,19 +338,6 @@ resource "google_compute_firewall" "allow_metrics_from_monitoring" {
   target_tags = ["travel-assistant"]
 }
 
-resource "google_compute_firewall" "allow_ssh" {
-  name    = "travel-assistant-allow-ssh"
-  network = "default"
-
-  allow {
-    protocol = "tcp"
-    ports    = ["22"]
-  }
-
-  source_ranges = ["0.0.0.0/0"]
-  target_tags   = ["travel-assistant"]
-}
-
 # Monitoring VM — public HTTP and SSH
 resource "google_compute_firewall" "monitoring_allow_http" {
   name    = "travel-monitoring-allow-http"

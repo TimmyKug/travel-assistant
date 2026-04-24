@@ -6,7 +6,7 @@ import json
 import logging
 import re
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
@@ -23,8 +23,6 @@ logger = logging.getLogger(__name__)
 class MessageIn(BaseModel):
     conversation_id: str | None = None
     content: str
-    # Kept for backward compatibility with older clients; backend now enforces JSON phased mode.
-    response_format: Literal["text", "trip_json"] = "text"
     is_bootstrap: bool = False
 
 
@@ -178,10 +176,7 @@ async def chat(body: MessageIn, user: dict = Depends(get_current_user)):
     request_history = [*history, {"role": "user", "parts": [request_text]}]
     logger.info("ai_chat_request", extra={"uid": uid, "conversation_id": conv_ref.id})
 
-    forced_response_format: Literal["trip_json"] = "trip_json"
-    raw_reply = await gemini_chat(
-        uid=uid, messages=request_history, response_format=forced_response_format
-    )
+    raw_reply = await gemini_chat(uid=uid, messages=request_history)
     try:
         envelope = _parse_gemini_envelope(raw_reply)
     except ValueError as first_exc:
@@ -193,11 +188,7 @@ async def chat(body: MessageIn, user: dict = Depends(get_current_user)):
             *history,
             {"role": "user", "parts": [_repair_instruction_for_envelope(request_text)]},
         ]
-        raw_reply_retry = await gemini_chat(
-            uid=uid,
-            messages=repaired_history,
-            response_format=forced_response_format,
-        )
+        raw_reply_retry = await gemini_chat(uid=uid, messages=repaired_history)
         try:
             envelope = _parse_gemini_envelope(raw_reply_retry)
             raw_reply = raw_reply_retry

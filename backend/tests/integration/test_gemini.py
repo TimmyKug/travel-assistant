@@ -50,7 +50,6 @@ async def test_gemini_phase1_responds() -> None:
         reply = await gemini_service.chat(
             uid="gemini-integration-phase1",
             messages=messages,
-            response_format="trip_json",
         )
     except Exception as exc:  # pragma: no cover - diagnostic path for integration runs
         pytest.fail(f"phase1 call failed: {type(exc).__name__}: {exc}")
@@ -85,7 +84,6 @@ async def test_gemini_phase2_returns_exact_trip_json_shape() -> None:
         reply = await gemini_service.chat(
             uid="gemini-integration-phase2",
             messages=messages,
-            response_format="trip_json",
         )
     except Exception as exc:  # pragma: no cover - diagnostic path for integration runs
         pytest.fail(f"phase2 call failed: {type(exc).__name__}: {exc}")

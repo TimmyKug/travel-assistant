@@ -69,7 +69,6 @@ async def test_gemini_chat_success(monkeypatch):
     result = await gemini.chat(
         uid="user-1",
         messages=[{"role": "user", "parts": ["Hi there"]}],
-        response_format="trip_json",
     )
 
     assert result == "hello from gemini"

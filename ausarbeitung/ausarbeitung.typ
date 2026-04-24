@@ -588,7 +588,7 @@ Firestore-Exporte eignen sich laut Google für das Wiederherstellen nach versehe
 Die Terraform-Konfiguration legt drei zusammenhängende Ressourcen an:
 
 + Ein GCS-Bucket `${project-id}-firestore-backups` mit einer 30-Tage-Lifecycle-Regel.
-+ Ein dedizierter Service Account mit `datastore.importExportAdmin` auf Projektebene und `storage.admin` auf dem Backup-Bucket.
++ Ein dedizierter Service Account mit `datastore.importExportAdmin` auf Projektebene und `storage.objectCreator` auf dem Backup-Bucket (least privilege: nur Schreiben der Export-Artefakte, kein Löschen oder Lesen).
 + Ein Cloud-Scheduler-Job, der täglich um 03:00 Uhr Europe/Berlin die Firestore-Export-API mit OAuth-Token dieses Service Accounts aufruft und nach `gs://.../scheduled/` schreibt.
 
 Zusätzlich existiert ein manuelles Backup-Script `presentation/demo-scripts/firestore-backup.sh` für Vorab-Backups vor gezielten Recovery-Tests.
@@ -610,7 +610,7 @@ Die verbleibende zweite Instanz bedient währenddessen weiter Traffic, sodass di
 
 #figure(
   image("diagrams/perf-mig.png", width: 100%),
-  caption: [MIG-Recovery-Timeline über fünf Iterationen. Links: Ereigniszeiten pro Iteration. Rechts: Median mit Min/Max-Whiskers.],
+  caption: [MIG-Recovery-Ereigniszeiten je Iteration über fünf Durchläufe.],
 ) <fig-mig-recovery>
 
 Die Ergebnisse sind über alle Iterationen bemerkenswert stabil: der Median bis zur vollständigen Wiederherstellung liegt bei 498 s (≈ 8 min 18 s) bei einer Spannweite von nur 33 s (491--524 s).
@@ -630,7 +630,7 @@ Jede Iteration legt eine isolierte Collection an, exportiert sie nach #acr("GCS"
 
 #figure(
   image("diagrams/perf-scale.png", width: 100%),
-  caption: [Firestore-Seed-, Export- und Import-Dauer in Abhängigkeit von der Datenmenge (log-log-Skala). Transparente Punkte zeigen die einzelnen Iterationen, Linien die Mediane.],
+  caption: [Firestore-Seed-, Export- und Import-Dauer in Abhängigkeit von der Datenmenge (x-Achse log, y-Achse linear in Sekunden). Transparente Punkte zeigen die einzelnen Iterationen, Linien die Mediane.],
 ) <fig-dr-scale>
 
 Die Messung zeigt ein klar asymmetrisches Bild.
@@ -653,44 +653,23 @@ Tatsächliche Rechnungswerte können durch Rundung, Wechselkurse, Netzwerkverkeh
 
 === Point-in-Time Recovery und partieller Restore
 
-Eine vollständig zeitgenaue Wiederherstellung (Point-in-Time Recovery, PITR) wird von Firestore nativ unterstützt.
-Im Unterschied zum täglichen Export hält PITR ältere Dokumentversionen in einem Recovery-Fenster vor: ohne PITR ist nur ungefähr die letzte Stunde verfügbar, mit aktiviertem PITR bis zu sieben Tage; Lesezugriffe sind innerhalb der letzten Stunde auf beliebige unterstützte Zeitpunkte und darüber hinaus innerhalb des PITR-Fensters minutengenau möglich @gcp-firestore-pitr.
-Damit ist PITR deutlich granularer als der hier umgesetzte tägliche Export.
-
-PITR ist nicht aktiviert, weil es zusätzliche Kosten verursacht und für die nachweisbare Backup-/Restore-Strecke nicht notwendig ist.
-Für einen produktionsnäheren Betrieb wäre aber ein hybrider Ansatz sinnvoll: Daily Exports bleiben als langlebige, bucketbasierte Sicherung und als Grundlage für projektübergreifende Restores erhalten, während PITR die Lücke zwischen zwei geplanten Exporten schließt und versehentliche Schreib- oder Löschfehler feingranularer rückgängig machen kann.
-Architektonisch ließe sich PITR ohne Änderungen am App-Code nachziehen: Es müsste in der Firestore-Konfiguration aktiviert werden, anschließend könnten zeitpunktbezogene Reads, Exporte oder Datenbank-Klone für feinere Recovery-Szenarien genutzt werden.
-
-Zusätzlich wäre ein gezielter Restore der tatsächlich betroffenen Dokumente oder Collection Groups schneller als ein vollständiger Firestore-Import.
-Das reduziert die Restore-Dauer besonders bei kleinen, klar lokalisierbaren Datenfehlern.
-Bei großflächiger Korruption bleibt dagegen ein vollständiger Import, ein PITR-basierter Export oder ein Datenbank-Klon die robustere Strategie.
+Firestore unterstützt nativ Point-in-Time Recovery (PITR) mit einem Recovery-Fenster von bis zu sieben Tagen und minutengenauen Lesezugriffen @gcp-firestore-pitr, und ist damit deutlich granularer als der hier umgesetzte tägliche Export.
+PITR ist in der Terraform-Konfiguration über `point_in_time_recovery_enablement = "POINT_IN_TIME_RECOVERY_ENABLED"` aktiviert; bei der hier produzierten Datenmenge liegen die Zusatzkosten im Cent-Bereich pro Monat.
+Ein konkreter zeitpunktbezogener Restore (Export mit `--snapshot-time` oder DB-Klon zu einem Zeitpunkt) ist aus Scope-Gründen im Rahmen dieser Arbeit nicht getestet oder als Workflow nachgewiesen worden --- PITR steht damit als zusätzliche Recovery-Option zur Verfügung, der belastbare Nachweis beschränkt sich weiterhin auf die beiden gemessenen Pfade (MIG-Autohealing und vollständiger Firestore-Export/Import).
+Ein gezielter Restore einzelner Collection Groups wäre zusätzlich schneller als ein vollständiger Import und deckt den Fall kleiner, lokalisierter Datenfehler besser ab.
 
 === Robusterer Integritätscheck
 
-Zusätzlich sollte der Integritätscheck produktionsnäher gestaltet werden.
-Der Check ist bewusst deterministisch und erkennt vor allem das Fehlen fester Sentinel-Dokumente wie `users/sentinel-user`.
-Kleinere Datenverluste können dagegen lokaler auftreten: einzelne gelöschte Trips, verwaiste Subcollection-Dokumente, fehlende Pflichtfelder oder Mengenabweichungen gegenüber dem erwarteten Datenbestand.
-Für solche Fälle wäre ein mehrstufiger Check sinnvoll.
-Die erste Stufe prüft Firestore-Konnektivität und Berechtigungen; die zweite validiert eine kleine, dedizierte Sentinel-Collection mit versionierten Prüfdokumenten; die dritte prüft fachliche Invarianten über Aggregationen, Stichproben und Vergleichswerte.
-Firestore unterstützt dafür Aggregationsabfragen wie `count()`, `sum()` und `average()`, die zusammenfassende Kennzahlen liefern, ohne alle Dokumente an die Anwendung zu übertragen @gcp-firestore-aggregation.
-
-Für kleine Datenverluste sind vor allem Anomalieindikatoren geeignet: erwartete Dokumentanzahlen pro Collection Group, Vollständigkeit kritischer Felder, Eindeutigkeit von IDs, referenzielle Konsistenz zwischen Nutzer- und Trip-Dokumenten sowie Parity- oder Checksum-Dokumente.
-Ein Parity-Dokument speichert beispielsweise pro Collection Group oder Mandant erwartete Zähler, letzte Änderungszeitpunkte oder Hashes über stabile Dokumentattribute.
-Wird ein Trip geschrieben oder gelöscht, kann dieser Kontrollwert in derselben Firestore-Transaktion beziehungsweise als atomarer Batch mitgepflegt werden; Firestore beschreibt Transaktionen und Batch Writes als atomare Operationen, bei denen alle Schreiboperationen zusammen erfolgreich sind oder verworfen werden @firestore-transactions.
-Der Integritätscheck vergleicht anschließend Ist-Werte aus Aggregationen mit diesen Kontrollwerten und kann kleine Abweichungen erkennen, ohne sofort einen vollständigen Firestore-Import anzustoßen.
-
-Dieses Muster entspricht etablierten Data-Quality-Ansätzen in Google Cloud: Dataplex Auto Data Quality ordnet Prüfungen unter anderem den Dimensionen _Volume_, _Completeness_, _Consistency_ und _Uniqueness_ zu und unterstützt Data-Quality-Regeln als konfigurierbare Scans mit Monitoring und Alerting @gcp-dataplex-data-quality.
-Die Dataplex-API beschreibt dafür unter anderem Non-Null-, Uniqueness-, Statistikbereichs-, Zeilenbedingungs-, Tabellenbedingungs- und SQL-Assertion-Regeln @gcp-dataplex-data-quality-rule.
-Übertragen auf Firestore wäre der Check damit nicht nur ein statischer Sentinel, sondern ein Mix aus Sentinel, Aggregationsmetriken, Parity-Werten und fachlichen Regeln.
-Damit bliebe der Check aussagekräftig für echte Teilverluste, wäre aber weniger abhängig von einzelnen Sentinel-Objekten.
+Der Check ist bewusst deterministisch und erkennt vor allem das Fehlen fester Sentinel-Dokumente.
+Kleinere Datenverluste --- gelöschte Trips, fehlende Pflichtfelder, Mengenabweichungen --- würde er übersehen.
+Ein produktionsnäherer Check wäre mehrstufig: Konnektivität, versionierte Sentinel-Collection und fachliche Invarianten über Aggregationsabfragen (`count()`, `sum()`) @gcp-firestore-aggregation sowie Parity-Dokumente, die pro Collection Group erwartete Zähler oder Hashes in derselben Firestore-Transaktion mitpflegen @firestore-transactions.
+Konzeptionell entspricht das etablierten Data-Quality-Dimensionen wie _Completeness_, _Consistency_ und _Uniqueness_, wie sie etwa Dataplex Auto Data Quality formalisiert @gcp-dataplex-data-quality.
 
 === Parameter Manager für nicht-sensible Laufzeitkonfiguration
 
-Die im GCS-Bucket verbliebene `.env` enthält ausschließlich nicht-sensible, deployment-spezifische Werte (Projekt-ID, Loki-Endpoint, Image-Tag), die beim `terraform apply` ohnehin aus bekannten Quellen gerendert werden.
-Parameter, die sich ohne Rollout ändern sollen --- etwa Feature-Flags, das verwendete Gemini-Modell (`GEMINI_MODEL`), Tagespkontingente oder Alert-Thresholds --- ließen sich in einer späteren Ausbaustufe aus Google Parameter Manager beziehen.
-Parameter Manager versioniert Konfigurationswerte analog zu Secret Manager, bietet IAM pro Parameter und unterstützt JSON/YAML-formatierte Parameter, erhebt aber bewusst keine Secret-Garantien wie Zugriffs-Audit oder CMEK-Zwang @gcp-parameter-manager.
-Zusammen mit Secret Manager ergäbe sich eine klare Dreiteilung: Secret Manager hält sensible Werte, Parameter Manager hält veränderliche Laufzeitkonfiguration, und der GCS-Bucket bleibt als Ablage für die mit dem Code versionierten Deployment-Artefakte (`docker-compose.yml`, Promtail-Konfiguration) erhalten.
-Im aktuellen Projektumfang wäre die zusätzliche Parameter-Manager-Schicht überdimensioniert, weil keine Werte existieren, die sich zwischen zwei Deployments ändern sollen.
+Die im GCS-Bucket verbliebene `.env` enthält nur deployment-spezifische Werte, die beim `terraform apply` ohnehin gerendert werden.
+Parameter, die sich ohne Rollout ändern sollen --- Feature-Flags, Gemini-Modell, Alert-Thresholds --- ließen sich aus Google Parameter Manager beziehen, der Werte analog zu Secret Manager versioniert, aber ohne Secret-Garantien auskommt @gcp-parameter-manager.
+Im aktuellen Projektumfang existieren solche Werte nicht, weshalb diese Schicht überdimensioniert wäre.
 
 // ========= 5. Ergebnisse und Diskussion =========
 = Ergebnisse und Diskussion
@@ -752,6 +731,8 @@ Vollständige End-to-End-Prüfungen von Load-Balancer-Verhalten, MIG-Autohealing
   In einem Produktionsbetrieb wäre ein definierter #acr("RTO")/#acr("RPO")-Zielwert mit automatisierter Restore-Entscheidung wünschenswert.
 - Die geplanten Firestore-Backups laufen nur täglich; PITR ist konzeptionell vorgesehen, aber aus Kostengründen nicht aktiviert.
   Dadurch liegt der Recovery-Punkt zwischen zwei täglichen Exporten gröber als in einem hybriden Export-plus-PITR-Setup.
+- Der Monitoring-Zugriff ist im gezeigten Setup bewusst niedrigschwellig gehalten (öffentliche Erreichbarkeit der Monitoring-VM und anonymer Grafana-Viewer-Zugriff), damit in der Präsentation ohne zusätzliche Zugangshürden schnell zwischen App, Dashboard und Recovery-Nachweis gewechselt werden kann.
+  Für einen produktionsnäheren Betrieb wären hier jedoch Härtungsmaßnahmen notwendig, etwa IP-Restriktionen, verpflichtende Authentifizierung und HTTPS-Absicherung.
 - Das Logging ist bewusst pragmatisch über Promtail nach Loki umgesetzt.
   Für einen produktionsnäheren Ausbau wäre OpenTelemetry interessant, insbesondere um zusätzlich verteilte Traces und eine vendor-neutrale Telemetrie-Pipeline einzuführen.
 

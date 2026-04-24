@@ -1,8 +1,9 @@
 resource "google_firestore_database" "travel_db" {
-  project     = var.project_id
-  name        = "(default)"
-  location_id = var.firestore_location
-  type        = "FIRESTORE_NATIVE"
+  project                           = var.project_id
+  name                              = "(default)"
+  location_id                       = var.firestore_location
+  type                              = "FIRESTORE_NATIVE"
+  point_in_time_recovery_enablement = "POINT_IN_TIME_RECOVERY_ENABLED"
 
   # ABANDON means Terraform removes it from state on `terraform destroy`
   # without deleting the GCP resource — safest default.
@@ -43,9 +44,9 @@ resource "google_project_iam_member" "firestore_export_admin" {
   member  = "serviceAccount:${google_service_account.firestore_backup_sa.email}"
 }
 
-resource "google_storage_bucket_iam_member" "firestore_backup_bucket_admin" {
+resource "google_storage_bucket_iam_member" "firestore_backup_bucket_writer" {
   bucket = google_storage_bucket.firestore_backups.name
-  role   = "roles/storage.admin"
+  role   = "roles/storage.objectCreator"
   member = "serviceAccount:${google_service_account.firestore_backup_sa.email}"
 }
 
