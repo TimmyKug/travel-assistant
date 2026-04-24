@@ -82,8 +82,8 @@ jobs:
             WARMUP_DEADLINE=$(( $(date +%s) + 600 ))
             while :; do
               HEALTHY_NOW=$(gcloud compute backend-services get-health "$BACKEND_SERVICE" \
-                --global --project="$PROJECT_ID" \
-                --format="value(status.healthStatus.healthState)" | grep -c HEALTHY || true)
+                --global --project="$PROJECT_ID" --format=json \
+                | jq '[.[] | .status.healthStatus[]? | select(.healthState=="HEALTHY")] | length')
               if [ "$HEALTHY_NOW" -ge "$TARGET_SIZE" ]; then
                 echo "All $TARGET_SIZE backends HEALTHY — ready to start iteration."
                 break
@@ -121,17 +121,19 @@ jobs:
                 break
               fi
 
-              ACTIONS=$(gcloud compute instance-groups managed list-instances "$MIG_NAME" \
-                --zone="$ZONE" --project="$PROJECT_ID" --format="value(currentAction)")
-              STATUSES=$(gcloud compute instance-groups managed list-instances "$MIG_NAME" \
-                --zone="$ZONE" --project="$PROJECT_ID" --format="value(status)")
-              HEALTH=$(gcloud compute backend-services get-health "$BACKEND_SERVICE" \
-                --global --project="$PROJECT_ID" \
-                --format="value(status.healthStatus.healthState)" || true)
+              # list-instances returns instanceStatus + currentAction per instance.
+              MIG_JSON=$(gcloud compute instance-groups managed list-instances "$MIG_NAME" \
+                --zone="$ZONE" --project="$PROJECT_ID" --format=json)
+              ACTIONS=$(echo "$MIG_JSON" | jq -r '.[].currentAction')
+              RUNNING_COUNT=$(echo "$MIG_JSON" | jq '[.[] | select(.instanceStatus=="RUNNING")] | length')
 
-              HEALTHY_COUNT=$(echo "$HEALTH" | grep -c HEALTHY || true)
-              UNHEALTHY_COUNT=$(echo "$HEALTH" | grep -c UNHEALTHY || true)
-              RUNNING_COUNT=$(echo "$STATUSES" | grep -c RUNNING || true)
+              # backend-services get-health returns nested healthStatus arrays.
+              HEALTH_JSON=$(gcloud compute backend-services get-health "$BACKEND_SERVICE" \
+                --global --project="$PROJECT_ID" --format=json)
+              HEALTHY_COUNT=$(echo "$HEALTH_JSON" \
+                | jq '[.[] | .status.healthStatus[]? | select(.healthState=="HEALTHY")] | length')
+              UNHEALTHY_COUNT=$(echo "$HEALTH_JSON" \
+                | jq '[.[] | .status.healthStatus[]? | select(.healthState=="UNHEALTHY")] | length')
 
               echo "[$((NOW-T0))s] healthy=$HEALTHY_COUNT unhealthy=$UNHEALTHY_COUNT running=$RUNNING_COUNT"
 
