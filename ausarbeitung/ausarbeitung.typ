@@ -107,8 +107,6 @@
   #v(3cm)
   #text(size: 10pt)[Duale Hochschule Baden-Württemberg Stuttgart]
 
-  #text(size: 10pt)[Modul: Cloud Computing II]
-
   #v(3cm)
   #text(size: 22pt, weight: "bold")[Travel Assistant]
 
@@ -128,7 +126,7 @@
     [*Verfasser:*], [Timothy Kugler, 2348056],
     [*Modul:*], [Cloud Computing II],
     [*Abgabedatum:*], [3. Mai 2026],
-    [*Repository:*], [github.com/timothykugler/travel-assistant],
+    [*Repository:*], [github.com/timmykug/travel-assistant],
   )
 ]
 
@@ -594,28 +592,6 @@ In Summe liegt der Grundbetrieb bei rund 38 bis 40 USD pro Monat, zuzüglich etw
 Die genaue Herleitung ist im Anhang in @tab-cost-estimate dokumentiert.
 Tatsächliche Rechnungswerte können durch Rundung, Wechselkurse, Netzwerkverkehr, Artifact-Registry-Speicher und konkrete Exportgröße abweichen.
 
-== Ausblick und Handlungsempfehlungen
-
-=== Point-in-Time Recovery und partieller Restore
-
-Firestore unterstützt nativ Point-in-Time Recovery (PITR) mit einem Recovery-Fenster von bis zu sieben Tagen und minutengenauen Lesezugriffen @gcp-firestore-pitr, und ist damit deutlich granularer als der hier umgesetzte tägliche Export.
-PITR ist in der Terraform-Konfiguration über `point_in_time_recovery_enablement = "POINT_IN_TIME_RECOVERY_ENABLED"` aktiviert; bei der hier produzierten Datenmenge liegen die Zusatzkosten im Cent-Bereich pro Monat.
-Ein konkreter zeitpunktbezogener Restore (Export mit `--snapshot-time` oder DB-Klon zu einem Zeitpunkt) ist aus Scope-Gründen im Rahmen dieser Arbeit nicht getestet oder als Workflow nachgewiesen worden --- PITR steht damit als zusätzliche Recovery-Option zur Verfügung, der belastbare Nachweis beschränkt sich weiterhin auf die beiden gemessenen Pfade (MIG-Autohealing und vollständiger Firestore-Export/Import).
-Ein gezielter Restore einzelner Collection Groups wäre zusätzlich schneller als ein vollständiger Import und deckt den Fall kleiner, lokalisierter Datenfehler besser ab.
-
-=== Robusterer Integritätscheck
-
-Der Check ist bewusst deterministisch und erkennt vor allem das Fehlen fester Sentinel-Dokumente.
-Kleinere Datenverluste --- gelöschte Trips, fehlende Pflichtfelder, Mengenabweichungen --- würde er übersehen.
-Ein produktionsnäherer Check wäre mehrstufig: Konnektivität, versionierte Sentinel-Collection und fachliche Invarianten über Aggregationsabfragen (`count()`, `sum()`) @gcp-firestore-aggregation sowie Parity-Dokumente, die pro Collection Group erwartete Zähler oder Hashes in derselben Firestore-Transaktion mitpflegen @firestore-transactions.
-Konzeptionell entspricht das etablierten Data-Quality-Dimensionen wie _Completeness_, _Consistency_ und _Uniqueness_, wie sie etwa Dataplex Auto Data Quality formalisiert @gcp-dataplex-data-quality.
-
-=== Parameter Manager für nicht-sensible Laufzeitkonfiguration
-
-Die im GCS-Bucket verbliebene `.env` enthält nur deployment-spezifische Werte, die beim `terraform apply` ohnehin gerendert werden.
-Parameter, die sich ohne Rollout ändern sollen --- Feature-Flags, Gemini-Modell, Alert-Thresholds --- ließen sich aus Google Parameter Manager beziehen, der Werte analog zu Secret Manager versioniert, aber ohne Secret-Garantien auskommt @gcp-parameter-manager.
-Im aktuellen Projektumfang existieren solche Werte nicht, weshalb diese Schicht überdimensioniert wäre.
-
 // ========= 5. Ergebnisse und Diskussion =========
 = Ergebnisse und Diskussion
 
@@ -647,6 +623,28 @@ Vollständige End-to-End-Prüfungen von Load-Balancer-Verhalten, MIG-Autohealing
 - Der belastbar nachgewiesene Daten-Recovery-Pfad basiert auf täglichen Firestore-Exporten; #acr("PITR") ist zwar aktiviert, wurde im Projekt jedoch nicht als eigener, automatisierter Restore-Pfad getestet.
 - Der Monitoring-Zugriff ist bewusst niedrigschwellig (öffentlich erreichbare Monitoring-VM, anonymer Grafana-Viewer), damit in der Präsentation ohne Zugangshürden zwischen App, Dashboard und Recovery-Nachweis gewechselt werden kann --- für den Produktionsbetrieb wären IP-Restriktionen, Authentifizierungspflicht und HTTPS nötig.
 - Logging läuft pragmatisch über Promtail nach Loki; verteilte Traces und eine vendor-neutrale Telemetrie-Pipeline fehlen.
+
+== Ausblick und Handlungsempfehlungen
+
+=== Point-in-Time Recovery und partieller Restore
+
+Firestore unterstützt nativ Point-in-Time Recovery (PITR) mit einem Recovery-Fenster von bis zu sieben Tagen und minutengenauen Lesezugriffen @gcp-firestore-pitr, und ist damit deutlich granularer als der hier umgesetzte tägliche Export.
+PITR ist in der Terraform-Konfiguration über `point_in_time_recovery_enablement = "POINT_IN_TIME_RECOVERY_ENABLED"` aktiviert; bei der hier produzierten Datenmenge liegen die Zusatzkosten im Cent-Bereich pro Monat.
+Ein konkreter zeitpunktbezogener Restore (Export mit `--snapshot-time` oder DB-Klon zu einem Zeitpunkt) ist aus Scope-Gründen im Rahmen dieser Arbeit nicht getestet oder als Workflow nachgewiesen worden --- PITR steht damit als zusätzliche Recovery-Option zur Verfügung, der belastbare Nachweis beschränkt sich weiterhin auf die beiden gemessenen Pfade (MIG-Autohealing und vollständiger Firestore-Export/Import).
+Ein gezielter Restore einzelner Collection Groups wäre zusätzlich schneller als ein vollständiger Import und deckt den Fall kleiner, lokalisierter Datenfehler besser ab.
+
+=== Robusterer Integritätscheck
+
+Der Check ist bewusst deterministisch und erkennt vor allem das Fehlen fester Sentinel-Dokumente.
+Kleinere Datenverluste --- gelöschte Trips, fehlende Pflichtfelder, Mengenabweichungen --- würde er übersehen.
+Ein produktionsnäherer Check wäre mehrstufig: Konnektivität, versionierte Sentinel-Collection und fachliche Invarianten über Aggregationsabfragen (`count()`, `sum()`) @gcp-firestore-aggregation sowie Parity-Dokumente, die pro Collection Group erwartete Zähler oder Hashes in derselben Firestore-Transaktion mitpflegen @firestore-transactions.
+Konzeptionell entspricht das etablierten Data-Quality-Dimensionen wie _Completeness_, _Consistency_ und _Uniqueness_, wie sie etwa Dataplex Auto Data Quality formalisiert @gcp-dataplex-data-quality.
+
+=== Parameter Manager für nicht-sensible Laufzeitkonfiguration
+
+Die im GCS-Bucket verbliebene `.env` enthält nur deployment-spezifische Werte, die beim `terraform apply` ohnehin gerendert werden.
+Parameter, die sich ohne Rollout ändern sollen --- Feature-Flags, Gemini-Modell, Alert-Thresholds --- ließen sich aus Google Parameter Manager beziehen, der Werte analog zu Secret Manager versioniert, aber ohne Secret-Garantien auskommt @gcp-parameter-manager.
+Im aktuellen Projektumfang existieren solche Werte nicht, weshalb diese Schicht überdimensioniert wäre.
 
 // ========= 6. Fazit =========
 = Fazit
