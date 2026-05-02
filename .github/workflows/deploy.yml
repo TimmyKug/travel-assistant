@@ -326,7 +326,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [backend_checks, frontend_checks, build, provision]
+    needs: [backend_checks, frontend_checks, provision]
 
     steps:
       - name: Checkout repository
