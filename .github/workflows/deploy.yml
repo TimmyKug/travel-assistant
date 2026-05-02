@@ -208,36 +208,15 @@ jobs:
             -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
             -backend-config="prefix=travel-assistant/state"
 
-      - name: Import or fix Firestore database state
+      - name: Import existing Terraform resources
         working-directory: terraform
+        env:
+          PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          REGION: ${{ vars.GCP_REGION || 'europe-west3' }}
+          ZONE: "${{ vars.GCP_REGION || 'europe-west3' }}-a"
+          FIRESTORE_LOCATION: eur3
         run: |
-          PROJECT_ID="${{ vars.GCP_PROJECT_ID }}"
-
-          # Check if Firestore is in state
-          if terraform state list google_firestore_database.travel_db 2>/dev/null | grep -q "google_firestore_database.travel_db"; then
-            # In state — check if location is correct
-            LOCATION=$(terraform state show google_firestore_database.travel_db 2>/dev/null | grep location_id | awk '{print $3}' | tr -d '"')
-            if [ -n "$LOCATION" ] && [ "$LOCATION" != "eur3" ]; then
-              echo "Firestore in state has wrong location ($LOCATION) — removing from state for re-import..."
-              terraform state rm google_firestore_database.travel_db
-            fi
-          fi
-
-          # If Firestore default DB exists in GCP but is not in Terraform state, import it.
-          if ! terraform state list google_firestore_database.travel_db 2>/dev/null | grep -q "google_firestore_database.travel_db"; then
-            if gcloud firestore databases list --project="${PROJECT_ID}" --format='value(name)' | grep -q "(default)"; then
-              echo "Firestore default DB exists in GCP; importing into Terraform state..."
-              terraform import google_firestore_database.travel_db "projects/${PROJECT_ID}/databases/(default)"
-
-              # Verify import actually landed in state; fail early with clear error otherwise.
-              if ! terraform state list google_firestore_database.travel_db 2>/dev/null | grep -q "google_firestore_database.travel_db"; then
-                echo "ERROR: Firestore import reported success path but resource is still not in Terraform state."
-                exit 1
-              fi
-            else
-              echo "No existing Firestore default DB found in GCP; Terraform will create it."
-            fi
-          fi
+          ../scripts/terraform-import-existing.sh
 
       - name: Terraform Apply
         working-directory: terraform
