@@ -614,7 +614,7 @@ export default function Chat() {
     });
 
     try {
-      const res = await sendMessage(requestText, conversationId);
+      const res = await sendMessage(requestText, conversationId, false);
 
       setConversationId(res.conversation_id);
       syncConversationParam(res.conversation_id, true);
@@ -649,7 +649,7 @@ export default function Chat() {
     setError(null);
     setLoading(true);
     try {
-      const res = await sendMessage(retryRequest.requestText, retryRequest.conversationId);
+      const res = await sendMessage(retryRequest.requestText, retryRequest.conversationId, false);
 
       setConversationId(res.conversation_id);
       syncConversationParam(res.conversation_id, true);

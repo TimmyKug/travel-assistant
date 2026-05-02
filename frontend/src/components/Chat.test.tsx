@@ -147,7 +147,7 @@ describe("Chat", () => {
       "Where should I go?{Enter}"
     );
 
-    expect(sendMessage).toHaveBeenCalledWith("Where should I go?", null, "trip_json");
+    expect(sendMessage).toHaveBeenCalledWith("Where should I go?", null, false);
     expect(await screen.findByText("You should visit Lisbon.")).toBeInTheDocument();
   });
 
@@ -182,8 +182,8 @@ describe("Chat", () => {
 
     await user.click(screen.getByRole("button", { name: /retry/i }));
 
-    expect(sendMessage).toHaveBeenNthCalledWith(1, "Plan a trip", null, "trip_json");
-    expect(sendMessage).toHaveBeenNthCalledWith(2, "Plan a trip", null, "trip_json");
+    expect(sendMessage).toHaveBeenNthCalledWith(1, "Plan a trip", null, false);
+    expect(sendMessage).toHaveBeenNthCalledWith(2, "Plan a trip", null, false);
     expect(await screen.findByText("Recovered on retry.")).toBeInTheDocument();
   });
 
